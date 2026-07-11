@@ -14,12 +14,10 @@ export enum BiomeType {
 export class BiomeMap {
   private moistureNoise: SimplexNoise;
   private heightMap: HeightMap;
-  private worldSize: number;
 
-  constructor(heightMap: HeightMap, moistureSeed: number, worldSize: number) {
+  constructor(heightMap: HeightMap, moistureSeed: number) {
     this.heightMap = heightMap;
     this.moistureNoise = new SimplexNoise(moistureSeed);
-    this.worldSize = worldSize;
   }
 
   getMoisture(x: number, z: number): number {
