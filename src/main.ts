@@ -11,6 +11,7 @@ import { Player } from './entities/Player';
 import { NPC } from './entities/NPC';
 import { Monster } from './entities/Monster';
 import { Collectible } from './entities/Collectible';
+import { HUD } from './ui/hud';
 import { SEED } from './config';
 
 const container = document.getElementById('canvas-container');
@@ -52,8 +53,12 @@ const input = new InputManager();
 const player = new Player(camera, input);
 scene.add(player.mesh);
 
+// HUD
+const hud = new HUD();
+
 // Position player at center
 player.mesh.position.set(0, heightMap.getInterpolated(128, 128), 0);
+player.setRespawnPoint(player.mesh.position.clone());
 
 // Spawn entities from features
 const npcs: NPC[] = [];
@@ -79,9 +84,38 @@ for (const pos of features.itemSpawns.slice(0, 15)) {
   scene.add(item.mesh);
 }
 
+// HP Display
+const hpDisplay = document.createElement('div');
+hpDisplay.id = 'hp-display';
+hpDisplay.style.cssText = `
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  color: #ff4444;
+  font-family: system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  z-index: 100;
+`;
+hpDisplay.textContent = 'HP: 100';
+document.body.appendChild(hpDisplay);
+
+function updateHpDisplay(): void {
+  hpDisplay.textContent = `HP: ${Math.max(0, player.hp)}`;
+  if (player.hp <= 30) {
+    hpDisplay.style.color = '#ff0000';
+  } else if (player.hp <= 60) {
+    hpDisplay.style.color = '#ffaa00';
+  } else {
+    hpDisplay.style.color = '#44ff44';
+  }
+}
+
 // Game loop
 let lastTime = performance.now();
 let gameTime = 0;
+let damageCooldown = 0;
 
 function animate(): void {
   const now = performance.now();
@@ -89,16 +123,33 @@ function animate(): void {
   lastTime = now;
 
   gameTime += delta;
+  damageCooldown -= delta;
 
   // Update entities
   for (const npc of npcs) npc.update(delta, heightMap);
-  for (const monster of monsters) monster.update(delta, heightMap, player.mesh.position);
+  for (const monster of monsters) {
+    if (monster.isAlive()) {
+      monster.update(delta, heightMap, player.mesh.position);
+      // Check damage to player
+      if (damageCooldown <= 0 && player.isAlive() && monster.mesh.position.distanceTo(player.mesh.position) < 2) {
+        player.takeDamage(10);
+        damageCooldown = 1; // 1 second between damage
+        updateHpDisplay();
+      }
+    }
+  }
   for (const item of collectibles) item.update(gameTime);
 
   // Check collectible pickup
   for (const item of collectibles) {
     if (item.isVisible() && player.mesh.position.distanceTo(item.mesh.position) < 2) {
-      item.collect();
+      const value = item.collect();
+      hud.addScore(value);
+      // Potion heals
+      if (value === 10) {
+        player.hp = Math.min(player.maxHp, player.hp + 20);
+        updateHpDisplay();
+      }
     }
   }
 
@@ -120,7 +171,7 @@ if (loading) loading.style.display = 'none';
 
 // Click to start
 const clickToStart = document.createElement('div');
-clickToStart.textContent = 'Clicca per iniziare';
+clickToStart.textContent = 'Clicca per iniziare (WASD per muoverti, E per interagire)';
 clickToStart.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-size:24px;cursor:pointer;z-index:100;';
 clickToStart.addEventListener('click', () => {
   document.body.requestPointerLock();

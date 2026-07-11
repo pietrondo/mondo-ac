@@ -60,6 +60,7 @@ export class InputManager {
         this.state.attack = pressed;
         break;
       case 'KeyE':
+      case 'KeyR':
         this.state.interact = pressed;
         break;
       case 'ShiftLeft':
