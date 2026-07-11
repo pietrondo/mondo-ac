@@ -3,6 +3,7 @@ import { createScene } from './render/scene';
 import { HeightMap } from './world/heightmap';
 import { BiomeMap } from './world/biomeMap';
 import { createTerrainMesh } from './world/terrain';
+import { createWater } from './world/water';
 import { SEED, WORLD_SIZE, WORLD_SCALE } from './config';
 
 const container = document.getElementById('canvas-container');
@@ -16,12 +17,6 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   2000
 );
-camera.position.set(
-  WORLD_SIZE * 2,
-  WORLD_SIZE * 1.5,
-  WORLD_SIZE * 2
-);
-camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -35,6 +30,9 @@ const heightMap = new HeightMap(SEED);
 const biomeMap = new BiomeMap(heightMap, SEED + 1);
 const terrain = createTerrainMesh(heightMap, biomeMap);
 scene.add(terrain);
+
+const water = createWater();
+scene.add(water);
 
 // Position camera at center of world
 const centerH = heightMap.getInterpolated(WORLD_SIZE / 2, WORLD_SIZE / 2);
