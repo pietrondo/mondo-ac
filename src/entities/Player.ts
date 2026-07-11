@@ -9,10 +9,10 @@ export class Player {
   input: InputManager;
 
   private velocity = new THREE.Vector3();
-  private speed = 5;
+  speed = 5;
   private runSpeed = 10;
   private cameraDistance = 15;
-  private cameraHeight = 8;
+  cameraHeight = 8;
   private yaw = 0;
   private pitch = 0.3;
 

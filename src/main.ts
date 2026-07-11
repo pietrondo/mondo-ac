@@ -12,6 +12,7 @@ import { NPC } from './entities/NPC';
 import { Monster } from './entities/Monster';
 import { Collectible } from './entities/Collectible';
 import { HUD } from './ui/hud';
+import { DebugOverlay } from './ui/debug';
 import { SEED } from './config';
 
 const container = document.getElementById('canvas-container');
@@ -53,8 +54,16 @@ const input = new InputManager();
 const player = new Player(camera, input);
 scene.add(player.mesh);
 
-// HUD
+// HUD & Debug
 const hud = new HUD();
+const debug = new DebugOverlay(heightMap, biomeMap);
+
+// F3 to toggle debug
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'F3') {
+    debug.toggle();
+  }
+});
 
 // Position player at center
 player.mesh.position.set(0, heightMap.getInterpolated(128, 128), 0);
@@ -153,9 +162,16 @@ function animate(): void {
     }
   }
 
-  player.update(delta, heightMap);
-  renderer.render(scene, camera);
-  requestAnimationFrame(animate);
+  // Debug events
+  document.addEventListener('debug-wireframe', ((e: CustomEvent) => {
+    (terrain.material as THREE.MeshStandardMaterial).wireframe = e.detail;
+  }) as EventListener);
+  document.addEventListener('debug-camera-height', ((e: CustomEvent) => {
+    (player as any).cameraHeight = e.detail;
+  }) as EventListener);
+  document.addEventListener('debug-player-speed', ((e: CustomEvent) => {
+    (player as any).speed = e.detail;
+  }) as EventListener);
 }
 animate();
 
