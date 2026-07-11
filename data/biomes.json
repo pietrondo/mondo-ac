@@ -1,0 +1,59 @@
+{
+  "biomes": {
+    "coast": {
+      "elevationMax": 9,
+      "palette": {
+        "ground": "#E8DCC4",
+        "water": "#4A90D9"
+      },
+      "features": []
+    },
+    "plains": {
+      "elevationRange": [9, 24],
+      "moistureRange": [0.3, 0.7],
+      "palette": {
+        "ground": "#7CB342",
+        "grass": "#8BC34A"
+      },
+      "features": ["village", "coins"]
+    },
+    "forest": {
+      "elevationRange": [9, 30],
+      "moistureMin": 0.7,
+      "palette": {
+        "ground": "#5D8C3A",
+        "trees": "#33691E",
+        "grass": "#8BC34A"
+      },
+      "features": ["village", "ranger", "wolves", "crystals"]
+    },
+    "desert": {
+      "elevationRange": [9, 24],
+      "moistureMax": 0.3,
+      "palette": {
+        "ground": "#E6D690",
+        "cactus": "#8D6E63",
+        "rock": "#A1887F"
+      },
+      "features": ["ruins", "goblins", "ashes"]
+    },
+    "mountain": {
+      "elevationRange": [24, 42],
+      "palette": {
+        "ground": "#757575",
+        "rock": "#616161",
+        "snow": "#9E9E9E"
+      },
+      "features": ["castle", "guards", "dragons"]
+    },
+    "snow": {
+      "elevationMin": 42,
+      "palette": {
+        "ground": "#FAFAFA",
+        "rock": "#424242",
+        "ice": "#E0F7FA"
+      },
+      "features": ["ancient_ruins", "golems", "rare_items"]
+    }
+  }
+}
