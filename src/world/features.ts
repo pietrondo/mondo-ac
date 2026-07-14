@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HeightMap } from './heightmap';
 import { BiomeMap, BiomeType } from './biomeMap';
-import { createHouse, createCastle, createRuin } from './structures';
+import { createHouse, createCastle, createRuin, createPyramid, createLighthouse } from './structures';
 import { WORLD_SIZE, WORLD_SCALE, rng } from '../config';
 
 export interface WorldFeatures {
@@ -110,7 +110,53 @@ export function placeFeatures(
           }
           break;
         }
-        case BiomeType.DESERT:
+        case BiomeType.DESERT: {
+          // Pyramid at 2% chance
+          if (rng.next() < 0.02) {
+            const pyramid = createPyramid();
+            pyramid.position.set(worldX, elevation, worldZ);
+            structures.add(pyramid);
+
+            // Extract and add pyramid collider
+            const pyramidCollider = (pyramid as any).collider;
+            if (pyramidCollider) {
+              const worldBox = pyramidCollider.box.clone();
+              worldBox.translate(pyramid.position);
+              structureColliders.push({ box: worldBox, type: pyramidCollider.type });
+            }
+
+            // Items at pyramid
+            for (let i = 0; i < 2; i++) {
+              itemSpawns.push(new THREE.Vector3(
+                worldX + (rng.next() - 0.5) * 8,
+                elevation,
+                worldZ + (rng.next() - 0.5) * 8
+              ));
+            }
+          }
+          // Ruins at 4% chance
+          else if (rng.next() < 0.04) {
+            const ruin = createRuin();
+            ruin.position.set(worldX, elevation, worldZ);
+            structures.add(ruin);
+
+            const ruinCollider = (ruin as any).collider;
+            if (ruinCollider) {
+              const worldBox = ruinCollider.box.clone();
+              worldBox.translate(ruin.position);
+              structureColliders.push({ box: worldBox, type: ruinCollider.type });
+            }
+
+            for (let i = 0; i < 2; i++) {
+              itemSpawns.push(new THREE.Vector3(
+                worldX + (rng.next() - 0.5) * 8,
+                elevation,
+                worldZ + (rng.next() - 0.5) * 8
+              ));
+            }
+          }
+          break;
+        }
         case BiomeType.SNOW: {
           // Ruins
           if (rng.next() < 0.04) {
@@ -134,6 +180,30 @@ export function placeFeatures(
                 worldZ + (rng.next() - 0.5) * 8
               ));
             }
+          }
+          break;
+        }
+        case BiomeType.COAST: {
+          // Lighthouse at 5% chance if elevation > 5
+          if (elevation > 5 && rng.next() < 0.05) {
+            const lighthouse = createLighthouse();
+            lighthouse.position.set(worldX, elevation, worldZ);
+            structures.add(lighthouse);
+
+            // Extract and add lighthouse collider
+            const lighthouseCollider = (lighthouse as any).collider;
+            if (lighthouseCollider) {
+              const worldBox = lighthouseCollider.box.clone();
+              worldBox.translate(lighthouse.position);
+              structureColliders.push({ box: worldBox, type: lighthouseCollider.type });
+            }
+
+            // Items near lighthouse
+            itemSpawns.push(new THREE.Vector3(
+              worldX + (rng.next() - 0.5) * 5,
+              elevation,
+              worldZ + (rng.next() - 0.5) * 5
+            ));
           }
           break;
         }

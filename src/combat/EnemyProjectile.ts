@@ -50,11 +50,16 @@ export class EnemyProjectileSystem {
     const damage = options?.damage ?? this.defaultDamage;
     const size = options?.size ?? this.defaultSize;
 
+    const material = this.projectileMaterial.clone();
+    if (options?.color !== undefined) {
+      material.color.setHex(options.color);
+    }
+
     const mesh = new THREE.Mesh(
       size !== this.defaultSize
         ? new THREE.SphereGeometry(size, 8, 8)
         : this.projectileGeometry,
-      this.projectileMaterial.clone()
+      material
     );
 
     mesh.position.copy(origin);

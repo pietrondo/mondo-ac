@@ -7,6 +7,7 @@ const powerUpProfiles: Record<PowerUpKind, { color: number; labelColor: number }
   ammo: { color: 0x40c4ff, labelColor: 0x80d8ff },
   adrenaline: { color: 0xffc107, labelColor: 0xffe082 },
   overclock: { color: 0x9c27b0, labelColor: 0xe1bee7 },
+  shield: { color: 0x00e5ff, labelColor: 0x80deea },
 };
 
 export class PowerUp {
@@ -29,7 +30,9 @@ export class PowerUp {
           ? new THREE.BoxGeometry(0.34, 0.34, 0.34)
           : kind === 'adrenaline'
             ? new THREE.OctahedronGeometry(0.32)
-            : new THREE.TorusGeometry(0.28, 0.1, 8, 14),
+            : kind === 'shield'
+              ? new THREE.IcosahedronGeometry(0.32)
+              : new THREE.TorusGeometry(0.28, 0.1, 8, 14),
       new THREE.MeshStandardMaterial({
         color: profile.color,
         emissive: profile.labelColor,
@@ -85,6 +88,19 @@ export class PowerUp {
       this.mesh.add(ring);
     }
 
+    if (kind === 'shield') {
+      const torusRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.48, 0.05, 8, 16),
+        new THREE.MeshStandardMaterial({
+          color: profile.labelColor,
+          wireframe: true,
+        })
+      );
+      torusRing.name = 'torusRing';
+      torusRing.position.y = 0.6;
+      this.mesh.add(torusRing);
+    }
+
     this.mesh.position.copy(position);
     this.mesh.position.y += 0.4;
   }
@@ -94,6 +110,12 @@ export class PowerUp {
     this.mesh.position.y += Math.sin(time * 3 + this.bobOffset) * 0.006;
     this.mesh.rotation.y += 0.02;
     this.mesh.rotation.x += 0.004;
+
+    const torus = this.mesh.getObjectByName('torusRing');
+    if (torus) {
+      torus.rotation.x += 0.03;
+      torus.rotation.y += 0.01;
+    }
   }
 
   collect(): PowerUpKind {

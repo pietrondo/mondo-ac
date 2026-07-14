@@ -22,6 +22,7 @@ export class Player {
   // HP and death
   hp = 100;
   maxHp = 100;
+  isInvulnerable = false;
   private alive = true;
   private respawnPosition = new THREE.Vector3();
 
@@ -84,6 +85,7 @@ export class Player {
 
   takeDamage(amount: number): void {
     if (!this.alive) return;
+    if (this.isInvulnerable) return;
     this.hp -= amount;
     if (this.hp <= 0) {
       this.die();
@@ -93,6 +95,7 @@ export class Player {
   private die(): void {
     this.alive = false;
     this.mesh.visible = false;
+    this.input.reset();
     // Show death message
     const deathMsg = document.createElement('div');
     deathMsg.id = 'death-message';
@@ -124,6 +127,8 @@ export class Player {
     this.velocity.set(0, 0, 0);
     this.grounded = true;
     this.jumpWasPressed = false;
+    this.input.reset();
+    document.body.requestPointerLock();
     // Remove death message
     const msg = document.getElementById('death-message');
     if (msg) msg.remove();
@@ -144,7 +149,7 @@ export class Player {
   update(delta: number, heightMap: HeightMap): void {
     if (!this.alive) {
       // Check for respawn input
-      if (this.input.state.interact) { // Using E as R is not in input, using interact
+      if (this.input.state.interact || this.input.state.reload) {
         this.respawn(heightMap);
       }
       return;

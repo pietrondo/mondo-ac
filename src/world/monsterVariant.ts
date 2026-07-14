@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import { BiomeMap, BiomeType } from './biomeMap';
+import { WORLD_SCALE } from '../config';
 
-export type MonsterVariant = 'scout' | 'brute' | 'stalker';
+export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem';
 
 export interface MonsterVariantProfile {
   scale: number;
@@ -44,9 +46,31 @@ const variantProfiles: Record<MonsterVariant, MonsterVariantProfile> = {
     bodyColor: 0x7b1fa2,
     eyeColor: 0x80deea,
   },
+  golem: {
+    scale: 1.6,
+    bodyWidth: 1.6,
+    bodyHeight: 1.8,
+    bodyDepth: 1.6,
+    hp: 150,
+    speed: 1.5,
+    bodyColor: 0x607D8B,
+    eyeColor: 0x00E5FF,
+  },
 };
 
-export function chooseMonsterVariant(position: THREE.Vector3, index = 0): MonsterVariant {
+export function chooseMonsterVariant(
+  position: THREE.Vector3,
+  index = 0,
+  biomeMap?: BiomeMap
+): MonsterVariant {
+  if (biomeMap) {
+    const hx = (position.x / WORLD_SCALE) + 128;
+    const hz = (position.z / WORLD_SCALE) + 128;
+    const biome = biomeMap.getBiome(hx, hz);
+    if (biome === BiomeType.MOUNTAIN || biome === BiomeType.DESERT) {
+      return 'golem';
+    }
+  }
   const raw = Math.abs(
     Math.floor(position.x * 17 + position.z * 31 + position.y * 11 + index * 13)
   );

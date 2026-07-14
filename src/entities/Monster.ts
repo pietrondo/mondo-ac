@@ -66,6 +66,16 @@ export class Monster {
       }
     }
 
+    if (this.variant === 'golem') {
+      const fistMat = new THREE.MeshStandardMaterial({ color: 0x455A64, flatShading: true });
+      const leftFist = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), fistMat);
+      leftFist.position.set(-0.8 * profile.scale, profile.bodyHeight * 0.45, 0);
+      this.mesh.add(leftFist);
+      const rightFist = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), fistMat);
+      rightFist.position.set(0.8 * profile.scale, profile.bodyHeight * 0.45, 0);
+      this.mesh.add(rightFist);
+    }
+
     this.mesh.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
@@ -111,6 +121,8 @@ export class Monster {
         return { speed: 45, damage: 8, color: 0x4caf50, size: 0.08, cooldown: 1.0 };
       case 'brute':
         return { speed: 25, damage: 20, color: 0xd32f2f, size: 0.25, cooldown: 2.5 };
+      case 'golem':
+        return { speed: 15, damage: 30, color: 0xff0000, size: 0.45, cooldown: 3.0 };
       case 'stalker':
       default:
         return { speed: 35, damage: 12, color: 0xff3333, size: 0.15, cooldown: 1.5 };

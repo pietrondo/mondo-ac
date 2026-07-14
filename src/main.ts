@@ -225,7 +225,9 @@ monsterSpawns.forEach((pos, index) => {
   const hx = (monsterPosition.x / WORLD_SCALE) + WORLD_SIZE / 2;
   const hz = (monsterPosition.z / WORLD_SCALE) + WORLD_SIZE / 2;
   monsterPosition.y = heightMap.getInterpolated(hx, hz);
-  const monster = new Monster(monsterPosition, { variant: chooseMonsterVariant(monsterPosition, index) });
+  const monster = new Monster(monsterPosition, {
+    variant: chooseMonsterVariant(monsterPosition, index, biomeMap)
+  });
   monster.mesh.userData.damageable = monster;
   monster.setProjectileSystem(enemyProjectileSystem);
   monsters.push(monster);
@@ -242,15 +244,16 @@ for (const pos of features.itemSpawns.slice(0, 15)) {
 }
 
 const powerUps: PowerUp[] = [];
-const powerUpKinds: Array<'health' | 'ammo' | 'adrenaline' | 'overclock'> = [
+const powerUpKinds: Array<'health' | 'ammo' | 'adrenaline' | 'overclock' | 'shield'> = [
   'health',
   'ammo',
   'adrenaline',
   'overclock',
+  'shield',
 ];
 const powerUpSpawns = [...features.itemSpawns]
   .sort((a, b) => a.distanceToSquared(player.mesh.position) - b.distanceToSquared(player.mesh.position))
-  .slice(0, 4);
+  .slice(0, 5);
 
 for (let i = 0; i < powerUpSpawns.length; i++) {
   const pos = powerUpSpawns[i].clone();
@@ -302,6 +305,7 @@ document.addEventListener('debug-player-speed', ((e: CustomEvent) => {
 let lastTime = performance.now();
 let gameTime = 0;
 let damageCooldown = 0;
+let wasAlive = true;
 
 function animate(): void {
   if (isGameHalted) return;
@@ -312,6 +316,13 @@ function animate(): void {
 
   gameTime += delta;
   damageCooldown -= delta;
+
+  // Track wasAlive transition for HP sync on respawn
+  const isAlive = player.isAlive();
+  if (isAlive && !wasAlive) {
+    updateHpDisplay();
+  }
+  wasAlive = isAlive;
 
   // Update entities
   for (const npc of npcs) npc.update(delta, heightMap);
@@ -368,8 +379,14 @@ function animate(): void {
   const projHit = enemyProjectileSystem.update(delta, heightMap, player.mesh.position, 0.5);
   if (projHit.hit) {
     player.takeDamage(projHit.damage);
+    updateHpDisplay();
   }
   hud.setWeaponState(rifle.magazineAmmo, rifle.reserveAmmo, rifle.isReloading);
+  hud.updateBuffs(
+    powerUpRuntime.speedBoostRemaining,
+    powerUpRuntime.damageBoostRemaining,
+    powerUpRuntime.shieldRemaining
+  );
 
   // Dynamically position and target the sun directional light following the player
   const sun = scene.children.find(child => child instanceof THREE.DirectionalLight) as THREE.DirectionalLight;

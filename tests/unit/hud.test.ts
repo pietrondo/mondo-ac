@@ -41,13 +41,22 @@ describe('HUD weapon feedback', () => {
     const hud = new HUD();
     hud.setWeaponState(12, 48, true);
 
-    expect(body.appendChild).toHaveBeenCalledTimes(5);
+    expect(body.appendChild).toHaveBeenCalledTimes(6);
     expect(hud.getScore()).toBe(0);
     expect(hud.getWeaponText()).toBe('Ammo: 12 / 48');
     expect(hud.getReloadText()).toBe('Reloading...');
     expect(hud.getCrosshairVisible()).toBe(true);
     hud.setStatus('Adrenaline boost');
     expect(hud.getStatusText()).toBe('Adrenaline boost');
+
+    hud.updateBuffs(8.0, 4.5, 0);
+    expect(hud.getBuffsText()).toBe('Adrenaline: 8.0s\nOverclock: 4.5s');
+
+    hud.updateBuffs(0, 0, 7.2);
+    expect(hud.getBuffsText()).toBe('Shield: 7.2s');
+
+    hud.updateBuffs(0, 0, 0);
+    expect(hud.getBuffsText()).toBe('');
   });
 
   it('preserves score updates alongside weapon feedback', () => {

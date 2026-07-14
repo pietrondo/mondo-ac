@@ -1,12 +1,17 @@
 import * as THREE from 'three';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Player } from '../../src/entities/Player';
 import type { InputManager } from '../../src/controls/input';
 import type { HeightMap } from '../../src/world/heightmap';
 
 const groundHeight = 10;
 
-function createPlayer(): { player: Player; input: InputManager; heightMap: HeightMap } {
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+function createPlayer(): { player: Player; input: any; heightMap: HeightMap; documentStub: any } {
+  const resetSpy = vi.fn();
   const input = {
     state: {
       forward: false,
@@ -15,18 +20,44 @@ function createPlayer(): { player: Player; input: InputManager; heightMap: Heigh
       right: false,
       jump: false,
       interact: false,
+      reload: false,
       attack: false,
       run: false,
       mouseX: 0,
       mouseY: 0,
     },
     resetMouse: () => undefined,
-  } as InputManager;
+    reset: resetSpy,
+  } as any;
+
+  const lockSpy = vi.fn();
+  const removeSpy = vi.fn();
+  const appendSpy = vi.fn();
+  const dummyElement = {
+    id: '',
+    textContent: '',
+    style: {} as any,
+    remove: removeSpy,
+  };
+  const createSpy = vi.fn().mockReturnValue(dummyElement);
+  const getSpy = vi.fn().mockReturnValue(dummyElement);
+
+  const documentStub = {
+    createElement: createSpy,
+    body: {
+      appendChild: appendSpy,
+      requestPointerLock: lockSpy,
+    },
+    getElementById: getSpy,
+  };
+
+  vi.stubGlobal('document', documentStub);
+
   const player = new Player(new THREE.PerspectiveCamera(), input);
   player.mesh.position.y = groundHeight;
   const heightMap = { getInterpolated: () => groundHeight } as HeightMap;
 
-  return { player, input, heightMap };
+  return { player, input, heightMap, documentStub };
 }
 
 describe('Player jump physics', () => {
@@ -121,6 +152,54 @@ describe('Player AABB sliding collision', () => {
     expect(player.mesh.position.z).toBeCloseTo(1.5, 5);
     expect((player as any).velocity.x).toBe(0);
     expect((player as any).velocity.z).toBe(0);
+  });
+});
+
+describe('Player invulnerability', () => {
+  it('ignores damage when isInvulnerable is true', () => {
+    const { player } = createPlayer();
+    (player as any).isInvulnerable = true;
+    const initialHp = player.hp;
+    player.takeDamage(20);
+    expect(player.hp).toBe(initialHp);
+  });
+});
+
+describe('Player lifecycle reset', () => {
+  it('resets inputs when player dies', () => {
+    const { player, input, documentStub } = createPlayer();
+    
+    player.takeDamage(100); // should die
+    expect(input.reset).toHaveBeenCalled();
+    expect(documentStub.createElement).toHaveBeenCalledWith('div');
+    expect(documentStub.body.appendChild).toHaveBeenCalled();
+  });
+
+  it('resets inputs on respawn', () => {
+    const { player, input, heightMap, documentStub } = createPlayer();
+
+    player.respawn(heightMap);
+    expect(input.reset).toHaveBeenCalled();
+    expect(documentStub.body.requestPointerLock).toHaveBeenCalled();
+    expect(documentStub.getElementById).toHaveBeenCalledWith('death-message');
+  });
+
+  it('triggers respawn on KeyR (reload) or KeyE (interact) when dead', () => {
+    const { player, input, heightMap } = createPlayer();
+    player.takeDamage(100); // die
+    expect(player.isAlive()).toBe(false);
+
+    input.state.reload = true;
+    player.update(0.1, heightMap);
+    expect(player.isAlive()).toBe(true);
+
+    player.takeDamage(100); // die again
+    expect(player.isAlive()).toBe(false);
+
+    input.state.reload = false;
+    input.state.interact = true;
+    player.update(0.1, heightMap);
+    expect(player.isAlive()).toBe(true);
   });
 });
 

@@ -1,4 +1,4 @@
-export type PowerUpKind = 'health' | 'ammo' | 'adrenaline' | 'overclock';
+export type PowerUpKind = 'health' | 'ammo' | 'adrenaline' | 'overclock' | 'shield';
 
 export interface PowerUpRuntime {
   baseSpeed: number;
@@ -7,12 +7,14 @@ export interface PowerUpRuntime {
   shotDamage: number;
   speedBoostRemaining: number;
   damageBoostRemaining: number;
+  shieldRemaining: number;
 }
 
 export interface PowerUpRecipient {
   hp: number;
   maxHp: number;
   speed: number;
+  isInvulnerable: boolean;
 }
 
 export interface PowerUpAmmoRecipient {
@@ -27,6 +29,7 @@ export function createPowerUpRuntime(baseSpeed = 5, baseShotDamage = 25): PowerU
     shotDamage: baseShotDamage,
     speedBoostRemaining: 0,
     damageBoostRemaining: 0,
+    shieldRemaining: 0,
   };
 }
 
@@ -52,6 +55,10 @@ export function applyPowerUp(
       runtime.damageBoostRemaining = Math.max(runtime.damageBoostRemaining, 8);
       runtime.shotDamage = Math.round(runtime.baseShotDamage * 1.6);
       return 'Weapon overclocked';
+    case 'shield':
+      runtime.shieldRemaining = Math.max(runtime.shieldRemaining, 8);
+      player.isInvulnerable = true;
+      return 'Shield activated';
     default:
       return 'Power up';
   }
@@ -74,6 +81,13 @@ export function tickPowerUpRuntime(
     runtime.damageBoostRemaining = Math.max(0, runtime.damageBoostRemaining - delta);
     if (runtime.damageBoostRemaining === 0) {
       runtime.shotDamage = runtime.baseShotDamage;
+    }
+  }
+
+  if (runtime.shieldRemaining > 0) {
+    runtime.shieldRemaining = Math.max(0, runtime.shieldRemaining - delta);
+    if (runtime.shieldRemaining === 0) {
+      player.isInvulnerable = false;
     }
   }
 }

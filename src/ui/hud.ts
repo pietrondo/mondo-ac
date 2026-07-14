@@ -4,6 +4,7 @@ export class HUD {
   private reloadElement: HTMLDivElement;
   private crosshairElement: HTMLDivElement;
   private statusElement: HTMLDivElement;
+  private buffsElement: HTMLDivElement;
   private score = 0;
 
   constructor() {
@@ -91,6 +92,24 @@ export class HUD {
     `;
     this.statusElement.textContent = '';
     document.body.appendChild(this.statusElement);
+
+    this.buffsElement = document.createElement('div');
+    this.buffsElement.style.cssText = `
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      color: white;
+      font-family: system-ui, sans-serif;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: right;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+      z-index: 100;
+      pointer-events: none;
+      white-space: pre-line;
+    `;
+    this.buffsElement.textContent = '';
+    document.body.appendChild(this.buffsElement);
   }
 
   addScore(amount: number): void {
@@ -105,6 +124,14 @@ export class HUD {
 
   setStatus(message: string): void {
     this.statusElement.textContent = message;
+  }
+
+  updateBuffs(speed: number, damage: number, shield: number): void {
+    const lines: string[] = [];
+    if (speed > 0) lines.push(`Adrenaline: ${speed.toFixed(1)}s`);
+    if (damage > 0) lines.push(`Overclock: ${damage.toFixed(1)}s`);
+    if (shield > 0) lines.push(`Shield: ${shield.toFixed(1)}s`);
+    this.buffsElement.textContent = lines.join('\n');
   }
 
   getScore(): number {
@@ -125,5 +152,9 @@ export class HUD {
 
   getStatusText(): string {
     return this.statusElement.textContent ?? '';
+  }
+
+  getBuffsText(): string {
+    return this.buffsElement.textContent ?? '';
   }
 }

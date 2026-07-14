@@ -122,4 +122,18 @@ export class InputManager {
     this.state.mouseX = 0;
     this.state.mouseY = 0;
   }
+
+  reset(): void {
+    this.state.forward = false;
+    this.state.backward = false;
+    this.state.left = false;
+    this.state.right = false;
+    this.state.jump = false;
+    this.state.interact = false;
+    this.state.reload = false;
+    this.state.attack = false;
+    this.state.run = false;
+    this.state.mouseX = 0;
+    this.state.mouseY = 0;
+  }
 }
