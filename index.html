@@ -14,6 +14,11 @@
 <body>
   <div id="canvas-container"></div>
   <div id="loading" class="loading">Caricamento...</div>
+  <div id="error-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(30, 10, 10, 0.95); z-index: 10000; align-items: center; justify-content: center; flex-direction: column; font-family: system-ui, sans-serif; color: #ff5555; text-align: center; padding: 20px;">
+    <h1 style="font-size: 3rem; margin-bottom: 20px; text-transform: uppercase; text-shadow: 0 0 20px rgba(255, 85, 85, 0.4);">Errore di Sistema</h1>
+    <p id="error-message" style="font-size: 1.25rem; color: #e2e8f0; max-width: 600px; margin-bottom: 30px; line-height: 1.6;"></p>
+    <button id="error-reload-btn" style="background: #ff4444; color: white; border: none; padding: 12px 30px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: background 0.2s;">Ricarica Gioco</button>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

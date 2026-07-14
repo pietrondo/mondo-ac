@@ -6,6 +6,7 @@ import { WORLD_SIZE, WORLD_SCALE, rng } from '../config';
 
 export interface WorldFeatures {
   structures: THREE.Group;
+  structureColliders: { box: THREE.Box3; type: 'solid' | 'trigger' }[];
   npcSpawns: THREE.Vector3[];
   monsterSpawns: THREE.Vector3[];
   itemSpawns: THREE.Vector3[];
@@ -16,6 +17,7 @@ export function placeFeatures(
   biomeMap: BiomeMap
 ): WorldFeatures {
   const structures = new THREE.Group();
+  const structureColliders: { box: THREE.Box3; type: 'solid' | 'trigger' }[] = [];
   const npcSpawns: THREE.Vector3[] = [];
   const monsterSpawns: THREE.Vector3[] = [];
   const itemSpawns: THREE.Vector3[] = [];
@@ -53,6 +55,14 @@ export function placeFeatures(
               house.rotation.y = rng.next() * Math.PI * 2;
               structures.add(house);
 
+              // Extract and add house collider
+              const houseCollider = (house as any).collider;
+              if (houseCollider) {
+                const worldBox = houseCollider.box.clone();
+                worldBox.translate(house.position);
+                structureColliders.push({ box: worldBox, type: houseCollider.type });
+              }
+
               // NPC spawn near house
               npcSpawns.push(new THREE.Vector3(
                 house.position.x + (rng.next() - 0.5) * 5,
@@ -78,6 +88,14 @@ export function placeFeatures(
             castle.position.set(worldX, elevation, worldZ);
             structures.add(castle);
 
+            // Extract and add castle collider
+            const castleCollider = (castle as any).collider;
+            if (castleCollider) {
+              const worldBox = castleCollider.box.clone();
+              worldBox.translate(castle.position);
+              structureColliders.push({ box: worldBox, type: castleCollider.type });
+            }
+
             // NPC guards
             for (let i = 0; i < 4; i++) {
               npcSpawns.push(new THREE.Vector3(
@@ -99,6 +117,14 @@ export function placeFeatures(
             const ruin = createRuin();
             ruin.position.set(worldX, elevation, worldZ);
             structures.add(ruin);
+
+            // Extract and add ruin collider
+            const ruinCollider = (ruin as any).collider;
+            if (ruinCollider) {
+              const worldBox = ruinCollider.box.clone();
+              worldBox.translate(ruin.position);
+              structureColliders.push({ box: worldBox, type: ruinCollider.type });
+            }
 
             // Items/Monsters at ruins
             for (let i = 0; i < 2; i++) {
@@ -127,5 +153,12 @@ export function placeFeatures(
     }
   }
 
-  return { structures, npcSpawns, monsterSpawns, itemSpawns };
+  structures.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  return { structures, structureColliders, npcSpawns, monsterSpawns, itemSpawns };
 }

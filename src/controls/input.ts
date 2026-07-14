@@ -5,6 +5,7 @@ export interface InputState {
   right: boolean;
   jump: boolean;
   interact: boolean;
+  reload: boolean;
   attack: boolean;
   run: boolean;
   mouseX: number;
@@ -19,6 +20,7 @@ export class InputManager {
     right: false,
     jump: false,
     interact: false,
+    reload: false,
     attack: false,
     run: false,
     mouseX: 0,
@@ -57,11 +59,13 @@ export class InputManager {
         this.state.right = pressed;
         break;
       case 'Space':
-        this.state.attack = pressed;
+        this.state.jump = pressed;
         break;
       case 'KeyE':
-      case 'KeyR':
         this.state.interact = pressed;
+        break;
+      case 'KeyR':
+        this.state.reload = pressed;
         break;
       case 'ShiftLeft':
       case 'ShiftRight':
@@ -73,6 +77,7 @@ export class InputManager {
   private setupMouse(): void {
     document.addEventListener('pointerlockchange', () => {
       this.isPointerLocked = document.pointerLockElement !== null;
+      if (!this.isPointerLocked) this.state.attack = false;
     });
 
     document.addEventListener('mousemove', (e) => {
@@ -81,6 +86,18 @@ export class InputManager {
         this.state.mouseY += e.movementY * this.mouseSensitivity;
         this.state.mouseY = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.state.mouseY));
       }
+    });
+
+    document.addEventListener('mousedown', (e) => {
+      if (e.button === 0 && this.isPointerLocked) this.state.attack = true;
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (e.button === 0) this.state.attack = false;
+    });
+
+    window.addEventListener('blur', () => {
+      this.state.attack = false;
     });
 
     document.addEventListener('click', () => {
@@ -95,6 +112,10 @@ export class InputManager {
         document.exitPointerLock();
       }
     });
+  }
+
+  get pointerLocked(): boolean {
+    return this.isPointerLocked;
   }
 
   resetMouse(): void {

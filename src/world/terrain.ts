@@ -58,5 +58,8 @@ export function createTerrainMesh(
     flatShading: true
   });
 
-  return new THREE.Mesh(geometry, material);
+  const terrainMesh = new THREE.Mesh(geometry, material);
+  terrainMesh.receiveShadow = true;
+  terrainMesh.castShadow = true;
+  return terrainMesh;
 }

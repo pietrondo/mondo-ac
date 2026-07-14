@@ -1,36 +1,79 @@
 import * as THREE from 'three';
 import { HeightMap } from '../world/heightmap';
 import { WORLD_SCALE } from '../config';
+import { chooseMonsterVariant, getMonsterVariantProfile, type MonsterVariant } from '../world/monsterVariant';
+import { EnemyProjectileSystem } from '../combat/EnemyProjectile';
+
+export interface MonsterOptions {
+  variant?: MonsterVariant;
+}
 
 export class Monster {
   mesh: THREE.Group;
-  private state: 'wander' | 'chase' = 'wander';
+  readonly variant: MonsterVariant;
+  readonly maxHp: number;
+  readonly moveSpeed: number;
+  private state: 'wander' | 'chase' | 'attack' = 'wander';
   private targetPos = new THREE.Vector3();
-  private speed = 3;
-  private hp = 50;
+  private hp: number;
   private alive = true;
+  private attackCooldown = 0;
+  private readonly attackRange = 25;
+  private readonly optimalAttackDistance = 15;
+  private projectileSystem: EnemyProjectileSystem | null = null;
 
-  constructor(position: THREE.Vector3) {
+  constructor(position: THREE.Vector3, options: MonsterOptions = {}) {
+    this.variant = options.variant ?? chooseMonsterVariant(position);
+    const profile = getMonsterVariantProfile(this.variant);
+    this.maxHp = profile.hp;
+    this.moveSpeed = profile.speed;
+    this.hp = this.maxHp;
     this.mesh = new THREE.Group();
 
-    // Body (red for danger)
     const body = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1.2, 1.2),
-      new THREE.MeshStandardMaterial({ color: 0xD32F2F, flatShading: true })
+      new THREE.BoxGeometry(profile.bodyWidth, profile.bodyHeight, profile.bodyDepth),
+      new THREE.MeshStandardMaterial({ color: profile.bodyColor, flatShading: true })
     );
-    body.position.y = 0.8;
+    body.position.y = profile.bodyHeight * 0.55;
     this.mesh.add(body);
 
-    // Eyes
-    const eyeGeo = new THREE.SphereGeometry(0.15, 8, 8);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
+    const eyeGeo = new THREE.SphereGeometry(this.variant === 'brute' ? 0.16 : 0.12, 8, 8);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: profile.eyeColor });
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-0.25, 1.2, 0.6);
+    leftEye.position.set(-0.22 * profile.scale, profile.bodyHeight * 0.78, profile.bodyDepth * 0.42);
     this.mesh.add(leftEye);
     const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rightEye.position.set(0.25, 1.2, 0.6);
+    rightEye.position.set(0.22 * profile.scale, profile.bodyHeight * 0.78, profile.bodyDepth * 0.42);
     this.mesh.add(rightEye);
 
+    if (this.variant === 'brute') {
+      const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x8b0000, flatShading: true });
+      const leftShoulder = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.28, 0.3), shoulderMat);
+      leftShoulder.position.set(-0.55, profile.bodyHeight * 0.72, 0.05);
+      this.mesh.add(leftShoulder);
+      const rightShoulder = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.28, 0.3), shoulderMat);
+      rightShoulder.position.set(0.55, profile.bodyHeight * 0.72, 0.05);
+      this.mesh.add(rightShoulder);
+    }
+
+    if (this.variant === 'stalker') {
+      const crestMat = new THREE.MeshStandardMaterial({ color: 0xc2185b, flatShading: true });
+      for (let i = -1; i <= 1; i++) {
+        const crest = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 5), crestMat);
+        crest.position.set(i * 0.16, profile.bodyHeight * 1.04, -0.05 + Math.abs(i) * 0.04);
+        crest.rotation.x = i * 0.15;
+        this.mesh.add(crest);
+      }
+    }
+
+    this.mesh.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    this.mesh.scale.setScalar(profile.scale);
     this.mesh.position.copy(position);
     this.pickNewTarget();
   }
@@ -54,18 +97,78 @@ export class Monster {
     );
   }
 
+  setProjectileSystem(system: EnemyProjectileSystem): void {
+    this.projectileSystem = system;
+  }
+
+  private canAttack(): boolean {
+    return this.projectileSystem !== null;
+  }
+
+  private getAttackParams(): { speed: number; damage: number; color: number; size: number; cooldown: number } {
+    switch (this.variant) {
+      case 'scout':
+        return { speed: 45, damage: 8, color: 0x4caf50, size: 0.08, cooldown: 1.0 };
+      case 'brute':
+        return { speed: 25, damage: 20, color: 0xd32f2f, size: 0.25, cooldown: 2.5 };
+      case 'stalker':
+      default:
+        return { speed: 35, damage: 12, color: 0xff3333, size: 0.15, cooldown: 1.5 };
+    }
+  }
+
+  private attack(playerPos: THREE.Vector3): void {
+    if (!this.projectileSystem || this.attackCooldown > 0) return;
+
+    const params = this.getAttackParams();
+    const eyePos = this.mesh.position.clone();
+    eyePos.y += 1.5;
+
+    const dir = new THREE.Vector3().subVectors(playerPos, eyePos).normalize();
+
+    this.projectileSystem.spawn(eyePos, dir, {
+      speed: params.speed,
+      damage: params.damage,
+      color: params.color,
+      size: params.size,
+    });
+
+    this.attackCooldown = params.cooldown;
+  }
+
   update(delta: number, heightMap: HeightMap, playerPos: THREE.Vector3): void {
     if (!this.alive) return;
 
+    if (this.attackCooldown > 0) {
+      this.attackCooldown -= delta;
+    }
+
     const distToPlayer = this.mesh.position.distanceTo(playerPos);
 
-    // Chase if close
-    if (distToPlayer < 20) {
+    // State machine
+    if (distToPlayer < this.attackRange && this.canAttack()) {
+      if (distToPlayer > this.optimalAttackDistance) {
+        this.state = 'chase';
+        this.targetPos.copy(playerPos);
+      } else {
+        this.state = 'attack';
+        this.attack(playerPos);
+      }
+    } else if (distToPlayer < 20) {
       this.state = 'chase';
       this.targetPos.copy(playerPos);
     } else if (this.state === 'chase' && distToPlayer > 30) {
       this.state = 'wander';
       this.pickNewTarget();
+    } else if (this.state === 'attack' && distToPlayer > this.attackRange) {
+      this.state = 'chase';
+      this.targetPos.copy(playerPos);
+    }
+
+    // Face player when attacking
+    if (this.state === 'attack') {
+      this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
+      return;
     }
 
     // Move toward target
@@ -79,7 +182,7 @@ export class Monster {
     }
 
     dir.normalize();
-    const moveSpeed = this.state === 'chase' ? this.speed * 1.5 : this.speed;
+    const moveSpeed = this.state === 'chase' ? this.moveSpeed * 1.5 : this.moveSpeed;
     this.mesh.position.x += dir.x * moveSpeed * delta;
     this.mesh.position.z += dir.z * moveSpeed * delta;
 

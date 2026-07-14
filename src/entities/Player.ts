@@ -9,10 +9,13 @@ export class Player {
   input: InputManager;
 
   private velocity = new THREE.Vector3();
+  private grounded = true;
+  private jumpWasPressed = false;
   speed = 5;
   private runSpeed = 10;
-  private cameraDistance = 15;
-  cameraHeight = 8;
+  private readonly jumpVelocity = 8;
+  private readonly gravity = 24;
+  cameraHeight = 2.4; // Eye level height
   private yaw = 0;
   private pitch = 0.3;
 
@@ -21,6 +24,11 @@ export class Player {
   maxHp = 100;
   private alive = true;
   private respawnPosition = new THREE.Vector3();
+
+  // Collision
+  private structureColliders: { box: THREE.Box3; type: 'solid' | 'trigger' }[] = [];
+  private decorationColliders: { position: THREE.Vector3; radius: number; height: number }[] = [];
+  private playerRadius = 0.5; // Player collision radius
 
   constructor(camera: THREE.PerspectiveCamera, input: InputManager) {
     this.camera = camera;
@@ -53,6 +61,18 @@ export class Player {
     shadow.rotation.x = -Math.PI / 2;
     shadow.position.y = 0.05;
     this.mesh.add(shadow);
+
+    // Traverse child meshes to assign them to Layer 1, and set cast/receive shadows
+    this.mesh.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.layers.set(1);
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    // Make player mesh visible
+    this.mesh.visible = true;
 
     // Set initial respawn position
     this.respawnPosition.set(0, 0, 0);
@@ -102,6 +122,8 @@ export class Player {
       (this.mesh.position.z / WORLD_SCALE) + WORLD_SIZE / 2
     );
     this.velocity.set(0, 0, 0);
+    this.grounded = true;
+    this.jumpWasPressed = false;
     // Remove death message
     const msg = document.getElementById('death-message');
     if (msg) msg.remove();
@@ -109,6 +131,14 @@ export class Player {
 
   setRespawnPoint(pos: THREE.Vector3): void {
     this.respawnPosition.copy(pos);
+  }
+
+  setColliders(
+    structures: { box: THREE.Box3; type: 'solid' | 'trigger' }[],
+    decorations: { position: THREE.Vector3; radius: number; height: number }[]
+  ): void {
+    this.structureColliders = structures;
+    this.decorationColliders = decorations;
   }
 
   update(delta: number, heightMap: HeightMap): void {
@@ -121,8 +151,8 @@ export class Player {
     }
 
     // Rotation from mouse
-    this.yaw -= this.input.state.mouseX;
-    this.pitch = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
+    this.yaw += this.input.state.mouseX;
+    this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
     this.input.resetMouse();
 
     // Movement direction
@@ -133,7 +163,7 @@ export class Player {
       const moveSpeed = this.input.state.run ? this.runSpeed : this.speed;
 
       const moveX = Math.sin(this.yaw) * forward + Math.cos(this.yaw) * strafe;
-      const moveZ = Math.cos(this.yaw) * forward - Math.sin(this.yaw) * strafe;
+      const moveZ = -Math.cos(this.yaw) * forward + Math.sin(this.yaw) * strafe;
 
       const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
       if (len > 0) {
@@ -151,23 +181,93 @@ export class Player {
     this.mesh.position.x += this.velocity.x * delta;
     this.mesh.position.z += this.velocity.z * delta;
 
+    // Collision resolution with structures (AABB)
+    const playerBox = new THREE.Box3();
+
+    for (const collider of this.structureColliders) {
+      if (collider.type !== 'solid') continue;
+
+      playerBox.set(
+        new THREE.Vector3(
+          this.mesh.position.x - this.playerRadius,
+          this.mesh.position.y,
+          this.mesh.position.z - this.playerRadius
+        ),
+        new THREE.Vector3(
+          this.mesh.position.x + this.playerRadius,
+          this.mesh.position.y + this.cameraHeight,
+          this.mesh.position.z + this.playerRadius
+        )
+      );
+
+      if (playerBox.intersectsBox(collider.box)) {
+        const overlapX1 = playerBox.max.x - collider.box.min.x;
+        const overlapX2 = collider.box.max.x - playerBox.min.x;
+        const pushX = overlapX1 < overlapX2 ? -overlapX1 : overlapX2;
+
+        const overlapZ1 = playerBox.max.z - collider.box.min.z;
+        const overlapZ2 = collider.box.max.z - playerBox.min.z;
+        const pushZ = overlapZ1 < overlapZ2 ? -overlapZ1 : overlapZ2;
+
+        if (Math.abs(pushX) < Math.abs(pushZ)) {
+          this.mesh.position.x += pushX;
+          this.velocity.x = 0;
+        } else {
+          this.mesh.position.z += pushZ;
+          this.velocity.z = 0;
+        }
+      }
+    }
+
+    // Collision resolution with decorations (cylindrical)
+    for (const collider of this.decorationColliders) {
+      const dx = this.mesh.position.x - collider.position.x;
+      const dz = this.mesh.position.z - collider.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      const minDist = this.playerRadius + collider.radius;
+      if (dist < minDist && dist > 0.001) {
+        const pushX = (dx / dist) * minDist;
+        const pushZ = (dz / dist) * minDist;
+        this.mesh.position.x = collider.position.x + pushX;
+        this.mesh.position.z = collider.position.z + pushZ;
+      }
+    }
+
     // Clamp to world bounds
     const worldHalf = 128 * WORLD_SCALE;
     this.mesh.position.x = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.x));
     this.mesh.position.z = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.z));
 
-    // Height collision
+    // Grounded jump and gravity
     const hx = (this.mesh.position.x / WORLD_SCALE) + 128;
     const hz = (this.mesh.position.z / WORLD_SCALE) + 128;
     const terrainHeight = heightMap.getInterpolated(hx, hz);
-    this.mesh.position.y = terrainHeight;
+    const jumpPressed = this.input.state.jump;
+    if (this.grounded && jumpPressed && !this.jumpWasPressed) {
+      this.velocity.y = this.jumpVelocity;
+      this.grounded = false;
+    }
 
-    // Camera
-    const camX = this.mesh.position.x + Math.sin(this.yaw) * Math.cos(this.pitch) * this.cameraDistance;
-    const camY = this.mesh.position.y + Math.sin(this.pitch) * this.cameraDistance + this.cameraHeight;
-    const camZ = this.mesh.position.z + Math.cos(this.yaw) * Math.cos(this.pitch) * this.cameraDistance;
+    this.velocity.y -= this.gravity * delta;
+    this.mesh.position.y += this.velocity.y * delta;
+
+    if (this.mesh.position.y <= terrainHeight) {
+      this.mesh.position.y = terrainHeight;
+      this.velocity.y = 0;
+      this.grounded = true;
+    }
+    this.jumpWasPressed = jumpPressed;
+
+    // First person camera
+    const camX = this.mesh.position.x;
+    const camY = this.mesh.position.y + this.cameraHeight;
+    const camZ = this.mesh.position.z;
 
     this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(this.mesh.position.x, this.mesh.position.y + 2, this.mesh.position.z);
+    this.camera.lookAt(
+      this.mesh.position.x + Math.sin(this.yaw) * Math.cos(this.pitch),
+      camY + Math.sin(this.pitch),
+      this.mesh.position.z - Math.cos(this.yaw) * Math.cos(this.pitch)
+    );
   }
 }

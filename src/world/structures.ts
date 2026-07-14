@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { rng } from '../config';
 
+export interface Collider {
+  box: THREE.Box3;
+  type: 'solid' | 'trigger';
+}
+
 export function createHouse(): THREE.Group {
   const group = new THREE.Group();
 
@@ -28,6 +33,13 @@ export function createHouse(): THREE.Group {
   );
   door.position.set(0, 0.75, 1.51);
   group.add(door);
+
+  // Collision box for house
+  const colliderBox = new THREE.Box3(
+    new THREE.Vector3(-1.5, 0, -1.5),
+    new THREE.Vector3(1.5, 2.5, 1.5)
+  );
+  (group as any).collider = { box: colliderBox, type: 'solid' };
 
   return group;
 }
@@ -57,6 +69,13 @@ export function createTower(): THREE.Group {
     );
     group.add(cren);
   }
+
+  // Collision box for tower
+  const colliderBox = new THREE.Box3(
+    new THREE.Vector3(-1.8, 0, -1.8),
+    new THREE.Vector3(1.8, 8, 1.8)
+  );
+  (group as any).collider = { box: colliderBox, type: 'solid' };
 
   return group;
 }
@@ -105,6 +124,13 @@ export function createCastle(): THREE.Group {
   gate.position.set(0, 1.5, 6.5);
   group.add(gate);
 
+  // Collision box for castle (encompassing walls and towers)
+  const colliderBox = new THREE.Box3(
+    new THREE.Vector3(-7, 0, -7),
+    new THREE.Vector3(7, 8, 7)
+  );
+  (group as any).collider = { box: colliderBox, type: 'solid' };
+
   return group;
 }
 
@@ -139,6 +165,13 @@ export function createRuin(): THREE.Group {
   wall.position.set(0, 2, 0);
   wall.rotation.z = rng.next() * 0.3;
   group.add(wall);
+
+  // Collision box for ruin
+  const colliderBox = new THREE.Box3(
+    new THREE.Vector3(-3, 0, -3),
+    new THREE.Vector3(3, 4, 3)
+  );
+  (group as any).collider = { box: colliderBox, type: 'solid' };
 
   return group;
 }

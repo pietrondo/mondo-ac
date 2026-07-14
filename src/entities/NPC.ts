@@ -27,6 +27,13 @@ export class NPC {
     head.position.y = 2;
     this.mesh.add(head);
 
+    this.mesh.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
     this.mesh.position.copy(position);
     this.pickNewTarget();
   }

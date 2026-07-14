@@ -36,7 +36,6 @@ describe('BiomeMap', () => {
     for (let x = 0; x < 256 && !found; x++) {
       for (let z = 0; z < 256 && !found; z++) {
         if (heightMap.get(x, z) < 20) {
-          // Verify coast or plains/forest/desert at lower elevations
           const biome = biomeMap.getBiome(x, z);
           expect([
             BiomeType.COAST,

@@ -3,11 +3,19 @@ import { HeightMap } from './heightmap';
 import { BiomeMap, BiomeType } from './biomeMap';
 import { WORLD_SIZE, WORLD_SCALE, rng } from '../config';
 
+export interface DecorationCollider {
+  position: THREE.Vector3;
+  radius: number;
+  height: number;
+  type: 'tree' | 'rock' | 'cactus';
+}
+
 export function createDecorations(
   heightMap: HeightMap,
   biomeMap: BiomeMap,
-): THREE.Group {
+): { group: THREE.Group; colliders: DecorationCollider[] } {
   const group = new THREE.Group();
+  const colliders: DecorationCollider[] = [];
 
   const treePositions: THREE.Matrix4[] = [];
   const rockPositions: THREE.Matrix4[] = [];
@@ -29,27 +37,37 @@ export function createDecorations(
       switch (biome) {
         case BiomeType.FOREST:
           if (r < 0.3) {
-            treePositions.push(makeMatrix(worldX, worldY, worldZ, 1 + rng.next() * 2));
+            const scale = 1 + rng.next() * 2;
+            treePositions.push(makeMatrix(worldX, worldY, worldZ, scale));
+            colliders.push({ position: new THREE.Vector3(worldX, worldY, worldZ), radius: 0.5 * scale, height: 4 * scale, type: 'tree' });
           }
           break;
         case BiomeType.PLAINS:
           if (r < 0.05) {
-            treePositions.push(makeMatrix(worldX, worldY, worldZ, 1 + rng.next() * 1.5));
+            const scale = 1 + rng.next() * 1.5;
+            treePositions.push(makeMatrix(worldX, worldY, worldZ, scale));
+            colliders.push({ position: new THREE.Vector3(worldX, worldY, worldZ), radius: 0.5 * scale, height: 4 * scale, type: 'tree' });
           }
           break;
         case BiomeType.MOUNTAIN:
           if (r < 0.1) {
-            rockPositions.push(makeMatrix(worldX, worldY, worldZ, 0.5 + rng.next()));
+            const scale = 0.5 + rng.next();
+            rockPositions.push(makeMatrix(worldX, worldY, worldZ, scale));
+            colliders.push({ position: new THREE.Vector3(worldX, worldY, worldZ), radius: 0.8 * scale, height: 1 * scale, type: 'rock' });
           }
           break;
         case BiomeType.DESERT:
           if (r < 0.08) {
-            cactusPositions.push(makeMatrix(worldX, worldY, worldZ, 1 + rng.next()));
+            const scale = 1 + rng.next();
+            cactusPositions.push(makeMatrix(worldX, worldY, worldZ, scale));
+            colliders.push({ position: new THREE.Vector3(worldX, worldY, worldZ), radius: 0.4 * scale, height: 2 * scale, type: 'cactus' });
           }
           break;
         case BiomeType.SNOW:
           if (r < 0.05) {
-            rockPositions.push(makeMatrix(worldX, worldY, worldZ, 0.3 + rng.next() * 0.7));
+            const scale = 0.3 + rng.next() * 0.7;
+            rockPositions.push(makeMatrix(worldX, worldY, worldZ, scale));
+            colliders.push({ position: new THREE.Vector3(worldX, worldY, worldZ), radius: 0.8 * scale, height: 1 * scale, type: 'rock' });
           }
           break;
       }
@@ -69,7 +87,7 @@ export function createDecorations(
     group.add(createInstancedMesh(cactusPositions, createCactusGeometry(), 0x8D6E63));
   }
 
-  return group;
+  return { group, colliders };
 }
 
 function makeMatrix(x: number, y: number, z: number, scale: number): THREE.Matrix4 {
@@ -92,6 +110,8 @@ function createInstancedMesh(
     flatShading: true
   });
   const mesh = new THREE.InstancedMesh(geometry, material, matrices.length);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   for (let i = 0; i < matrices.length; i++) {
     mesh.setMatrixAt(i, matrices[i]);
   }

@@ -4,7 +4,9 @@ import { WATER_LEVEL, WORLD_SIZE, WORLD_SCALE } from '../config';
 export function createWater(): THREE.Mesh {
   const geometry = new THREE.PlaneGeometry(
     WORLD_SIZE * WORLD_SCALE * 1.5,
-    WORLD_SIZE * WORLD_SCALE * 1.5
+    WORLD_SIZE * WORLD_SCALE * 1.5,
+    32,
+    32
   );
   geometry.rotateX(-Math.PI * 0.5);
 
