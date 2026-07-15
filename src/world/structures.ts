@@ -36,7 +36,7 @@ export function createHouse(): THREE.Group {
 
   // Foundation spanning y = -4 to 0 (dark slate 0x37474F)
   const foundation = new THREE.Mesh(
-    new THREE.BoxGeometry(3, 4, 3),
+    new THREE.BoxGeometry(3.1, 4, 3.1),
     new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true })
   );
   foundation.position.y = -2;
@@ -80,7 +80,7 @@ export function createTower(): THREE.Group {
 
   // Foundation spanning y = -4 to 0 (dark slate 0x37474F)
   const foundation = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.8, 1.8, 4, 8),
+    new THREE.CylinderGeometry(1.9, 1.9, 4, 8),
     new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true })
   );
   foundation.position.y = -2;
@@ -142,7 +142,7 @@ export function createCastle(): THREE.Group {
 
   // Main foundation base spanning y = -4 to 0 (dark slate 0x37474F)
   const foundation = new THREE.Mesh(
-    new THREE.BoxGeometry(14, 4, 14),
+    new THREE.BoxGeometry(15, 4, 15),
     new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true })
   );
   foundation.position.y = -2;
@@ -192,7 +192,7 @@ export function createRuin(): THREE.Group {
 
   // Foundation spanning y = -4 to 0 (dark slate 0x37474F)
   const foundation = new THREE.Mesh(
-    new THREE.BoxGeometry(6, 4, 6),
+    new THREE.BoxGeometry(3.1, 4, 0.6),
     new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true })
   );
   foundation.position.y = -2;

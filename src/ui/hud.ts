@@ -117,8 +117,13 @@ export class HUD {
     this.scoreElement.textContent = `Score: ${this.score}`;
   }
 
-  setWeaponState(magazineAmmo: number, reserveAmmo: number, isReloading: boolean): void {
-    this.ammoElement.textContent = `Ammo: ${magazineAmmo} / ${reserveAmmo}`;
+  setWeaponState(magazineAmmo: number, reserveAmmo: number, isReloading: boolean, weaponName?: string): void {
+    const name = weaponName ?? 'Ammo';
+    if (name === 'Knife') {
+      this.ammoElement.textContent = 'Knife: Infinite';
+    } else {
+      this.ammoElement.textContent = `${name}: ${magazineAmmo} / ${reserveAmmo}`;
+    }
     this.reloadElement.textContent = isReloading ? 'Reloading...' : '';
   }
 

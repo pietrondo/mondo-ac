@@ -6,6 +6,7 @@ import { EnemyProjectileSystem } from '../combat/EnemyProjectile';
 
 export interface MonsterOptions {
   variant?: MonsterVariant;
+  onAttack?: () => void;
 }
 
 export class Monster {
@@ -21,9 +22,11 @@ export class Monster {
   private readonly attackRange = 25;
   private readonly optimalAttackDistance = 15;
   private projectileSystem: EnemyProjectileSystem | null = null;
+  private onAttack?: () => void;
 
   constructor(position: THREE.Vector3, options: MonsterOptions = {}) {
     this.variant = options.variant ?? chooseMonsterVariant(position);
+    this.onAttack = options.onAttack;
     const profile = getMonsterVariantProfile(this.variant);
     this.maxHp = profile.hp;
     this.moveSpeed = profile.speed;
@@ -144,6 +147,8 @@ export class Monster {
       color: params.color,
       size: params.size,
     });
+
+    this.onAttack?.();
 
     this.attackCooldown = params.cooldown;
   }

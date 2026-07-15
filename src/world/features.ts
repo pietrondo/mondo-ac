@@ -227,6 +227,8 @@ export function placeFeatures(
     if (child instanceof THREE.Mesh) {
       child.castShadow = true;
       child.receiveShadow = true;
+      child.matrixAutoUpdate = false;
+      child.updateMatrix();
     }
   });
 

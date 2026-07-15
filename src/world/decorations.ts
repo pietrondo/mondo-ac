@@ -76,7 +76,13 @@ export function createDecorations(
 
   // Trees
   if (treePositions.length > 0) {
-    group.add(createInstancedMesh(treePositions, createTreeGeometry(), 0x33691E));
+    const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 2, 5);
+    trunkGeometry.translate(0, 1, 0);
+    group.add(createInstancedMesh(treePositions, trunkGeometry, 0x5D4037)); // Brown trunk
+
+    const foliageGeometry = new THREE.ConeGeometry(2, 4, 6);
+    foliageGeometry.translate(0, 3, 0);
+    group.add(createInstancedMesh(treePositions, foliageGeometry, 0x33691E)); // Green foliage
   }
   // Rocks
   if (rockPositions.length > 0) {
@@ -84,7 +90,7 @@ export function createDecorations(
   }
   // Cactus
   if (cactusPositions.length > 0) {
-    group.add(createInstancedMesh(cactusPositions, createCactusGeometry(), 0x8D6E63));
+    group.add(createInstancedMesh(cactusPositions, createCactusGeometry(), 0x2E7D32)); // Green cactus
   }
 
   return { group, colliders };
@@ -134,5 +140,7 @@ function createRockGeometry(): THREE.BufferGeometry {
 }
 
 function createCactusGeometry(): THREE.BufferGeometry {
-  return new THREE.CapsuleGeometry(0.4, 2, 4, 8);
+  const geo = new THREE.CapsuleGeometry(0.4, 2, 4, 8);
+  geo.translate(0, 1.4, 0);
+  return geo;
 }

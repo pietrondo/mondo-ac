@@ -15,6 +15,7 @@ interface ActiveProjectile {
   damage: number;
   remainingLife: number;
   maxLife: number;
+  size: number;
 }
 
 export class EnemyProjectileSystem {
@@ -25,20 +26,48 @@ export class EnemyProjectileSystem {
   private readonly defaultSpeed: number;
   private readonly defaultDamage: number;
   private readonly defaultSize: number;
+  private readonly defaultColor: number;
+
+  // Cache materials by color to avoid continuous cloning
+  private readonly materialsByColor = new Map<number, THREE.MeshBasicMaterial>();
+
+  // Object pool for projectile meshes
+  private readonly pool: THREE.Mesh[] = [];
+  private readonly poolSize = 32;
 
   constructor(scene: THREE.Scene, options: EnemyProjectileOptions = {}) {
     this.scene = scene;
     this.defaultSpeed = options.speed ?? 25;
     this.defaultDamage = options.damage ?? 15;
     this.defaultSize = options.size ?? 0.15;
-    const color = options.color ?? 0xff3333;
+    this.defaultColor = options.color ?? 0xff3333;
 
     this.projectileGeometry = new THREE.SphereGeometry(this.defaultSize, 8, 8);
     this.projectileMaterial = new THREE.MeshBasicMaterial({
-      color: color,
+      color: this.defaultColor,
       transparent: true,
       opacity: 0.9,
     });
+
+    // Cache the default material
+    this.materialsByColor.set(this.defaultColor, this.projectileMaterial);
+
+    // Pre-allocate mesh pool
+    for (let i = 0; i < this.poolSize; i++) {
+      const mesh = new THREE.Mesh(this.projectileGeometry, this.projectileMaterial);
+      mesh.visible = false;
+      this.pool.push(mesh);
+    }
+  }
+
+  private getMaterial(colorHex: number): THREE.MeshBasicMaterial {
+    let mat = this.materialsByColor.get(colorHex);
+    if (!mat) {
+      mat = this.projectileMaterial.clone();
+      mat.color.setHex(colorHex);
+      this.materialsByColor.set(colorHex, mat);
+    }
+    return mat;
   }
 
   spawn(
@@ -49,20 +78,35 @@ export class EnemyProjectileSystem {
     const speed = options?.speed ?? this.defaultSpeed;
     const damage = options?.damage ?? this.defaultDamage;
     const size = options?.size ?? this.defaultSize;
+    const color = options?.color ?? this.defaultColor;
 
-    const material = this.projectileMaterial.clone();
-    if (options?.color !== undefined) {
-      material.color.setHex(options.color);
+    // Find an idle mesh in the pool
+    let mesh: THREE.Mesh | undefined;
+    for (const item of this.pool) {
+      if (!item.visible) {
+        mesh = item;
+        break;
+      }
     }
 
-    const mesh = new THREE.Mesh(
-      size !== this.defaultSize
-        ? new THREE.SphereGeometry(size, 8, 8)
-        : this.projectileGeometry,
-      material
-    );
+    // Fallback: reuse the oldest active projectile if pool is empty
+    if (!mesh) {
+      if (this.projectiles.length > 0) {
+        const oldest = this.projectiles.shift()!;
+        mesh = oldest.mesh;
+        this.scene.remove(mesh);
+      } else {
+        return;
+      }
+    }
 
+    // Update material, scale, position
+    mesh.material = this.getMaterial(color);
+    mesh.scale.setScalar(size / this.defaultSize);
     mesh.position.copy(origin);
+    mesh.visible = true;
+
+    // Add to scene
     this.scene.add(mesh);
 
     const velocity = direction.clone().normalize().multiplyScalar(speed);
@@ -73,10 +117,16 @@ export class EnemyProjectileSystem {
       damage,
       remainingLife: 3.0,
       maxLife: 3.0,
+      size,
     });
   }
 
-  update(delta: number, heightMap: HeightMap, playerPos: THREE.Vector3, playerRadius: number = 0.5): { hit: boolean; damage: number } {
+  update(
+    delta: number,
+    heightMap: HeightMap,
+    playerPos: THREE.Vector3,
+    playerRadius: number = 0.5
+  ): { hit: boolean; damage: number } {
     let hitResult = { hit: false, damage: 0 };
 
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
@@ -104,7 +154,7 @@ export class EnemyProjectileSystem {
       }
 
       const distToPlayer = proj.mesh.position.distanceTo(playerPos);
-      if (distToPlayer < playerRadius + this.defaultSize) {
+      if (distToPlayer < playerRadius + proj.size) {
         hitResult = { hit: true, damage: proj.damage };
         this.removeProjectile(i);
         continue;
@@ -116,9 +166,8 @@ export class EnemyProjectileSystem {
 
   private removeProjectile(index: number): void {
     const proj = this.projectiles[index];
+    proj.mesh.visible = false;
     this.scene.remove(proj.mesh);
-    proj.mesh.geometry.dispose();
-    (proj.mesh.material as THREE.MeshBasicMaterial).dispose();
     this.projectiles.splice(index, 1);
   }
 

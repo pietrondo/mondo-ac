@@ -14,6 +14,7 @@ export interface AutomaticRifleOptions {
   roundsPerMinute?: number;
   reloadDuration?: number;
   onShot?: (hit: THREE.Intersection<THREE.Object3D> | undefined) => void;
+  onReload?: () => void;
 }
 
 export class AutomaticRifle {
@@ -25,6 +26,7 @@ export class AutomaticRifle {
   private readonly shotInterval: number;
   private readonly reloadDuration: number;
   private readonly onShot?: (hit: THREE.Intersection<THREE.Object3D> | undefined) => void;
+  private readonly onReload?: () => void;
   private readonly raycaster = new THREE.Raycaster();
   private shotCooldown = 0;
   private reloadRemaining = 0;
@@ -35,6 +37,7 @@ export class AutomaticRifle {
     this.shotInterval = 60 / (options.roundsPerMinute ?? 600);
     this.reloadDuration = options.reloadDuration ?? 1;
     this.onShot = options.onShot;
+    this.onReload = options.onReload;
   }
 
   update(delta: number, input: RifleUpdateInput): void {
@@ -49,6 +52,7 @@ export class AutomaticRifle {
     if (input.reloadPressed && this.magazineAmmo < this.magazineCapacity && this.reserveAmmo > 0) {
       this.isReloading = true;
       this.reloadRemaining = this.reloadDuration;
+      this.onReload?.();
       return;
     }
 

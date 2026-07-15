@@ -31,4 +31,22 @@ test.describe('Start Overlay', () => {
 
     expect(errors).toHaveLength(0);
   });
+
+  test('pointer lock rejection displays warning', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForTimeout(2000);
+
+    const overlay = page.locator('div', { hasText: 'Clicca per iniziare' });
+    await overlay.click();
+
+    // Trigger pointerlockerror event manually in the browser context
+    await page.evaluate(() => {
+      const event = new Event('pointerlockerror');
+      document.dispatchEvent(event);
+    });
+
+    const warning = page.locator('#pointer-lock-warning');
+    await expect(warning).toBeVisible();
+    await expect(warning).toContainText('Cattura del mouse fallita');
+  });
 });

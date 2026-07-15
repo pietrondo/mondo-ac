@@ -12,7 +12,7 @@ import { NPC } from './entities/NPC';
 import { Monster } from './entities/Monster';
 import { Collectible } from './entities/Collectible';
 import { PowerUp } from './entities/PowerUp';
-import { AutomaticRifle } from './entities/AutomaticRifle';
+import { Weapon } from './entities/Weapon';
 import { WeaponView } from './entities/WeaponView';
 import { applyRifleHitDamage } from './combat/rifleHit';
 import { ShotTracer } from './combat/shotTracer';
@@ -23,6 +23,7 @@ import { DebugOverlay } from './ui/debug';
 import { SEED, WORLD_SIZE, WORLD_SCALE } from './config';
 import { selectMonsterSpawns } from './world/spawnSelection';
 import { chooseMonsterVariant } from './world/monsterVariant';
+import { SoundManager } from './utils/sound';
 
 const container = document.getElementById('canvas-container');
 if (!container) throw new Error('No container');
@@ -88,6 +89,8 @@ const camera = new THREE.PerspectiveCamera(
   2000
 );
 
+const soundManager = new SoundManager(camera);
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -108,12 +111,22 @@ if (sun) {
 const heightMap = new HeightMap(SEED);
 const biomeMap = new BiomeMap(heightMap, SEED + 1);
 const terrain = createTerrainMesh(heightMap, biomeMap);
+terrain.matrixAutoUpdate = false;
+terrain.updateMatrix();
 scene.add(terrain);
 
 const water = createWater();
+water.matrixAutoUpdate = false;
+water.updateMatrix();
 scene.add(water);
 
 const decorations = createDecorations(heightMap, biomeMap);
+decorations.group.traverse((child) => {
+  if (child instanceof THREE.Mesh || child instanceof THREE.InstancedMesh) {
+    child.matrixAutoUpdate = false;
+    child.updateMatrix();
+  }
+});
 scene.add(decorations.group);
 
 const features = placeFeatures(heightMap, biomeMap);
@@ -126,28 +139,62 @@ player.setColliders(features.structureColliders, decorations.colliders);
 const weaponView = new WeaponView(camera);
 const shotTracer = new ShotTracer(scene);
 const powerUpRuntime = createPowerUpRuntime(player.speed, 25);
-const rifle = new AutomaticRifle({
-  onShot: (hit) => {
-    applyRifleHitDamage(hit, powerUpRuntime.shotDamage);
+// Initialize weapons list (rifle, shotgun, melee knife)
+const weapons = [
+  new Weapon('rifle', {
+    onShot: (hit) => handleWeaponShot(hit),
+    onReload: () => soundManager.playReload(),
+  }),
+  new Weapon('shotgun', {
+    onShot: (hit) => handleWeaponShot(hit),
+    onReload: () => soundManager.playReload(),
+  }),
+  new Weapon('melee', {
+    onShot: (hit) => handleWeaponShot(hit),
+  }),
+];
+let activeWeaponIndex = 0;
+
+let lastShotTime = 0;
+const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) => {
+  const activeWeapon = weapons[activeWeaponIndex];
+  applyRifleHitDamage(
+    hit,
+    activeWeapon.type === 'melee'
+      ? activeWeapon.damage
+      : activeWeapon.type === 'shotgun'
+      ? activeWeapon.damage
+      : powerUpRuntime.shotDamage
+  );
+
+  const now = performance.now();
+  if (now - lastShotTime > 50) {
+    lastShotTime = now;
     weaponView.fire();
+    if (activeWeapon.type === 'melee') {
+      soundManager.playMelee();
+    } else {
+      soundManager.playShot();
+    }
+  }
 
-    const origin = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-    camera.getWorldPosition(origin);
-    camera.getWorldDirection(direction);
+  const origin = new THREE.Vector3();
+  const direction = new THREE.Vector3();
+  camera.getWorldPosition(origin);
+  camera.getWorldDirection(direction);
 
-    const end = hit
-      ? hit.point.clone()
-      : origin.clone().add(direction.multiplyScalar(120));
+  const end = hit
+    ? hit.point.clone()
+    : origin.clone().add(direction.multiplyScalar(activeWeapon.range));
 
-    shotTracer.spawn(origin, end);
-  },
-});
+  shotTracer.spawn(origin, end);
+};
 scene.add(player.mesh);
 
 // HUD & Debug
 const hud = new HUD();
-hud.setWeaponState(rifle.magazineAmmo, rifle.reserveAmmo, rifle.isReloading);
+const initialWeapon = weapons[activeWeaponIndex];
+hud.setWeaponState(initialWeapon.magazineAmmo, initialWeapon.reserveAmmo, initialWeapon.isReloading, initialWeapon.name);
 const debug = new DebugOverlay(heightMap, biomeMap);
 
 // F3 to toggle debug
@@ -219,14 +266,17 @@ for (const pos of features.npcSpawns.slice(0, 10)) {
 
 const monsters: Monster[] = [];
 const enemyProjectileSystem = new EnemyProjectileSystem(scene);
-const monsterSpawns = selectMonsterSpawns(features.monsterSpawns, player.mesh.position, 8);
+const monsterSpawns = selectMonsterSpawns(features.monsterSpawns, player.mesh.position, 8, 60);
 monsterSpawns.forEach((pos, index) => {
   const monsterPosition = pos.clone();
   const hx = (monsterPosition.x / WORLD_SCALE) + WORLD_SIZE / 2;
   const hz = (monsterPosition.z / WORLD_SCALE) + WORLD_SIZE / 2;
   monsterPosition.y = heightMap.getInterpolated(hx, hz);
   const monster = new Monster(monsterPosition, {
-    variant: chooseMonsterVariant(monsterPosition, index, biomeMap)
+    variant: chooseMonsterVariant(monsterPosition, index, biomeMap),
+    onAttack: () => {
+      soundManager.playPositionalAttack(monster.mesh);
+    }
   });
   monster.mesh.userData.damageable = monster;
   monster.setProjectileSystem(enemyProjectileSystem);
@@ -334,6 +384,7 @@ function animate(): void {
         player.takeDamage(10);
         damageCooldown = 1; // 1 second between damage
         updateHpDisplay();
+        soundManager.playHurt();
       }
     }
   }
@@ -345,6 +396,7 @@ function animate(): void {
     if (item.isVisible() && player.mesh.position.distanceTo(item.mesh.position) < 2) {
       const value = item.collect();
       hud.addScore(value);
+      soundManager.playCollect();
       // Potion heals
       if (value === 10) {
         player.hp = Math.min(player.maxHp, player.hp + 20);
@@ -356,8 +408,12 @@ function animate(): void {
   for (const powerUp of powerUps) {
     if (powerUp.isVisible() && player.mesh.position.distanceTo(powerUp.mesh.position) < 2) {
       const kind = powerUp.collect();
-      const feedback = applyPowerUp(kind, powerUpRuntime, player, rifle);
+      const feedback = applyPowerUp(kind, powerUpRuntime, player, weapons[0]);
+      if (kind === 'ammo') {
+        weapons[1].reserveAmmo = Math.min(weapons[1].maxReserveAmmo, weapons[1].reserveAmmo + 6);
+      }
       hud.setStatus(feedback);
+      soundManager.playCollect();
       if (feedback === 'Health restored') updateHpDisplay();
     }
   }
@@ -367,7 +423,8 @@ function animate(): void {
   // Update player
   player.update(delta, heightMap);
 
-  rifle.update(delta, {
+  const activeWeapon = weapons[activeWeaponIndex];
+  activeWeapon.update(delta, {
     fireHeld: input.state.attack,
     reloadPressed: input.state.reload,
     canFire: input.pointerLocked && player.isAlive(),
@@ -380,18 +437,81 @@ function animate(): void {
   if (projHit.hit) {
     player.takeDamage(projHit.damage);
     updateHpDisplay();
+    soundManager.playHurt();
   }
-  hud.setWeaponState(rifle.magazineAmmo, rifle.reserveAmmo, rifle.isReloading);
+
+  // Update ambient audio based on current player biome
+  const px = (player.mesh.position.x / WORLD_SCALE) + WORLD_SIZE / 2;
+  const pz = (player.mesh.position.z / WORLD_SCALE) + WORLD_SIZE / 2;
+  soundManager.updateAmbient(biomeMap.getBiome(px, pz));
+  hud.setWeaponState(activeWeapon.magazineAmmo, activeWeapon.reserveAmmo, activeWeapon.isReloading, activeWeapon.name);
   hud.updateBuffs(
     powerUpRuntime.speedBoostRemaining,
     powerUpRuntime.damageBoostRemaining,
     powerUpRuntime.shieldRemaining
   );
 
-  // Dynamically position and target the sun directional light following the player
+  // Dynamically position and target the sun directional light following the player with day/night cycle
   const sun = scene.children.find(child => child instanceof THREE.DirectionalLight) as THREE.DirectionalLight;
+  const ambient = scene.children.find(child => child instanceof THREE.AmbientLight) as THREE.AmbientLight;
+  const hemi = scene.children.find(child => child instanceof THREE.HemisphereLight) as THREE.HemisphereLight;
+
+  const DAY_DURATION = 120; // 120 seconds for a full day/night cycle
+  const cycleTime = (gameTime / DAY_DURATION) * Math.PI * 2;
+  const sunHeight = Math.sin(cycleTime);
+
+  const sunOrbitRadius = 300;
+  const offsetX = Math.cos(cycleTime) * sunOrbitRadius;
+  const offsetY = Math.abs(sunHeight) * sunOrbitRadius;
+  const offsetZ = Math.cos(cycleTime * 0.5) * 100;
+
+  const daySkyColor = new THREE.Color(0x87CEEB);
+  const sunsetSkyColor = new THREE.Color(0xff7043);
+  const nightSkyColor = new THREE.Color(0x06060c);
+  const skyColor = new THREE.Color();
+
+  let sunIntensity = 0;
+  let ambientIntensity = 0.05;
+
+  if (sunHeight > 0.1) {
+    // Full day
+    const t = Math.min(1, (sunHeight - 0.1) / 0.4);
+    skyColor.lerpColors(sunsetSkyColor, daySkyColor, t);
+    sunIntensity = 1.2 * t + 0.4 * (1 - t);
+    ambientIntensity = 0.4 * t + 0.15 * (1 - t);
+    if (sun) sun.color.setHex(0xfffaed);
+  } else if (sunHeight >= -0.1 && sunHeight <= 0.1) {
+    // Transition (dawn / dusk)
+    const t = (sunHeight + 0.1) / 0.2; // 0 to 1
+    skyColor.lerpColors(nightSkyColor, sunsetSkyColor, t);
+    sunIntensity = 0.4 * t + 0.1 * (1 - t);
+    ambientIntensity = 0.15 * t + 0.05 * (1 - t);
+    if (sun) sun.color.setHex(0xffaa66); // warm sunset light
+  } else {
+    // Night
+    const t = Math.min(1, (-sunHeight - 0.1) / 0.4);
+    skyColor.lerpColors(sunsetSkyColor, nightSkyColor, 1 - (1 - t) * (1 - t));
+    sunIntensity = 0.2; // Moonlight
+    ambientIntensity = 0.05;
+    if (sun) sun.color.setHex(0x90caf9); // cool moonlight
+  }
+
+  scene.background = skyColor;
+  if (scene.fog && scene.fog instanceof THREE.Fog) {
+    scene.fog.color = skyColor;
+  }
+
+  if (ambient) ambient.intensity = ambientIntensity;
+  if (hemi) hemi.intensity = ambientIntensity * 0.75;
+
   if (sun) {
-    sun.position.set(player.mesh.position.x + 100, 200, player.mesh.position.z + 100);
+    // Position sun or moon based on cycle
+    if (sunHeight > 0) {
+      sun.position.set(player.mesh.position.x + offsetX, player.mesh.position.y + offsetY, player.mesh.position.z + offsetZ);
+    } else {
+      sun.position.set(player.mesh.position.x - offsetX, player.mesh.position.y + offsetY, player.mesh.position.z - offsetZ);
+    }
+    sun.intensity = sunIntensity;
     sun.target.position.copy(player.mesh.position);
     sun.target.updateMatrixWorld();
   }
@@ -434,6 +554,7 @@ function startGame(): void {
   try {
     document.body.requestPointerLock();
     renderer.domElement.style.pointerEvents = 'auto'; // Re-enable for gameplay
+    soundManager.startAmbient();
   } catch (e) {
     console.error('Pointer lock failed:', e);
   }
@@ -466,3 +587,53 @@ document.addEventListener('touchstart', () => {
 });
 
 document.body.appendChild(clickToStart);
+
+// Weapon switching keyboard controls (Keys 1, 2, 3)
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Digit1') switchWeapon(0);
+  if (e.code === 'Digit2') switchWeapon(1);
+  if (e.code === 'Digit3') switchWeapon(2);
+});
+
+function switchWeapon(index: number): void {
+  if (index < 0 || index >= weapons.length || index === activeWeaponIndex) return;
+  if (weapons[activeWeaponIndex].isReloading) return; // Prevent switching while reloading
+
+  activeWeaponIndex = index;
+  const activeWeapon = weapons[activeWeaponIndex];
+  weaponView.setWeapon(activeWeapon.type);
+  hud.setWeaponState(activeWeapon.magazineAmmo, activeWeapon.reserveAmmo, activeWeapon.isReloading, activeWeapon.name);
+}
+
+// Listen for pointer lock rejection
+document.addEventListener('pointerlockerror', () => {
+  if (document.getElementById('pointer-lock-warning')) return;
+
+  const warning = document.createElement('div');
+  warning.id = 'pointer-lock-warning';
+  warning.textContent = 'Cattura del mouse fallita. Clicca sulla pagina per riprovare.';
+  warning.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ffffff;
+    background: rgba(211, 47, 47, 0.9);
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-family: system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    z-index: 10000;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  `;
+  document.body.appendChild(warning);
+
+  setTimeout(() => {
+    warning.style.opacity = '0';
+    setTimeout(() => warning.remove(), 300);
+  }, 3000);
+});
+
