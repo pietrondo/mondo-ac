@@ -52,4 +52,23 @@ describe('Monster variants', () => {
     expect(scout.moveSpeed).toBeGreaterThan(brute.moveSpeed);
     expect(scout.mesh.scale.x).toBeLessThan(brute.mesh.scale.x);
   });
+
+  it('triggers the onDeath callback when HP falls to 0', () => {
+    let deathTriggered = false;
+    const scout = new Monster(new THREE.Vector3(0, 0, 0), {
+      variant: 'scout',
+      onDeath: () => {
+        deathTriggered = true;
+      }
+    });
+
+    expect(scout.isAlive()).toBe(true);
+    scout.takeDamage(10);
+    expect(deathTriggered).toBe(false);
+    expect(scout.isAlive()).toBe(true);
+
+    scout.takeDamage(25);
+    expect(deathTriggered).toBe(true);
+    expect(scout.isAlive()).toBe(false);
+  });
 });

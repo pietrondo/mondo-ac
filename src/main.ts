@@ -323,6 +323,16 @@ monsterSpawns.forEach((pos, index) => {
     variant: chooseMonsterVariant(monsterPosition, index, biomeMap),
     onAttack: () => {
       soundManager.playPositionalAttack(monster.mesh);
+    },
+    onDeath: () => {
+      let scoreValue = 20;
+      if (monster.variant === 'golem') scoreValue = 100;
+      else if (monster.variant === 'brute') scoreValue = 50;
+      else if (monster.variant === 'stalker') scoreValue = 30;
+      else if (monster.variant === 'drone') scoreValue = 25;
+      else if (monster.variant === 'crawler') scoreValue = 20;
+      
+      hud.addScore(scoreValue);
     }
   });
   monster.mesh.userData.damageable = monster;

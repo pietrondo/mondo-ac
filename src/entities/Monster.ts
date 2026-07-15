@@ -7,6 +7,7 @@ import { EnemyProjectileSystem } from '../combat/EnemyProjectile';
 export interface MonsterOptions {
   variant?: MonsterVariant;
   onAttack?: () => void;
+  onDeath?: () => void;
 }
 
 export class Monster {
@@ -23,6 +24,7 @@ export class Monster {
   private readonly optimalAttackDistance = 15;
   private projectileSystem: EnemyProjectileSystem | null = null;
   private onAttack?: () => void;
+  private onDeath?: () => void;
 
   private healthBarGroup: THREE.Group;
   private healthBarFg: THREE.Mesh;
@@ -31,6 +33,7 @@ export class Monster {
   constructor(position: THREE.Vector3, options: MonsterOptions = {}) {
     this.variant = options.variant ?? chooseMonsterVariant(position);
     this.onAttack = options.onAttack;
+    this.onDeath = options.onDeath;
     const profile = getMonsterVariantProfile(this.variant);
     this.maxHp = profile.hp;
     this.moveSpeed = profile.speed;
@@ -221,6 +224,7 @@ export class Monster {
   isAlive(): boolean { return this.alive; }
 
   takeDamage(amount: number): void {
+    if (!this.alive) return;
     this.hp -= amount;
     const hpRatio = Math.max(0, this.hp / this.maxHp);
     this.healthBarFg.scale.x = hpRatio;
@@ -237,6 +241,10 @@ export class Monster {
     if (this.hp <= 0) {
       this.alive = false;
       this.mesh.visible = false;
+      this.healthBarGroup.visible = false;
+      if (this.onDeath) {
+        this.onDeath();
+      }
     }
   }
 

@@ -103,7 +103,7 @@ export class Spaceship extends Vehicle {
     }
 
     // 6. Apply Movement
-    const dirX = Math.sin(this.yaw);
+    const dirX = -Math.sin(this.yaw);
     const dirZ = -Math.cos(this.yaw);
     this.velocity.set(dirX * this.speed, vertVel, dirZ * this.speed);
     this.mesh.position.addScaledVector(this.velocity, delta);

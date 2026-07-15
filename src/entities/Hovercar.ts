@@ -82,7 +82,7 @@ export class Hovercar extends Vehicle {
     }
 
     // 3. Move Hovercar
-    const dirX = Math.sin(this.yaw);
+    const dirX = -Math.sin(this.yaw);
     const dirZ = -Math.cos(this.yaw);
     this.velocity.set(dirX * this.speed, 0, dirZ * this.speed);
     this.mesh.position.addScaledVector(this.velocity, delta);
