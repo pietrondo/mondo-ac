@@ -15,6 +15,8 @@ This specification defines the monster variant system, biome-specific spawn sele
 4. **Attack Parameters & Projectiles**:
    - Golem attacks MUST fire giant red projectiles with a speed of 15, damage of 30, size (radius) of 0.45, and have a cooldown of 3.0 seconds.
    - Enemy projectiles MUST support custom hex color options by cloning their materials and setting the material color appropriately (resolving any hardcoded fallback bugs).
+5. **Spawning vehicles and new enemies in hostile biomes**:
+   - The system MUST support candidate spawn points for hovercars and spaceships in plains or forest biomes, and spawn drone/crawler enemies in high-hazard forest and mountain biomes.
 
 ## Scenarios
 
@@ -37,3 +39,8 @@ This specification defines the monster variant system, biome-specific spawn sele
 * **When** a projectile is spawned with color set to red (`0xff0000`) and size 0.45
 * **Then** the projectile's velocity speed MUST be 15 and deal 30 damage
 * **And** the projectile material MUST be cloned and have its color hex value set to `0xff0000`
+
+### Scenario 4: Spawn candidate resolves to drone
+* **Given** a candidate spawn in `MOUNTAIN` biome
+* **When** a monster variant is chosen
+* **Then** the chosen variant MAY be a drone

@@ -125,16 +125,6 @@ function createInstancedMesh(
   return mesh;
 }
 
-function createTreeGeometry(): THREE.BufferGeometry {
-  const trunk = new THREE.CylinderGeometry(0.3, 0.5, 2, 5);
-  trunk.translate(0, 1, 0);
-  const foliage = new THREE.ConeGeometry(2, 4, 6);
-  foliage.translate(0, 3, 0);
-
-  // Simplified: just return foliage as tree representation
-  return foliage;
-}
-
 function createRockGeometry(): THREE.BufferGeometry {
   return new THREE.IcosahedronGeometry(1, 0);
 }

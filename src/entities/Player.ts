@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { InputManager } from '../controls/input';
 import { HeightMap } from '../world/heightmap';
 import { WORLD_SCALE, WORLD_SIZE } from '../config';
+import { Vehicle } from './Vehicle';
 
 export class Player {
   mesh: THREE.Group;
   camera: THREE.PerspectiveCamera;
   input: InputManager;
+  activeVehicle: Vehicle | null = null;
 
   private velocity = new THREE.Vector3();
   private grounded = true;
@@ -152,6 +154,27 @@ export class Player {
       if (this.input.state.interact || this.input.state.reload) {
         this.respawn(heightMap);
       }
+      return;
+    }
+
+    if (this.activeVehicle) {
+      this.mesh.position.copy(this.activeVehicle.mesh.position);
+      this.mesh.rotation.y = this.activeVehicle.yaw;
+      this.velocity.set(0, 0, 0);
+
+      const vehicle = this.activeVehicle;
+      const yaw = vehicle.yaw;
+      const pitch = vehicle.pitch || 0;
+      
+      const offset = new THREE.Vector3(0, 3, 8);
+      offset.applyAxisAngle(new THREE.Vector3(1, 0, 0), pitch);
+      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+      
+      const targetCamPos = vehicle.mesh.position.clone().add(offset);
+      this.camera.position.copy(targetCamPos);
+      this.camera.lookAt(vehicle.mesh.position);
+      
+      this.input.resetMouse();
       return;
     }
 

@@ -15,6 +15,9 @@ import { PowerUp } from './entities/PowerUp';
 import { Weapon } from './entities/Weapon';
 import { WeaponView } from './entities/WeaponView';
 import { applyRifleHitDamage } from './combat/rifleHit';
+import { Vehicle } from './entities/Vehicle';
+import { Hovercar } from './entities/Hovercar';
+import { Spaceship } from './entities/Spaceship';
 import { ShotTracer } from './combat/shotTracer';
 import { EnemyProjectileSystem } from './combat/EnemyProjectile';
 import { applyPowerUp, createPowerUpRuntime, tickPowerUpRuntime } from './game/powerUpEffects';
@@ -256,6 +259,23 @@ const spawnWorldZ = (bestSpawnHz - WORLD_SIZE / 2) * WORLD_SCALE;
 player.mesh.position.set(spawnWorldX, bestSpawnH, spawnWorldZ);
 player.setRespawnPoint(player.mesh.position.clone());
 
+// Spawn vehicles near player spawn
+const hcX = spawnWorldX + 10;
+const hcZ = spawnWorldZ;
+const hcY = heightMap.getInterpolated((hcX / WORLD_SCALE) + 128, (hcZ / WORLD_SCALE) + 128);
+
+const ssX = spawnWorldX - 10;
+const ssZ = spawnWorldZ;
+const ssY = heightMap.getInterpolated((ssX / WORLD_SCALE) + 128, (ssZ / WORLD_SCALE) + 128) + 2.0;
+
+const vehicles: Vehicle[] = [
+  new Hovercar(new THREE.Vector3(hcX, hcY, hcZ)),
+  new Spaceship(new THREE.Vector3(ssX, ssY, ssZ))
+];
+vehicles.forEach((v) => {
+  scene.add(v.mesh);
+});
+
 // Spawn entities from features
 const npcs: NPC[] = [];
 for (const pos of features.npcSpawns.slice(0, 10)) {
@@ -356,6 +376,7 @@ let lastTime = performance.now();
 let gameTime = 0;
 let damageCooldown = 0;
 let wasAlive = true;
+let interactWasPressed = false;
 
 function animate(): void {
   if (isGameHalted) return;
@@ -420,6 +441,48 @@ function animate(): void {
 
   tickPowerUpRuntime(delta, powerUpRuntime, player);
 
+  // Vehicle Boarding / Exiting Logic
+  const interactPressed = input.state.interact;
+  if (interactPressed && !interactWasPressed) {
+    if (player.activeVehicle) {
+      const vehicle = player.activeVehicle;
+      player.activeVehicle = null;
+      
+      const backOffset = new THREE.Vector3(0, 0, 3);
+      backOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.yaw);
+      player.mesh.position.copy(vehicle.mesh.position).add(backOffset);
+      
+      const px = (player.mesh.position.x / WORLD_SCALE) + WORLD_SIZE / 2;
+      const pz = (player.mesh.position.z / WORLD_SCALE) + WORLD_SIZE / 2;
+      player.mesh.position.y = heightMap.getInterpolated(px, pz);
+      
+      (player as any).yaw = vehicle.yaw;
+      (player as any).pitch = 0.3;
+    } else {
+      let nearestVehicle: Vehicle | null = null;
+      let minDist = 5;
+      for (const v of vehicles) {
+        const dist = player.mesh.position.distanceTo(v.mesh.position);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestVehicle = v;
+        }
+      }
+      if (nearestVehicle) {
+        player.activeVehicle = nearestVehicle;
+      }
+    }
+  }
+  interactWasPressed = interactPressed;
+
+  // Update Active Vehicle
+  if (player.activeVehicle) {
+    player.activeVehicle.update(delta, input, heightMap);
+  }
+
+  // Hide weapon if driving
+  weaponView.group.visible = !player.activeVehicle;
+
   // Update player
   player.update(delta, heightMap);
 
@@ -427,7 +490,7 @@ function animate(): void {
   activeWeapon.update(delta, {
     fireHeld: input.state.attack,
     reloadPressed: input.state.reload,
-    canFire: input.pointerLocked && player.isAlive(),
+    canFire: input.pointerLocked && player.isAlive() && !player.activeVehicle,
     camera,
     targets: monsters.filter((monster) => monster.isAlive()).map((monster) => monster.mesh),
   });

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BiomeMap, BiomeType } from './biomeMap';
 import { WORLD_SCALE } from '../config';
 
-export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem';
+export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem' | 'crawler' | 'drone';
 
 export interface MonsterVariantProfile {
   scale: number;
@@ -56,6 +56,26 @@ const variantProfiles: Record<MonsterVariant, MonsterVariantProfile> = {
     bodyColor: 0x607D8B,
     eyeColor: 0x00E5FF,
   },
+  crawler: {
+    scale: 0.8,
+    bodyWidth: 1.0,
+    bodyHeight: 0.5,
+    bodyDepth: 1.0,
+    hp: 50,
+    speed: 4.0,
+    bodyColor: 0xd32f2f,
+    eyeColor: 0xffeb3b,
+  },
+  drone: {
+    scale: 0.6,
+    bodyWidth: 0.8,
+    bodyHeight: 0.8,
+    bodyDepth: 0.8,
+    hp: 40,
+    speed: 3.0,
+    bodyColor: 0x00bcd4,
+    eyeColor: 0xffffff,
+  },
 };
 
 export function chooseMonsterVariant(
@@ -74,7 +94,7 @@ export function chooseMonsterVariant(
   const raw = Math.abs(
     Math.floor(position.x * 17 + position.z * 31 + position.y * 11 + index * 13)
   );
-  const variants: MonsterVariant[] = ['scout', 'brute', 'stalker'];
+  const variants: MonsterVariant[] = ['scout', 'brute', 'stalker', 'crawler', 'drone'];
   return variants[raw % variants.length];
 }
 
