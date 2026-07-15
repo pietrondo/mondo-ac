@@ -9,6 +9,7 @@ export class Player {
   camera: THREE.PerspectiveCamera;
   input: InputManager;
   activeVehicle: Vehicle | null = null;
+  shakeIntensity = 0;
 
   private velocity = new THREE.Vector3();
   private grounded = true;
@@ -149,6 +150,13 @@ export class Player {
   }
 
   update(delta: number, heightMap: HeightMap): void {
+    if (this.shakeIntensity > 0) {
+      this.shakeIntensity -= delta * 15.0; // Decay shakeIntensity
+      if (this.shakeIntensity < 0) {
+        this.shakeIntensity = 0;
+      }
+    }
+
     if (!this.alive) {
       // Check for respawn input
       if (this.input.state.interact || this.input.state.reload) {
@@ -174,6 +182,12 @@ export class Player {
       this.camera.position.copy(targetCamPos);
       this.camera.lookAt(vehicle.mesh.position);
       
+      if (this.shakeIntensity > 0) {
+        this.camera.position.x += (Math.random() - 0.5) * this.shakeIntensity;
+        this.camera.position.y += (Math.random() - 0.5) * this.shakeIntensity;
+        this.camera.position.z += (Math.random() - 0.5) * this.shakeIntensity;
+      }
+
       this.input.resetMouse();
       return;
     }
@@ -297,5 +311,11 @@ export class Player {
       camY + Math.sin(this.pitch),
       this.mesh.position.z - Math.cos(this.yaw) * Math.cos(this.pitch)
     );
+
+    if (this.shakeIntensity > 0) {
+      this.camera.position.x += (Math.random() - 0.5) * this.shakeIntensity;
+      this.camera.position.y += (Math.random() - 0.5) * this.shakeIntensity;
+      this.camera.position.z += (Math.random() - 0.5) * this.shakeIntensity;
+    }
   }
 }

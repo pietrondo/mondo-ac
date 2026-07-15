@@ -30,6 +30,9 @@ export class Monster {
   private healthBarFg: THREE.Mesh;
   private propeller?: THREE.Group;
 
+  private hitFlashTimer = 0;
+  private originalEmissiveValues = new Map<THREE.MeshStandardMaterial, { color: THREE.Color, intensity: number }>();
+
   constructor(position: THREE.Vector3, options: MonsterOptions = {}) {
     this.variant = options.variant ?? chooseMonsterVariant(position);
     this.onAttack = options.onAttack;
@@ -238,10 +241,44 @@ export class Monster {
       (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
     }
 
+    // Set hit flash timer and cache original materials' emissive values
+    this.hitFlashTimer = 0.15;
+    this.mesh.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        let isHB = false;
+        child.traverseAncestors((ancestor) => {
+          if (ancestor === this.healthBarGroup) {
+            isHB = true;
+          }
+        });
+        if (!isHB) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          for (const mat of mats) {
+            if (mat instanceof THREE.MeshStandardMaterial) {
+              if (!this.originalEmissiveValues.has(mat)) {
+                this.originalEmissiveValues.set(mat, {
+                  color: mat.emissive.clone(),
+                  intensity: mat.emissiveIntensity
+                });
+              }
+            }
+          }
+        }
+      }
+    });
+
     if (this.hp <= 0) {
       this.alive = false;
       this.mesh.visible = false;
       this.healthBarGroup.visible = false;
+
+      // Restore original emissive values if dying so we don't leave materials in a weird state
+      for (const [mat, original] of this.originalEmissiveValues.entries()) {
+        mat.emissive.copy(original.color);
+        mat.emissiveIntensity = original.intensity;
+      }
+      this.hitFlashTimer = 0;
+
       if (this.onDeath) {
         this.onDeath();
       }
@@ -307,6 +344,23 @@ export class Monster {
 
   update(delta: number, heightMap: HeightMap, playerPos: THREE.Vector3, camera?: THREE.Camera): void {
     if (!this.alive) return;
+
+    if (this.hitFlashTimer > 0) {
+      this.hitFlashTimer -= delta;
+      if (this.hitFlashTimer <= 0) {
+        this.hitFlashTimer = 0;
+        for (const [mat, original] of this.originalEmissiveValues.entries()) {
+          mat.emissive.copy(original.color);
+          mat.emissiveIntensity = original.intensity;
+        }
+      } else {
+        const flashColor = Math.floor(this.hitFlashTimer * 30) % 2 === 0 ? new THREE.Color(0xff0000) : new THREE.Color(0xffffff);
+        for (const [mat] of this.originalEmissiveValues.entries()) {
+          mat.emissive.copy(flashColor);
+          mat.emissiveIntensity = 4.0;
+        }
+      }
+    }
 
     if (this.attackCooldown > 0) {
       this.attackCooldown -= delta;

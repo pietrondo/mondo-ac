@@ -90,4 +90,37 @@ describe('ParticlePool', () => {
     expect(spark.active).toBe(false);
     expect(spark.mesh.visible).toBe(false);
   });
+
+  it('spawns and updates weather particles (snow, sand, leaf) without bouncing', () => {
+    const scene = new THREE.Scene();
+    const pool = new ParticlePool(scene, 10);
+    const heightMap = new HeightMap(12345);
+
+    const snow = pool.spawn('snow', new THREE.Vector3(0, 10, 0), new THREE.Vector3(0, 0, 0), 2.0);
+    const sand = pool.spawn('sand', new THREE.Vector3(0, 10, 0), new THREE.Vector3(0, 0, 0), 2.0);
+    const leaf = pool.spawn('leaf', new THREE.Vector3(0, 10, 0), new THREE.Vector3(0, 0, 0), 2.0);
+
+    expect(snow.active).toBe(true);
+    expect(sand.active).toBe(true);
+    expect(leaf.active).toBe(true);
+
+    pool.update(0.1, heightMap);
+
+    expect(snow.velocity.x).not.toBe(0);
+    expect(leaf.velocity.x).not.toBe(0);
+    expect(sand.velocity.x).toBe(12.0);
+
+    const hx = (0 / WORLD_SCALE) + 128;
+    const hz = (0 / WORLD_SCALE) + 128;
+    const groundY = heightMap.getInterpolated(hx, hz);
+
+    snow.position.y = groundY - 1.0;
+    sand.position.y = groundY - 1.0;
+    leaf.position.y = groundY - 1.0;
+
+    pool.update(0.1, heightMap);
+    expect(snow.active).toBe(false);
+    expect(sand.active).toBe(false);
+    expect(leaf.active).toBe(false);
+  });
 });

@@ -13,11 +13,32 @@ export class WeaponView {
   private knifeModel!: THREE.Group;
   private activeType: 'rifle' | 'shotgun' | 'melee' = 'rifle';
 
+  private readonly ammoCanvas!: HTMLCanvasElement;
+  private readonly ammoContext!: CanvasRenderingContext2D;
+  private readonly ammoTexture!: THREE.CanvasTexture;
+  private lastDrawnAmmo: number | null = null;
+
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
     this.group = new THREE.Group();
     this.group.position.set(0.38, -0.42, -0.95);
     this.group.rotation.set(-0.08, 0.28, -0.05);
+
+    if (typeof document !== 'undefined') {
+      this.ammoCanvas = document.createElement('canvas');
+      this.ammoCanvas.width = 128;
+      this.ammoCanvas.height = 64;
+      const ctx = this.ammoCanvas.getContext('2d');
+      if (ctx) {
+        this.ammoContext = ctx;
+      }
+      this.ammoTexture = new THREE.CanvasTexture(this.ammoCanvas);
+      this.updateAmmo(30); // Draw initial ammo value
+    } else {
+      this.ammoCanvas = null as any;
+      this.ammoContext = null as any;
+      this.ammoTexture = new THREE.Texture() as any;
+    }
 
     this.createRifleModel();
     this.createShotgunModel();
@@ -100,6 +121,18 @@ export class WeaponView {
     stock.position.set(0.0, -0.05, 0.45);
     this.rifleModel.add(stock);
 
+    // Neon cyan ammo counter screen mesh
+    const ammoGeo = new THREE.PlaneGeometry(0.12, 0.06);
+    const ammoMat = new THREE.MeshBasicMaterial({
+      map: this.ammoTexture,
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const rifleAmmoMesh = new THREE.Mesh(ammoGeo, ammoMat);
+    rifleAmmoMesh.position.set(0.0, 0.14, -0.02);
+    rifleAmmoMesh.rotation.x = -0.15;
+    this.rifleModel.add(rifleAmmoMesh);
+
     this.group.add(this.rifleModel);
   }
 
@@ -156,6 +189,18 @@ export class WeaponView {
     );
     stock.position.set(0.0, -0.08, 0.35);
     this.shotgunModel.add(stock);
+
+    // Neon cyan ammo counter screen mesh
+    const ammoGeo = new THREE.PlaneGeometry(0.12, 0.06);
+    const ammoMat = new THREE.MeshBasicMaterial({
+      map: this.ammoTexture,
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const shotgunAmmoMesh = new THREE.Mesh(ammoGeo, ammoMat);
+    shotgunAmmoMesh.position.set(0.0, 0.16, -0.02);
+    shotgunAmmoMesh.rotation.x = -0.15;
+    this.shotgunModel.add(shotgunAmmoMesh);
 
     this.group.add(this.shotgunModel);
   }
@@ -287,5 +332,32 @@ export class WeaponView {
 
   isFlashVisible(): boolean {
     return this.muzzleFlash.visible;
+  }
+
+  updateAmmo(ammo: number): void {
+    if (this.lastDrawnAmmo === ammo) return;
+    this.lastDrawnAmmo = ammo;
+
+    const ctx = this.ammoContext;
+    if (!ctx) return;
+    const canvas = this.ammoCanvas;
+
+    // Background
+    ctx.fillStyle = 'rgba(10, 15, 20, 0.85)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Neon cyan border
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+
+    // Neon cyan text
+    ctx.fillStyle = '#00ffff';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(ammo), canvas.width / 2, canvas.height / 2);
+
+    this.ammoTexture.needsUpdate = true;
   }
 }

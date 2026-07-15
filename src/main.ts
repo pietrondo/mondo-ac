@@ -28,6 +28,7 @@ import { selectMonsterSpawns } from './world/spawnSelection';
 import { chooseMonsterVariant } from './world/monsterVariant';
 import { SoundManager } from './utils/sound';
 import { ParticlePool } from './combat/particles';
+import { CloudManager } from './world/clouds';
 
 const container = document.getElementById('canvas-container');
 if (!container) throw new Error('No container');
@@ -143,6 +144,7 @@ player.setColliders(features.structureColliders, decorations.colliders);
 const weaponView = new WeaponView(camera);
 const shotTracer = new ShotTracer(scene);
 const particlePool = new ParticlePool(scene);
+const cloudManager = new CloudManager(scene);
 const powerUpRuntime = createPowerUpRuntime(player.speed, 25);
 // Initialize weapons list (rifle, shotgun, melee knife)
 const weapons = [
@@ -190,6 +192,8 @@ const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) =
       soundManager.playMelee();
     } else {
       soundManager.playShot();
+      // Set camera shake intensity (higher for shotgun)
+      player.shakeIntensity = Math.max(player.shakeIntensity, activeWeapon.type === 'shotgun' ? 0.8 : 0.4);
     }
   }
 
@@ -532,6 +536,44 @@ function animate(): void {
     targets: monsters.filter((monster) => monster.isAlive()).map((monster) => monster.mesh),
   });
   weaponView.update(delta);
+  if (activeWeapon.type === 'rifle' || activeWeapon.type === 'shotgun') {
+    weaponView.updateAmmo(activeWeapon.magazineAmmo);
+  }
+
+  cloudManager.update(delta);
+
+  // Spawn ambient weather particles mapped to the player's active biome
+  const pPos = player.mesh.position;
+  const px = (pPos.x / WORLD_SCALE) + WORLD_SIZE / 2;
+  const pz = (pPos.z / WORLD_SCALE) + WORLD_SIZE / 2;
+  const activeBiome = biomeMap.getBiome(px, pz);
+
+  let weatherType: 'snow' | 'sand' | 'leaf' | null = null;
+  if (activeBiome === BiomeType.SNOW) {
+    weatherType = 'snow';
+  } else if (activeBiome === BiomeType.DESERT) {
+    weatherType = 'sand';
+  } else if (activeBiome === BiomeType.FOREST) {
+    weatherType = 'leaf';
+  }
+
+  if (weatherType) {
+    const spawnRate = 35; // particles per second
+    const spawnCount = Math.floor(delta * spawnRate) + (Math.random() < (delta * spawnRate) % 1 ? 1 : 0);
+    for (let i = 0; i < spawnCount; i++) {
+      const rx = (Math.random() - 0.5) * 50;
+      const rz = (Math.random() - 0.5) * 50;
+      const ry = 12 + Math.random() * 15;
+      const spawnPos = pPos.clone().add(new THREE.Vector3(rx, ry, rz));
+      const spawnVel = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.5,
+        -2.0 - Math.random() * 2.0,
+        (Math.random() - 0.5) * 0.5
+      );
+      particlePool.spawn(weatherType, spawnPos, spawnVel, 3.5 + Math.random() * 2.0);
+    }
+  }
+
   shotTracer.update(delta);
   particlePool.update(delta, heightMap);
   const projHit = enemyProjectileSystem.update(delta, heightMap, player.mesh.position, 0.5);
@@ -542,8 +584,6 @@ function animate(): void {
   }
 
   // Update ambient audio based on current player biome
-  const px = (player.mesh.position.x / WORLD_SCALE) + WORLD_SIZE / 2;
-  const pz = (player.mesh.position.z / WORLD_SCALE) + WORLD_SIZE / 2;
   soundManager.updateAmbient(biomeMap.getBiome(px, pz));
 
   // Update HUD vehicle prompts based on proximity

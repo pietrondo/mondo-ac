@@ -4,7 +4,7 @@ import { WORLD_SCALE } from '../config';
 
 export interface Particle {
   mesh: THREE.Mesh;
-  type: 'spark' | 'blood' | 'shell';
+  type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf';
   active: boolean;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
@@ -21,13 +21,16 @@ export class ParticlePool {
   private sparkGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
   private bloodGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
   private shellGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.06, 6);
+  private snowGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+  private sandGeo = new THREE.BoxGeometry(0.03, 0.03, 0.03);
+  private leafGeo = new THREE.BoxGeometry(0.08, 0.02, 0.08);
 
   constructor(scene: THREE.Scene, maxCapacity: number = 300) {
     this.scene = scene;
     this.maxCapacity = maxCapacity;
   }
 
-  private createMesh(type: 'spark' | 'blood' | 'shell'): THREE.Mesh {
+  private createMesh(type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf'): THREE.Mesh {
     let geo: THREE.BufferGeometry;
     let mat: THREE.Material;
 
@@ -45,12 +48,33 @@ export class ParticlePool {
         transparent: true,
         opacity: 1.0,
       });
-    } else {
+    } else if (type === 'shell') {
       geo = this.shellGeo;
       mat = new THREE.MeshStandardMaterial({
         color: 0xd4af37, // brass/gold
         metalness: 0.8,
         roughness: 0.2,
+        transparent: true,
+        opacity: 1.0,
+      });
+    } else if (type === 'snow') {
+      geo = this.snowGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 1.0,
+      });
+    } else if (type === 'sand') {
+      geo = this.sandGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0xdfc27d,
+        transparent: true,
+        opacity: 1.0,
+      });
+    } else {
+      geo = this.leafGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0x2e8b57,
         transparent: true,
         opacity: 1.0,
       });
@@ -63,7 +87,7 @@ export class ParticlePool {
   }
 
   spawn(
-    type: 'spark' | 'blood' | 'shell',
+    type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf',
     position: THREE.Vector3,
     velocity: THREE.Vector3,
     maxLife: number = 1.0
@@ -118,9 +142,18 @@ export class ParticlePool {
           } else if (type === 'blood') {
             p.mesh.geometry = this.bloodGeo;
             p.mesh.material = new THREE.MeshBasicMaterial({ color: 0x990000, transparent: true, opacity: 1.0 });
-          } else {
+          } else if (type === 'shell') {
             p.mesh.geometry = this.shellGeo;
             p.mesh.material = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.2, transparent: true, opacity: 1.0 });
+          } else if (type === 'snow') {
+            p.mesh.geometry = this.snowGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1.0 });
+          } else if (type === 'sand') {
+            p.mesh.geometry = this.sandGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0xdfc27d, transparent: true, opacity: 1.0 });
+          } else if (type === 'leaf') {
+            p.mesh.geometry = this.leafGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0x2e8b57, transparent: true, opacity: 1.0 });
           }
         }
       }
@@ -138,6 +171,13 @@ export class ParticlePool {
           (Math.random() - 0.5) * 15,
           (Math.random() - 0.5) * 15,
           (Math.random() - 0.5) * 15
+        );
+        p.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+      } else if (type === 'leaf') {
+        p.rotationVelocity.set(
+          (Math.random() - 0.5) * 5,
+          (Math.random() - 0.5) * 5,
+          (Math.random() - 0.5) * 5
         );
         p.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
       } else {
@@ -174,6 +214,31 @@ export class ParticlePool {
         pGravity = -4.0;
       } else if (p.type === 'blood') {
         pGravity = -6.0;
+      } else if (p.type === 'snow') {
+        pGravity = -0.8;
+      } else if (p.type === 'sand') {
+        pGravity = -0.3;
+      } else if (p.type === 'leaf') {
+        pGravity = -1.0;
+      }
+
+      // Wind & drift behavior updates applied directly to velocity/position
+      if (p.type === 'snow') {
+        // snow: falls + drifts as a sine wave
+        p.velocity.x = Math.sin((p.maxLife - p.life) * 3.0) * 1.5;
+        p.velocity.z = Math.cos((p.maxLife - p.life) * 1.5) * 0.5;
+      } else if (p.type === 'sand') {
+        // sand: horizontal wind drift (constant/strong horizontal movement)
+        p.velocity.x = 12.0;
+        p.velocity.z = 2.0;
+      } else if (p.type === 'leaf') {
+        // leaf: falls and wobbles
+        p.velocity.x = Math.sin((p.maxLife - p.life) * 5.0) * 1.8;
+        p.rotationVelocity.set(
+          Math.sin((p.maxLife - p.life) * 4.0) * 3.0,
+          Math.cos((p.maxLife - p.life) * 2.0) * 3.0,
+          Math.sin((p.maxLife - p.life) * 3.0) * 3.0
+        );
       }
 
       p.velocity.y += pGravity * delta;
@@ -184,6 +249,13 @@ export class ParticlePool {
       const groundY = heightMap.getInterpolated(hx, hz);
 
       if (p.position.y <= groundY) {
+        // Weather particles bypass ground bounces/stopping and just deactivate
+        if (p.type === 'snow' || p.type === 'sand' || p.type === 'leaf') {
+          p.active = false;
+          p.mesh.visible = false;
+          continue;
+        }
+
         p.position.y = groundY;
         if (p.type === 'shell') {
           if (p.velocity.y < 0) {
@@ -205,14 +277,14 @@ export class ParticlePool {
 
       p.mesh.position.copy(p.position);
 
-      if (p.type === 'shell') {
+      if (p.type === 'shell' || p.type === 'leaf') {
         p.mesh.rotateX(p.rotationVelocity.x * delta);
         p.mesh.rotateY(p.rotationVelocity.y * delta);
         p.mesh.rotateZ(p.rotationVelocity.z * delta);
       }
 
       const ratio = Math.max(0, p.life / p.maxLife);
-      if (p.type === 'spark' || p.type === 'blood') {
+      if (p.type === 'spark' || p.type === 'blood' || p.type === 'snow' || p.type === 'sand' || p.type === 'leaf') {
         p.mesh.scale.setScalar(ratio);
       }
 

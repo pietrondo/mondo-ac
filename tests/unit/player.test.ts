@@ -203,3 +203,24 @@ describe('Player lifecycle reset', () => {
   });
 });
 
+describe('Player screen shake', () => {
+  it('decays shakeIntensity over time and adds random offset to camera position', () => {
+    const { player, heightMap } = createPlayer();
+    
+    player.shakeIntensity = 2.0;
+
+    player.update(0.1, heightMap);
+    expect(player.shakeIntensity).toBeLessThan(2.0);
+
+    const basePlayerX = player.mesh.position.x;
+    expect(player.camera.position.x).not.toBe(basePlayerX);
+    
+    // Decay completely
+    player.update(1.0, heightMap);
+    expect(player.shakeIntensity).toBe(0);
+    
+    player.update(0.0, heightMap);
+    expect(player.camera.position.x).toBe(player.mesh.position.x);
+  });
+});
+
