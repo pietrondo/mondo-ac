@@ -4,7 +4,7 @@ import { WORLD_SCALE } from '../config';
 
 export interface Particle {
   mesh: THREE.Mesh;
-  type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf';
+  type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust';
   active: boolean;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
@@ -24,13 +24,15 @@ export class ParticlePool {
   private snowGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
   private sandGeo = new THREE.BoxGeometry(0.03, 0.03, 0.03);
   private leafGeo = new THREE.BoxGeometry(0.08, 0.02, 0.08);
+  private smokeGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+  private dustGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
 
   constructor(scene: THREE.Scene, maxCapacity: number = 300) {
     this.scene = scene;
     this.maxCapacity = maxCapacity;
   }
 
-  private createMesh(type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf'): THREE.Mesh {
+  private createMesh(type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust'): THREE.Mesh {
     let geo: THREE.BufferGeometry;
     let mat: THREE.Material;
 
@@ -71,12 +73,26 @@ export class ParticlePool {
         transparent: true,
         opacity: 1.0,
       });
-    } else {
+    } else if (type === 'leaf') {
       geo = this.leafGeo;
       mat = new THREE.MeshBasicMaterial({
         color: 0x2e8b57,
         transparent: true,
         opacity: 1.0,
+      });
+    } else if (type === 'smoke') {
+      geo = this.smokeGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0x888888,
+        transparent: true,
+        opacity: 0.5,
+      });
+    } else {
+      geo = this.dustGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0xC4A484,
+        transparent: true,
+        opacity: 0.6,
       });
     }
 
@@ -87,7 +103,7 @@ export class ParticlePool {
   }
 
   spawn(
-    type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf',
+    type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust',
     position: THREE.Vector3,
     velocity: THREE.Vector3,
     maxLife: number = 1.0
@@ -154,6 +170,12 @@ export class ParticlePool {
           } else if (type === 'leaf') {
             p.mesh.geometry = this.leafGeo;
             p.mesh.material = new THREE.MeshBasicMaterial({ color: 0x2e8b57, transparent: true, opacity: 1.0 });
+          } else if (type === 'smoke') {
+            p.mesh.geometry = this.smokeGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5 });
+          } else if (type === 'dust') {
+            p.mesh.geometry = this.dustGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0xC4A484, transparent: true, opacity: 0.6 });
           }
         }
       }
@@ -220,6 +242,10 @@ export class ParticlePool {
         pGravity = -0.3;
       } else if (p.type === 'leaf') {
         pGravity = -1.0;
+      } else if (p.type === 'smoke') {
+        pGravity = 1.2;
+      } else if (p.type === 'dust') {
+        pGravity = -0.4;
       }
 
       // Wind & drift behavior updates applied directly to velocity/position
@@ -239,6 +265,12 @@ export class ParticlePool {
           Math.cos((p.maxLife - p.life) * 2.0) * 3.0,
           Math.sin((p.maxLife - p.life) * 3.0) * 3.0
         );
+      } else if (p.type === 'smoke') {
+        p.velocity.x = Math.sin((p.maxLife - p.life) * 2.0) * 0.4;
+        p.velocity.z = Math.cos((p.maxLife - p.life) * 1.0) * 0.4;
+      } else if (p.type === 'dust') {
+        p.velocity.x = Math.sin((p.maxLife - p.life) * 4.0) * 0.3;
+        p.velocity.z = Math.cos((p.maxLife - p.life) * 3.0) * 0.3;
       }
 
       p.velocity.y += pGravity * delta;
@@ -250,7 +282,7 @@ export class ParticlePool {
 
       if (p.position.y <= groundY) {
         // Weather particles bypass ground bounces/stopping and just deactivate
-        if (p.type === 'snow' || p.type === 'sand' || p.type === 'leaf') {
+        if (p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust') {
           p.active = false;
           p.mesh.visible = false;
           continue;
@@ -284,7 +316,7 @@ export class ParticlePool {
       }
 
       const ratio = Math.max(0, p.life / p.maxLife);
-      if (p.type === 'spark' || p.type === 'blood' || p.type === 'snow' || p.type === 'sand' || p.type === 'leaf') {
+      if (p.type === 'spark' || p.type === 'blood' || p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust') {
         p.mesh.scale.setScalar(ratio);
       }
 

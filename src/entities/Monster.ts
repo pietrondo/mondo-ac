@@ -8,6 +8,7 @@ export interface MonsterOptions {
   variant?: MonsterVariant;
   onAttack?: () => void;
   onDeath?: () => void;
+  onFootstep?: (position: THREE.Vector3) => void;
 }
 
 export class Monster {
@@ -25,30 +26,35 @@ export class Monster {
   private projectileSystem: EnemyProjectileSystem | null = null;
   private onAttack?: () => void;
   private onDeath?: () => void;
+  private onFootstep?: (position: THREE.Vector3) => void;
 
   private healthBarGroup: THREE.Group;
   private healthBarFg: THREE.Mesh;
   private propeller?: THREE.Group;
+  private body: THREE.Mesh;
 
   private hitFlashTimer = 0;
   private originalEmissiveValues = new Map<THREE.MeshStandardMaterial, { color: THREE.Color, intensity: number }>();
+  private animationTime = 0;
+  private footstepAccumulator = 0;
 
   constructor(position: THREE.Vector3, options: MonsterOptions = {}) {
     this.variant = options.variant ?? chooseMonsterVariant(position);
     this.onAttack = options.onAttack;
     this.onDeath = options.onDeath;
+    this.onFootstep = options.onFootstep;
     const profile = getMonsterVariantProfile(this.variant);
     this.maxHp = profile.hp;
     this.moveSpeed = profile.speed;
     this.hp = this.maxHp;
     this.mesh = new THREE.Group();
 
-    const body = new THREE.Mesh(
+    this.body = new THREE.Mesh(
       new THREE.BoxGeometry(profile.bodyWidth, profile.bodyHeight, profile.bodyDepth),
       new THREE.MeshStandardMaterial({ color: profile.bodyColor, flatShading: true })
     );
-    body.position.y = profile.bodyHeight * 0.55;
-    this.mesh.add(body);
+    this.body.position.y = profile.bodyHeight * 0.55;
+    this.mesh.add(this.body);
 
     // Glowing emissive eyes
     const eyeGeo = new THREE.SphereGeometry(this.variant === 'brute' ? 0.16 : 0.12, 8, 8);
@@ -345,6 +351,18 @@ export class Monster {
   update(delta: number, heightMap: HeightMap, playerPos: THREE.Vector3, camera?: THREE.Camera): void {
     if (!this.alive) return;
 
+    this.animationTime += delta;
+    const profile = getMonsterVariantProfile(this.variant);
+    
+    // Sine-wave breathing/bobbing
+    const breathSpeed = 3.0;
+    const breathScaleY = 1.0 + Math.sin(this.animationTime * breathSpeed) * 0.04;
+    const breathScaleXZ = 1.0 - Math.sin(this.animationTime * breathSpeed) * 0.015;
+    this.body.scale.set(breathScaleXZ, breathScaleY, breathScaleXZ);
+
+    const bob = Math.sin(this.animationTime * breathSpeed) * 0.04;
+    this.body.position.y = (profile.bodyHeight * 0.55) + bob;
+
     if (this.hitFlashTimer > 0) {
       this.hitFlashTimer -= delta;
       if (this.hitFlashTimer <= 0) {
@@ -418,8 +436,23 @@ export class Monster {
 
     dir.normalize();
     const moveSpeed = this.state === 'chase' ? this.moveSpeed * 1.5 : this.moveSpeed;
-    this.mesh.position.x += dir.x * moveSpeed * delta;
-    this.mesh.position.z += dir.z * moveSpeed * delta;
+    const dx = dir.x * moveSpeed * delta;
+    const dz = dir.z * moveSpeed * delta;
+    this.mesh.position.x += dx;
+    this.mesh.position.z += dz;
+
+    // Track footstep intervals for heavy variants (brute, golem)
+    if (this.variant === 'brute' || this.variant === 'golem') {
+      const stepDist = Math.sqrt(dx * dx + dz * dz);
+      this.footstepAccumulator += stepDist;
+      const stepInterval = this.variant === 'golem' ? 4.0 : 3.0;
+      if (this.footstepAccumulator >= stepInterval) {
+        this.footstepAccumulator -= stepInterval;
+        if (this.onFootstep) {
+          this.onFootstep(this.mesh.position);
+        }
+      }
+    }
 
     // Update height
     const hx = (this.mesh.position.x / WORLD_SCALE) + 128;

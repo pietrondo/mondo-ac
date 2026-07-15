@@ -225,10 +225,16 @@ export function placeFeatures(
 
   structures.traverse((child) => {
     if (child instanceof THREE.Mesh) {
-      child.castShadow = true;
-      child.receiveShadow = true;
-      child.matrixAutoUpdate = false;
-      child.updateMatrix();
+      if (child.name === 'spotlightBeam') {
+        child.castShadow = false;
+        child.receiveShadow = false;
+        child.matrixAutoUpdate = true;
+      } else {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        child.matrixAutoUpdate = false;
+        child.updateMatrix();
+      }
     }
   });
 

@@ -137,6 +137,16 @@ scene.add(decorations.group);
 const features = placeFeatures(heightMap, biomeMap);
 scene.add(features.structures);
 
+const lighthouses: THREE.Group[] = [];
+const houses: THREE.Group[] = [];
+features.structures.traverse((child) => {
+  if (child.name === 'lighthouse') {
+    lighthouses.push(child as THREE.Group);
+  } else if (child.name === 'house') {
+    houses.push(child as THREE.Group);
+  }
+});
+
 // Input & Player
 const input = new InputManager();
 const player = new Player(camera, input);
@@ -337,6 +347,19 @@ monsterSpawns.forEach((pos, index) => {
       else if (monster.variant === 'crawler') scoreValue = 20;
       
       hud.addScore(scoreValue);
+    },
+    onFootstep: (pos) => {
+      const count = 3 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.5 + Math.random() * 1.0;
+        const vel = new THREE.Vector3(
+          Math.cos(angle) * speed,
+          0.5 + Math.random() * 0.8,
+          Math.sin(angle) * speed
+        );
+        particlePool.spawn('dust', pos.clone(), vel, 0.6 + Math.random() * 0.4);
+      }
     }
   });
   monster.mesh.userData.damageable = monster;
@@ -576,6 +599,32 @@ function animate(): void {
 
   shotTracer.update(delta);
   particlePool.update(delta, heightMap);
+
+  // Update tumbleweeds
+  if (decorations.tumbleweedManager) {
+    decorations.tumbleweedManager.update(delta, heightMap);
+  }
+
+  // Rotate lighthouse spotlight beams
+  for (const lh of lighthouses) {
+    if (lh.userData.spotlightPivot) {
+      lh.userData.spotlightPivot.rotation.y += delta * 0.8;
+    }
+  }
+
+  // Spawn chimney smoke
+  for (const house of houses) {
+    if (house.userData.chimneyOffset && Math.random() < delta * 2.0) {
+      const tipPos = house.userData.chimneyOffset.clone().applyMatrix4(house.matrixWorld);
+      const vel = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.2,
+        0.8 + Math.random() * 0.5,
+        (Math.random() - 0.5) * 0.2
+      );
+      particlePool.spawn('smoke', tipPos, vel, 2.0 + Math.random() * 1.0);
+    }
+  }
+
   const projHit = enemyProjectileSystem.update(delta, heightMap, player.mesh.position, 0.5);
   if (projHit.hit) {
     player.takeDamage(projHit.damage);

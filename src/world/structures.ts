@@ -8,6 +8,7 @@ export interface Collider {
 
 export function createHouse(): THREE.Group {
   const group = new THREE.Group();
+  group.name = 'house';
 
   // Walls
   const walls = new THREE.Mesh(
@@ -42,6 +43,65 @@ export function createHouse(): THREE.Group {
   foundation.position.y = -2;
   group.add(foundation);
 
+  // Chimney box
+  const chimney = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 1.2, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x705d55, flatShading: true })
+  );
+  chimney.position.set(0.8, 3.7, -0.8);
+  group.add(chimney);
+
+  // Window helper function
+  function createArchedWindow(): THREE.Group {
+    const windowGroup = new THREE.Group();
+    const windowMat = new THREE.MeshStandardMaterial({
+      color: 0xFFEE58,
+      emissive: 0xFFEE58,
+      emissiveIntensity: 0.8,
+      flatShading: true
+    });
+    
+    // Bottom rectangular part
+    const rect = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.1), windowMat);
+    rect.position.y = 0.25;
+    windowGroup.add(rect);
+
+    // Top arch part: semi-cylinder
+    const arch = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.3, 0.1, 8, 1, false, 0, Math.PI),
+      windowMat
+    );
+    arch.rotation.x = Math.PI / 2;
+    arch.rotation.z = Math.PI / 2;
+    arch.position.y = 0.5;
+    windowGroup.add(arch);
+
+    return windowGroup;
+  }
+
+  // Left window
+  const wLeft = createArchedWindow();
+  wLeft.position.set(-1.51, 1.0, 0);
+  wLeft.rotation.y = -Math.PI / 2;
+  group.add(wLeft);
+
+  // Right window
+  const wRight = createArchedWindow();
+  wRight.position.set(1.51, 1.0, 0);
+  wRight.rotation.y = Math.PI / 2;
+  group.add(wRight);
+
+  // Back window
+  const wBack = createArchedWindow();
+  wBack.position.set(0, 1.0, -1.51);
+  wBack.rotation.y = Math.PI;
+  group.add(wBack);
+
+  // Cache chimney offset (local space) in userData
+  group.userData = {
+    chimneyOffset: new THREE.Vector3(0.8, 4.3, -0.8)
+  };
+
   // Collision box for house starting at y = -4
   const colliderBox = new THREE.Box3(
     new THREE.Vector3(-1.5, -4, -1.5),
@@ -54,6 +114,7 @@ export function createHouse(): THREE.Group {
 
 export function createTower(): THREE.Group {
   const group = new THREE.Group();
+  group.name = 'tower';
 
   // Main tower
   const tower = new THREE.Mesh(
@@ -86,6 +147,44 @@ export function createTower(): THREE.Group {
   foundation.position.y = -2;
   group.add(foundation);
 
+  // Stone reliefs on towers
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x616161, flatShading: true });
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0xFFEE58,
+    emissive: 0xFFEE58,
+    emissiveIntensity: 0.8,
+    flatShading: true
+  });
+
+  const numReliefs = 6;
+  for (let i = 0; i < numReliefs; i++) {
+    const h = 1.5 + rng.next() * 5.5; // heights between 1.5 and 7
+    const theta = rng.next() * Math.PI * 2;
+    const r = 1.8 - (h / 8) * 0.3;
+    const stone = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 0.2, 0.1),
+      stoneMat
+    );
+    stone.position.set(Math.cos(theta) * r, h, Math.sin(theta) * r);
+    stone.rotation.y = -theta;
+    group.add(stone);
+  }
+
+  // Windows on towers
+  const numTowerWindows = 3;
+  for (let i = 0; i < numTowerWindows; i++) {
+    const h = 2.0 + rng.next() * 4.5; // heights between 2 and 6.5
+    const theta = rng.next() * Math.PI * 2;
+    const r = 1.8 - (h / 8) * 0.3;
+    const win = new THREE.Mesh(
+      new THREE.BoxGeometry(0.15, 0.4, 0.08),
+      windowMat
+    );
+    win.position.set(Math.cos(theta) * r, h, Math.sin(theta) * r);
+    win.rotation.y = -theta;
+    group.add(win);
+  }
+
   // Collision box for tower starting at y = -4
   const colliderBox = new THREE.Box3(
     new THREE.Vector3(-1.8, -4, -1.8),
@@ -98,6 +197,7 @@ export function createTower(): THREE.Group {
 
 export function createCastle(): THREE.Group {
   const group = new THREE.Group();
+  group.name = 'castle';
 
   // 4 Corner towers
   const positions = [
@@ -148,6 +248,77 @@ export function createCastle(): THREE.Group {
   foundation.position.y = -2;
   group.add(foundation);
 
+  // Add random relief stones on the walls
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x616161, flatShading: true });
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0xFFEE58,
+    emissive: 0xFFEE58,
+    emissiveIntensity: 0.8,
+    flatShading: true
+  });
+
+  // North wall: box is centered at (0, 2.5, -6), spans x in [-5, 5], y in [0, 5]. We want to place on outer face z = -6.51.
+  for (let i = 0; i < 3; i++) {
+    const rx = (rng.next() - 0.5) * 8; // x in [-4, 4]
+    const ry = 1 + rng.next() * 3; // y in [1, 4]
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.1), stoneMat);
+    stone.position.set(rx, ry, -6.51);
+    group.add(stone);
+  }
+  // South wall outer face: z = 6.51
+  for (let i = 0; i < 3; i++) {
+    const rx = (rng.next() - 0.5) * 8;
+    const ry = 1 + rng.next() * 3;
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.1), stoneMat);
+    stone.position.set(rx, ry, 6.51);
+    group.add(stone);
+  }
+  // East wall outer face: x = 6.51, spans z in [-5, 5]
+  for (let i = 0; i < 3; i++) {
+    const rz = (rng.next() - 0.5) * 8;
+    const ry = 1 + rng.next() * 3;
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 0.4), stoneMat);
+    stone.position.set(6.51, ry, rz);
+    group.add(stone);
+  }
+  // West wall outer face: x = -6.51
+  for (let i = 0; i < 3; i++) {
+    const rz = (rng.next() - 0.5) * 8;
+    const ry = 1 + rng.next() * 3;
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 0.4), stoneMat);
+    stone.position.set(-6.51, ry, rz);
+    group.add(stone);
+  }
+
+  // Lit window panels on castle walls
+  const nWin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.1), windowMat);
+  nWin.position.set(-2, 3, -6.51);
+  group.add(nWin);
+  const nWin2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.1), windowMat);
+  nWin2.position.set(2, 3, -6.51);
+  group.add(nWin2);
+
+  const sWin = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.1), windowMat);
+  sWin.position.set(-2, 3, 6.51);
+  group.add(sWin);
+  const sWin2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.1), windowMat);
+  sWin2.position.set(2, 3, 6.51);
+  group.add(sWin2);
+
+  const eWin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.2), windowMat);
+  eWin.position.set(6.51, 3, -2);
+  group.add(eWin);
+  const eWin2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.2), windowMat);
+  eWin2.position.set(6.51, 3, 2);
+  group.add(eWin2);
+
+  const wWin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.2), windowMat);
+  wWin.position.set(-6.51, 3, -2);
+  group.add(wWin);
+  const wWin2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.2), windowMat);
+  wWin2.position.set(-6.51, 3, 2);
+  group.add(wWin2);
+
   // Collision box for castle starting at y = -4
   const colliderBox = new THREE.Box3(
     new THREE.Vector3(-7, -4, -7),
@@ -160,6 +331,7 @@ export function createCastle(): THREE.Group {
 
 export function createRuin(): THREE.Group {
   const group = new THREE.Group();
+  group.name = 'ruin';
   const debrisCount = Math.floor(3 + rng.next() * 5);
 
   for (let i = 0; i < debrisCount; i++) {
@@ -210,6 +382,7 @@ export function createRuin(): THREE.Group {
 
 export function createPyramid(): THREE.Group {
   const group = new THREE.Group();
+  group.name = 'pyramid';
   const sandstoneMat = new THREE.MeshStandardMaterial({ color: 0xDEC29B, flatShading: true });
 
   // Layer 1: 8x2x8 (spans y = 0 to 2)
@@ -253,6 +426,7 @@ export function createPyramid(): THREE.Group {
 
 export function createLighthouse(): THREE.Group {
   const group = new THREE.Group();
+  group.name = 'lighthouse';
 
   // Cylindrical foundation (y = -4 to 2, top radius 2, bottom radius 2, height 6)
   const foundation = new THREE.Mesh(
@@ -316,6 +490,34 @@ export function createLighthouse(): THREE.Group {
   const light = new THREE.PointLight(0xFFFF00, 3, 20);
   light.position.y = 13.2;
   group.add(light);
+
+  // Spotlight pivot & volumetric beam (additive-blended cone mesh)
+  const spotlightPivot = new THREE.Group();
+  spotlightPivot.name = 'spotlightPivot';
+  spotlightPivot.position.set(0, 13.2, 0);
+
+  const beamGeom = new THREE.ConeGeometry(3, 15, 16, 1, true);
+  beamGeom.translate(0, -7.5, 0); // shift apex to (0,0,0)
+
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0xFFFF88,
+    transparent: true,
+    opacity: 0.15,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+
+  const beamMesh = new THREE.Mesh(beamGeom, beamMat);
+  beamMesh.name = 'spotlightBeam';
+  beamMesh.rotation.x = Math.PI / 2; // point along Z axis
+  
+  spotlightPivot.add(beamMesh);
+  group.add(spotlightPivot);
+
+  group.userData = {
+    spotlightPivot: spotlightPivot
+  };
 
   // AABB collider covering [-2, -4, -2] to [2, 12, 2]
   const colliderBox = new THREE.Box3(
