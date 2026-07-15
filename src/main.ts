@@ -27,6 +27,7 @@ import { SEED, WORLD_SIZE, WORLD_SCALE } from './config';
 import { selectMonsterSpawns } from './world/spawnSelection';
 import { chooseMonsterVariant } from './world/monsterVariant';
 import { SoundManager } from './utils/sound';
+import { ParticlePool } from './combat/particles';
 
 const container = document.getElementById('canvas-container');
 if (!container) throw new Error('No container');
@@ -141,6 +142,7 @@ const player = new Player(camera, input);
 player.setColliders(features.structureColliders, decorations.colliders);
 const weaponView = new WeaponView(camera);
 const shotTracer = new ShotTracer(scene);
+const particlePool = new ParticlePool(scene);
 const powerUpRuntime = createPowerUpRuntime(player.speed, 25);
 // Initialize weapons list (rifle, shotgun, melee knife)
 const weapons = [
@@ -158,6 +160,16 @@ const weapons = [
 ];
 let activeWeaponIndex = 0;
 
+function findDamageableAncestor(object?: THREE.Object3D): any {
+  let current: THREE.Object3D | null | undefined = object;
+  while (current) {
+    const damageable = current.userData.damageable;
+    if (damageable) return damageable;
+    current = current.parent;
+  }
+  return undefined;
+}
+
 let lastShotTime = 0;
 const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) => {
   const activeWeapon = weapons[activeWeaponIndex];
@@ -173,11 +185,26 @@ const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) =
   const now = performance.now();
   if (now - lastShotTime > 50) {
     lastShotTime = now;
-    weaponView.fire();
+    weaponView.fire(particlePool);
     if (activeWeapon.type === 'melee') {
       soundManager.playMelee();
     } else {
       soundManager.playShot();
+    }
+  }
+
+  // Spawn impact particles (blood for monsters, sparks for environments)
+  if (hit) {
+    const isMonster = !!findDamageableAncestor(hit.object);
+    const type = isMonster ? 'blood' : 'spark';
+    const count = isMonster ? 8 : 12;
+    for (let i = 0; i < count; i++) {
+      const velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 4,
+        (Math.random() - 0.5) * 4 + (type === 'blood' ? 2 : 3),
+        (Math.random() - 0.5) * 4
+      );
+      particlePool.spawn(type, hit.point, velocity, 0.4 + Math.random() * 0.4);
     }
   }
 
@@ -399,7 +426,7 @@ function animate(): void {
   for (const npc of npcs) npc.update(delta, heightMap);
   for (const monster of monsters) {
     if (monster.isAlive()) {
-      monster.update(delta, heightMap, player.mesh.position);
+      monster.update(delta, heightMap, player.mesh.position, camera);
       // Check damage to player
       if (damageCooldown <= 0 && player.isAlive() && monster.mesh.position.distanceTo(player.mesh.position) < 2) {
         player.takeDamage(10);
@@ -496,6 +523,7 @@ function animate(): void {
   });
   weaponView.update(delta);
   shotTracer.update(delta);
+  particlePool.update(delta, heightMap);
   const projHit = enemyProjectileSystem.update(delta, heightMap, player.mesh.position, 0.5);
   if (projHit.hit) {
     player.takeDamage(projHit.damage);
@@ -507,6 +535,29 @@ function animate(): void {
   const px = (player.mesh.position.x / WORLD_SCALE) + WORLD_SIZE / 2;
   const pz = (player.mesh.position.z / WORLD_SCALE) + WORLD_SIZE / 2;
   soundManager.updateAmbient(biomeMap.getBiome(px, pz));
+
+  // Update HUD vehicle prompts based on proximity
+  if (player.activeVehicle) {
+    const vName = player.activeVehicle instanceof Hovercar ? 'Hovercar' : 'Spaceship';
+    hud.showInteractPrompt(`Press E to exit ${vName}`);
+  } else {
+    let nearestVehicle: Vehicle | null = null;
+    let minDist = 5;
+    for (const v of vehicles) {
+      const dist = player.mesh.position.distanceTo(v.mesh.position);
+      if (dist < minDist) {
+        minDist = dist;
+        nearestVehicle = v;
+      }
+    }
+    if (nearestVehicle) {
+      const vName = nearestVehicle instanceof Hovercar ? 'Hovercar' : 'Spaceship';
+      hud.showInteractPrompt(`Press E to board ${vName}`);
+    } else {
+      hud.hideInteractPrompt();
+    }
+  }
+
   hud.setWeaponState(activeWeapon.magazineAmmo, activeWeapon.reserveAmmo, activeWeapon.isReloading, activeWeapon.name);
   hud.updateBuffs(
     powerUpRuntime.speedBoostRemaining,

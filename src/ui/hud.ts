@@ -5,6 +5,7 @@ export class HUD {
   private crosshairElement: HTMLDivElement;
   private statusElement: HTMLDivElement;
   private buffsElement: HTMLDivElement;
+  private interactPromptElement: HTMLDivElement;
   private score = 0;
 
   constructor() {
@@ -110,6 +111,29 @@ export class HUD {
     `;
     this.buffsElement.textContent = '';
     document.body.appendChild(this.buffsElement);
+
+    this.interactPromptElement = document.createElement('div');
+    this.interactPromptElement.style.cssText = `
+      position: fixed;
+      left: 50%;
+      top: 60%;
+      transform: translate(-50%, -50%);
+      color: #ffd54f;
+      font-family: system-ui, sans-serif;
+      font-size: 20px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      z-index: 100;
+      pointer-events: none;
+      user-select: none;
+      display: none;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px 16px;
+      border-radius: 4px;
+      border: 1px solid #ffd54f;
+    `;
+    this.interactPromptElement.style.display = 'none';
+    document.body.appendChild(this.interactPromptElement);
   }
 
   addScore(amount: number): void {
@@ -161,5 +185,22 @@ export class HUD {
 
   getBuffsText(): string {
     return this.buffsElement.textContent ?? '';
+  }
+
+  showInteractPrompt(text: string): void {
+    this.interactPromptElement.textContent = text;
+    this.interactPromptElement.style.display = 'block';
+  }
+
+  hideInteractPrompt(): void {
+    this.interactPromptElement.style.display = 'none';
+  }
+
+  getInteractPromptText(): string {
+    return this.interactPromptElement.textContent ?? '';
+  }
+
+  getInteractPromptVisible(): boolean {
+    return this.interactPromptElement.style.display === 'block';
   }
 }

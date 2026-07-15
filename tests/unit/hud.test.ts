@@ -41,11 +41,19 @@ describe('HUD weapon feedback', () => {
     const hud = new HUD();
     hud.setWeaponState(12, 48, true);
 
-    expect(body.appendChild).toHaveBeenCalledTimes(6);
+    expect(body.appendChild).toHaveBeenCalledTimes(7);
     expect(hud.getScore()).toBe(0);
     expect(hud.getWeaponText()).toBe('Ammo: 12 / 48');
     expect(hud.getReloadText()).toBe('Reloading...');
     expect(hud.getCrosshairVisible()).toBe(true);
+
+    expect(hud.getInteractPromptVisible()).toBe(false);
+    hud.showInteractPrompt('Press E to board');
+    expect(hud.getInteractPromptVisible()).toBe(true);
+    expect(hud.getInteractPromptText()).toBe('Press E to board');
+    hud.hideInteractPrompt();
+    expect(hud.getInteractPromptVisible()).toBe(false);
+
     hud.setStatus('Adrenaline boost');
     expect(hud.getStatusText()).toBe('Adrenaline boost');
 

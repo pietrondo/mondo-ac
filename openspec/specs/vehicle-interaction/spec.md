@@ -13,6 +13,8 @@ Defines requirements for player entering, steering, and exiting hovercars (groun
 4. **Exiting Interaction**:
    - The player MUST be able to exit the vehicle by pressing KeyE.
    - Upon exit, the player MUST be positioned slightly behind the vehicle and control MUST return to the walking player.
+5. **Prompt Integration**:
+   - Approaching/driving vehicles MUST update HUD overlay prompts.
 
 ## Scenarios
 ### Scenario 1: Entering a hovercar
@@ -25,3 +27,9 @@ Defines requirements for player entering, steering, and exiting hovercars (groun
 * **Given** a player is driving a spaceship
 * **When** the player presses KeyE
 * **Then** the player is placed on the ground near the spaceship and walking controls are restored
+
+### Scenario 3: Proximity prompt
+* **Given** player is walking to hovercar
+* **When** within 5 meters
+* **Then** HUD shows "Press E to board Hovercar"
+

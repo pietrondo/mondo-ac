@@ -1,7 +1,9 @@
 import * as THREE from 'three';
+import { ParticlePool } from '../combat/particles';
 
 export class WeaponView {
   readonly group: THREE.Group;
+  private readonly camera: THREE.PerspectiveCamera;
   private readonly muzzleFlash: THREE.Mesh;
   private flashRemaining = 0;
   private recoil = 0;
@@ -12,6 +14,7 @@ export class WeaponView {
   private activeType: 'rifle' | 'shotgun' | 'melee' = 'rifle';
 
   constructor(camera: THREE.PerspectiveCamera) {
+    this.camera = camera;
     this.group = new THREE.Group();
     this.group.position.set(0.38, -0.42, -0.95);
     this.group.rotation.set(-0.08, 0.28, -0.05);
@@ -69,6 +72,34 @@ export class WeaponView {
     magazine.rotation.z = 0.14;
     this.rifleModel.add(magazine);
 
+    // Holographic optical sight
+    const sightMount = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.05, 0.15),
+      new THREE.MeshStandardMaterial({ color: 0x1b1b1b, flatShading: true })
+    );
+    sightMount.position.set(0.0, 0.11, -0.1);
+    this.rifleModel.add(sightMount);
+
+    const sightFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.1, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0x263238, flatShading: true })
+    );
+    sightFrame.position.set(0.0, 0.18, -0.1);
+    this.rifleModel.add(sightFrame);
+
+    const reticleMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8 });
+    const reticle = new THREE.Mesh(new THREE.SphereGeometry(0.02, 4, 4), reticleMat);
+    reticle.position.set(0.0, 0.18, -0.1);
+    this.rifleModel.add(reticle);
+
+    // Physical stock
+    const stock = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.18, 0.45),
+      new THREE.MeshStandardMaterial({ color: 0x1b1b1b, flatShading: true })
+    );
+    stock.position.set(0.0, -0.05, 0.45);
+    this.rifleModel.add(stock);
+
     this.group.add(this.rifleModel);
   }
 
@@ -104,6 +135,27 @@ export class WeaponView {
     grip.position.set(-0.16, -0.16, 0);
     grip.rotation.z = -0.35;
     this.shotgunModel.add(grip);
+
+    // Holographic optical sight
+    const sightMount = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.04, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0x212121, flatShading: true })
+    );
+    sightMount.position.set(0.0, 0.13, -0.1);
+    this.shotgunModel.add(sightMount);
+
+    const reticleMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const reticle = new THREE.Mesh(new THREE.SphereGeometry(0.015, 4, 4), reticleMat);
+    reticle.position.set(0.0, 0.15, -0.1);
+    this.shotgunModel.add(reticle);
+
+    // Physical stock (wood)
+    const stock = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.2, 0.5),
+      new THREE.MeshStandardMaterial({ color: 0x3e2723, flatShading: true })
+    );
+    stock.position.set(0.0, -0.08, 0.35);
+    this.shotgunModel.add(stock);
 
     this.group.add(this.shotgunModel);
   }
@@ -150,7 +202,7 @@ export class WeaponView {
     }
   }
 
-  fire(): void {
+  fire(particlePool?: ParticlePool): void {
     if (this.activeType === 'melee') {
       this.recoil = 1.5;
     } else {
@@ -158,6 +210,33 @@ export class WeaponView {
       this.recoil = 1.0;
       this.muzzleFlash.visible = true;
       (this.muzzleFlash.material as THREE.MeshBasicMaterial).opacity = 1;
+
+      // Spawn physical brass shell ejection
+      if (particlePool && this.camera) {
+        const origin = new THREE.Vector3();
+        this.camera.getWorldPosition(origin);
+
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+
+        const offsetX = this.activeType === 'shotgun' ? 0.35 : 0.38;
+        const offsetY = this.activeType === 'shotgun' ? -0.44 : -0.42;
+        const offsetZ = this.activeType === 'shotgun' ? -0.5 : -0.6;
+
+        // Spawn position in world coordinates
+        const shellPos = origin.clone()
+          .addScaledVector(right, offsetX)
+          .addScaledVector(up, offsetY)
+          .addScaledVector(forward, -offsetZ);
+
+        // Eject to the right and slightly up and back
+        const shellVel = right.clone().multiplyScalar(1.5 + Math.random() * 0.8)
+          .addScaledVector(up, 1.0 + Math.random() * 0.8)
+          .addScaledVector(forward, -0.4 - Math.random() * 0.4);
+
+        particlePool.spawn('shell', shellPos, shellVel, 3.0);
+      }
     }
   }
 
@@ -177,6 +256,8 @@ export class WeaponView {
     } else {
       this.recoil = Math.max(0, this.recoil - delta * 18);
       const basePos = this.activeType === 'shotgun' ? [0.35, -0.44, -0.85] : [0.38, -0.42, -0.95];
+      const baseRotX = this.activeType === 'shotgun' ? -0.06 : -0.08;
+      const baseRotY = this.activeType === 'shotgun' ? 0.24 : 0.28;
       const baseRotZ = this.activeType === 'shotgun' ? -0.04 : -0.05;
 
       this.group.position.set(
@@ -184,7 +265,14 @@ export class WeaponView {
         basePos[1] - this.recoil * 0.02,
         basePos[2] + this.recoil * (this.activeType === 'shotgun' ? 0.14 : 0.08)
       );
-      this.group.rotation.z = baseRotZ - this.recoil * 0.02;
+
+      // Pitch rotation kicks decay via linear interpolation (this.recoil)
+      const pitchKick = this.activeType === 'shotgun' ? 0.22 : 0.14;
+      this.group.rotation.set(
+        baseRotX + this.recoil * pitchKick,
+        baseRotY,
+        baseRotZ - this.recoil * 0.02
+      );
 
       if (this.flashRemaining > 0) {
         this.flashRemaining -= delta;

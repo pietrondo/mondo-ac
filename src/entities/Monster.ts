@@ -24,6 +24,10 @@ export class Monster {
   private projectileSystem: EnemyProjectileSystem | null = null;
   private onAttack?: () => void;
 
+  private healthBarGroup: THREE.Group;
+  private healthBarFg: THREE.Mesh;
+  private propeller?: THREE.Group;
+
   constructor(position: THREE.Vector3, options: MonsterOptions = {}) {
     this.variant = options.variant ?? chooseMonsterVariant(position);
     this.onAttack = options.onAttack;
@@ -40,8 +44,13 @@ export class Monster {
     body.position.y = profile.bodyHeight * 0.55;
     this.mesh.add(body);
 
+    // Glowing emissive eyes
     const eyeGeo = new THREE.SphereGeometry(this.variant === 'brute' ? 0.16 : 0.12, 8, 8);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: profile.eyeColor });
+    const eyeMat = new THREE.MeshStandardMaterial({
+      color: profile.eyeColor,
+      emissive: new THREE.Color(profile.eyeColor),
+      emissiveIntensity: 2.0,
+    });
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
     leftEye.position.set(-0.22 * profile.scale, profile.bodyHeight * 0.78, profile.bodyDepth * 0.42);
     this.mesh.add(leftEye);
@@ -57,6 +66,21 @@ export class Monster {
       const rightShoulder = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.28, 0.3), shoulderMat);
       rightShoulder.position.set(0.55, profile.bodyHeight * 0.72, 0.05);
       this.mesh.add(rightShoulder);
+
+      // Spikes added to brute variant
+      const spikeGeo = new THREE.ConeGeometry(0.08, 0.3, 4);
+      const spikeMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, metalness: 0.2 });
+      for (let i = 0; i < 4; i++) {
+        const spike = new THREE.Mesh(spikeGeo, spikeMat);
+        spike.position.set(
+          (i % 2 === 0 ? -0.3 : 0.3),
+          profile.bodyHeight * 0.9,
+          (-0.2 - Math.floor(i / 2) * 0.3)
+        );
+        spike.rotation.x = -Math.PI / 4;
+        spike.rotation.z = i % 2 === 0 ? -Math.PI / 6 : Math.PI / 6;
+        this.mesh.add(spike);
+      }
     }
 
     if (this.variant === 'stalker') {
@@ -77,6 +101,21 @@ export class Monster {
       const rightFist = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), fistMat);
       rightFist.position.set(0.8 * profile.scale, profile.bodyHeight * 0.45, 0);
       this.mesh.add(rightFist);
+
+      // Glowing runes added to golem variant
+      const runeMat = new THREE.MeshStandardMaterial({
+        color: 0x00E5FF,
+        emissive: new THREE.Color(0x00E5FF),
+        emissiveIntensity: 2.0,
+        flatShading: true
+      });
+      const chestRune = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.05), runeMat);
+      chestRune.position.set(0, profile.bodyHeight * 0.6, profile.bodyDepth * 0.51);
+      this.mesh.add(chestRune);
+
+      const chestRuneCross = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.05), runeMat);
+      chestRuneCross.position.set(0, profile.bodyHeight * 0.7, profile.bodyDepth * 0.51);
+      this.mesh.add(chestRuneCross);
     }
 
     if (this.variant === 'crawler') {
@@ -96,6 +135,27 @@ export class Monster {
         leg.rotation.set(legInfo.rot[0], legInfo.rot[1], legInfo.rot[2]);
         this.mesh.add(leg);
       }
+
+      // Spider eyes added to crawler variant (6 extra eyes in a front cluster)
+      const spiderEyeGeo = new THREE.SphereGeometry(0.05, 8, 8);
+      const spiderEyeMat = new THREE.MeshStandardMaterial({
+        color: 0xff0000,
+        emissive: new THREE.Color(0xff0000),
+        emissiveIntensity: 2.0,
+      });
+      const spiderEyeCoords = [
+        [-0.15, profile.bodyHeight * 0.55, profile.bodyDepth * 0.51],
+        [0.15, profile.bodyHeight * 0.55, profile.bodyDepth * 0.51],
+        [-0.3, profile.bodyHeight * 0.65, profile.bodyDepth * 0.51],
+        [0.3, profile.bodyHeight * 0.65, profile.bodyDepth * 0.51],
+        [-0.1, profile.bodyHeight * 0.75, profile.bodyDepth * 0.51],
+        [0.1, profile.bodyHeight * 0.75, profile.bodyDepth * 0.51],
+      ];
+      for (const coord of spiderEyeCoords) {
+        const spiderEye = new THREE.Mesh(spiderEyeGeo, spiderEyeMat);
+        spiderEye.position.set(coord[0], coord[1], coord[2]);
+        this.mesh.add(spiderEye);
+      }
     }
 
     if (this.variant === 'drone') {
@@ -105,7 +165,43 @@ export class Monster {
       ring.rotation.x = Math.PI / 2;
       ring.position.y = profile.bodyHeight * 0.55;
       this.mesh.add(ring);
+
+      // Spinning propeller shaft and blades
+      const shaftGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8);
+      const shaftMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 });
+      const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+      shaft.position.set(0, profile.bodyHeight * 0.95, 0);
+      this.mesh.add(shaft);
+
+      this.propeller = new THREE.Group();
+      this.propeller.position.set(0, profile.bodyHeight * 1.1, 0);
+      const bladeMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.7, roughness: 0.3 });
+      const blades = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.02, 0.08), bladeMat);
+      this.propeller.add(blades);
+      this.mesh.add(this.propeller);
     }
+
+    // Health bar construction above monster mesh
+    this.healthBarGroup = new THREE.Group();
+    this.healthBarGroup.position.set(0, profile.bodyHeight + 0.6, 0);
+    this.healthBarGroup.scale.setScalar(1.0 / profile.scale); // Keep size constant across different monster scales
+
+    const hbBg = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.2, 0.15),
+      new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.DoubleSide })
+    );
+    this.healthBarGroup.add(hbBg);
+
+    const hbFgGeo = new THREE.PlaneGeometry(1.2, 0.15);
+    hbFgGeo.translate(0.6, 0, 0); // align pivot to the left
+    this.healthBarFg = new THREE.Mesh(
+      hbFgGeo,
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+    );
+    this.healthBarFg.position.x = -0.6; // shift back so left edge aligns with container center
+    this.healthBarGroup.add(this.healthBarFg);
+
+    this.mesh.add(this.healthBarGroup);
 
     this.mesh.traverse((child) => {
       if (child instanceof THREE.Mesh) {
@@ -123,8 +219,21 @@ export class Monster {
   }
 
   isAlive(): boolean { return this.alive; }
+
   takeDamage(amount: number): void {
     this.hp -= amount;
+    const hpRatio = Math.max(0, this.hp / this.maxHp);
+    this.healthBarFg.scale.x = hpRatio;
+
+    // Shift color from green to yellow to red
+    if (hpRatio > 0.6) {
+      (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0x00ff00);
+    } else if (hpRatio > 0.3) {
+      (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0xffff00);
+    } else {
+      (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+    }
+
     if (this.hp <= 0) {
       this.alive = false;
       this.mesh.visible = false;
@@ -188,11 +297,23 @@ export class Monster {
     this.attackCooldown = params.cooldown;
   }
 
-  update(delta: number, heightMap: HeightMap, playerPos: THREE.Vector3): void {
+  update(delta: number, heightMap: HeightMap, playerPos: THREE.Vector3, camera?: THREE.Camera): void {
     if (!this.alive) return;
 
     if (this.attackCooldown > 0) {
       this.attackCooldown -= delta;
+    }
+
+    // Spin propeller if drone
+    if (this.propeller) {
+      this.propeller.rotation.y += delta * 18.0;
+    }
+
+    // Billboard alignment: face the camera using camera quaternion
+    if (camera && this.healthBarGroup) {
+      const tempQuat = new THREE.Quaternion();
+      this.mesh.getWorldQuaternion(tempQuat);
+      this.healthBarGroup.quaternion.copy(tempQuat).invert().premultiply(camera.quaternion);
     }
 
     const distToPlayer = this.mesh.position.distanceTo(playerPos);

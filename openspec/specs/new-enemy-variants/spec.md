@@ -9,6 +9,8 @@ Defines requirements for crawler (melee, spider-like) and drone (flying, shootin
 2. **Drone Variant Profile**:
    - The system MUST support a `'drone'` monster variant with scale 0.6, HP 40, speed 3.0, and cyan body color.
    - The drone variant MUST hover at a fixed height of 3 meters above the terrain height and fire light blue projectiles.
+3. **Visuals & Bars**:
+   - Crawler/drone meshes MUST support visual detail accessories and manage billboard health bars.
 
 ## Scenarios
 ### Scenario 1: Crawler mesh legs creation
@@ -20,3 +22,9 @@ Defines requirements for crawler (melee, spider-like) and drone (flying, shootin
 * **Given** a drone monster is spawned
 * **When** it updates its position
 * **Then** its Y coordinate MUST hover 3 meters above the ground elevation
+
+### Scenario 3: Health bar rendering
+* **Given** drone monster is hit
+* **When** updating
+* **Then** it renders a billboard health bar
+
