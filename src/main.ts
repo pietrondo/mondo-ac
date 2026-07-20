@@ -907,13 +907,8 @@ function animate(): void {
   }
   interactWasPressed = interactPressed;
 
-  // Update Active Vehicle
-  if (player.activeVehicle) {
-    player.activeVehicle.update(delta, input, heightMap);
-  }
-
   // Hide held weapon model while riding vehicles/horses for clean view
-  weaponView.group.visible = (player.activeVehicle === null);
+  weaponView.setVisible(player.activeVehicle === null);
 
   // Update player
   player.update(delta, heightMap);

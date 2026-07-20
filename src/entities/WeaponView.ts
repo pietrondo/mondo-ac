@@ -653,6 +653,10 @@ export class WeaponView {
     this.group.add(this.flamethrowerModel);
   }
 
+  setVisible(visible: boolean): void {
+    this.group.visible = visible;
+  }
+
   setWeapon(type: WeaponType): void {
     this.activeType = type;
     this.rifleModel.visible = (type === 'rifle');
