@@ -49,6 +49,22 @@ export class HUD {
 
   private enemyAlertTimer = 0;
   private playerName = localStorage.getItem('mondo_player_name') || 'Giocatore';
+  private isMinimapExpanded = false;
+
+  setPlayerName(name: string): void {
+    this.playerName = name.trim().substring(0, 20) || 'Giocatore';
+    localStorage.setItem('mondo_player_name', this.playerName);
+  }
+
+  toggleMinimapExpanded(): void {
+    this.isMinimapExpanded = !this.isMinimapExpanded;
+    this.minimapSize = this.isMinimapExpanded ? 300 : 150;
+    this.minimapRange = this.isMinimapExpanded ? 220 : 100;
+    this.minimapCanvas.width = this.minimapSize;
+    this.minimapCanvas.height = this.minimapSize;
+    this.minimapCanvas.style.width = `${this.minimapSize}px`;
+    this.minimapCanvas.style.height = `${this.minimapSize}px`;
+  }
 
   constructor() {
     this.scoreElement = document.createElement('div');

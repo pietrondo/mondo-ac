@@ -1023,49 +1023,109 @@ setTimeout(() => {
   if (loading) loading.style.display = 'none';
 }, 300);
 
-// Click to start overlay
-const clickToStart = document.createElement('div');
-clickToStart.textContent = 'Clicca per iniziare (WASD per muoverti, E per interagire, Q/F/C per Abilità)';
-clickToStart.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-size:24px;cursor:pointer;z-index:9999;padding:20px;background:rgba(0,0,0,0.5);border-radius:10px;pointer-events:auto;';
+// Registration & Start Modal Overlay
+const savedName = localStorage.getItem('mondo_player_name') || '';
+const registrationOverlay = document.createElement('div');
+registrationOverlay.style.cssText = `
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(10, 12, 22, 0.92);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: white;
+  pointer-events: auto;
+`;
+registrationOverlay.innerHTML = `
+  <div style="background: rgba(20, 25, 40, 0.95); border: 2px solid #00E5FF; border-radius: 16px; padding: 32px; width: 440px; max-width: 92vw; box-shadow: 0 0 35px rgba(0,229,255,0.4); text-align: center;">
+    <h1 style="color: #00E5FF; font-size: 32px; font-weight: 900; letter-spacing: 3px; margin-bottom: 8px; text-shadow: 0 0 15px rgba(0,229,255,0.6);">MONDO 3D</h1>
+    <p style="color: #B0BEC5; font-size: 14px; margin-bottom: 24px;">Registrati per salvare i tuoi punteggi in classifica e scegliere la tua classe!</p>
 
-function startGame(): void {
-  try {
-    lastTime = performance.now();
-    document.body.requestPointerLock();
-    if (renderer) renderer.domElement.style.pointerEvents = 'auto'; // Re-enable for gameplay
-    soundManager.startAmbient();
-  } catch (e) {
-    console.error('Pointer lock failed:', e);
-  }
-  clickToStart.remove();
+    <div style="text-align: left; margin-bottom: 20px;">
+      <label style="display: block; font-size: 13px; font-weight: bold; color: #80DEEA; margin-bottom: 6px;">NOME GIOCATORE:</label>
+      <input id="reg-player-name" type="text" value="${savedName}" placeholder="Inserisci il tuo nome..." maxlength="20" style="width: 100%; background: #0A0D18; border: 1.5px solid #00E5FF; border-radius: 8px; padding: 10px 14px; color: white; font-size: 15px; font-weight: bold; outline: none; box-shadow: inset 0 0 8px rgba(0,0,0,0.8);" />
+    </div>
+
+    <div style="text-align: left; margin-bottom: 24px;">
+      <label style="display: block; font-size: 13px; font-weight: bold; color: #80DEEA; margin-bottom: 8px;">SCEGLI CLASSE / RUOLO:</label>
+      <div style="display: flex; gap: 8px;">
+        <button id="class-warrior" class="class-btn" style="flex: 1; background: rgba(255,23,68,0.2); border: 2px solid #FF1744; border-radius: 8px; padding: 10px 6px; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transition: transform 0.1s;">
+          🛡️ GUERRIERO<br><span style="font-size: 10px; color: #FF8A80; font-weight: normal;">+30 HP Max</span>
+        </button>
+        <button id="class-scout" class="class-btn" style="flex: 1; background: rgba(0,230,118,0.2); border: 2px solid #00E676; border-radius: 8px; padding: 10px 6px; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transition: transform 0.1s;">
+          ⚡ ESPLORATORE<br><span style="font-size: 10px; color: #B9F6CA; font-weight: normal;">+20% Speed</span>
+        </button>
+        <button id="class-engineer" class="class-btn" style="flex: 1; background: rgba(0,229,255,0.2); border: 2px solid #00E5FF; border-radius: 8px; padding: 10px 6px; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transition: transform 0.1s;">
+          🔧 INGEGNERE<br><span style="font-size: 10px; color: #80DEEA; font-weight: normal;">-30% Cooldown</span>
+        </button>
+      </div>
+    </div>
+
+    <button id="start-game-btn" style="width: 100%; background: linear-gradient(90deg, #00E5FF, #76FF03); border: none; border-radius: 10px; padding: 14px; color: #050A14; font-size: 18px; font-weight: 900; letter-spacing: 1px; cursor: pointer; box-shadow: 0 0 20px rgba(0,229,255,0.6); transition: transform 0.1s;">
+      ENTRA NEL MONDO 3D
+    </button>
+  </div>
+`;
+document.body.appendChild(registrationOverlay);
+
+let selectedClass: 'warrior' | 'scout' | 'engineer' = 'scout';
+
+const btnW = document.getElementById('class-warrior');
+const btnS = document.getElementById('class-scout');
+const btnE = document.getElementById('class-engineer');
+
+function selectRole(role: 'warrior' | 'scout' | 'engineer'): void {
+  selectedClass = role;
+  if (btnW) btnW.style.opacity = role === 'warrior' ? '1.0' : '0.4';
+  if (btnS) btnS.style.opacity = role === 'scout' ? '1.0' : '0.4';
+  if (btnE) btnE.style.opacity = role === 'engineer' ? '1.0' : '0.4';
+}
+selectRole('scout');
+
+if (btnW) btnW.addEventListener('click', () => selectRole('warrior'));
+if (btnS) btnS.addEventListener('click', () => selectRole('scout'));
+if (btnE) btnE.addEventListener('click', () => selectRole('engineer'));
+
+const startBtn = document.getElementById('start-game-btn');
+if (startBtn) {
+  startBtn.addEventListener('click', () => {
+    const nameInput = document.getElementById('reg-player-name') as HTMLInputElement;
+    const finalName = nameInput?.value.trim() || 'Giocatore';
+    hud.setPlayerName(finalName);
+
+    // Apply class passive bonuses
+    if (selectedClass === 'warrior') {
+      player.maxHp = 130;
+      player.hp = 130;
+      updateHpDisplay();
+    } else if (selectedClass === 'scout') {
+      (player as any).speed *= 1.2;
+    }
+
+    registrationOverlay.remove();
+    try {
+      lastTime = performance.now();
+      document.body.requestPointerLock();
+      if (renderer) renderer.domElement.style.pointerEvents = 'auto';
+      soundManager.startAmbient();
+    } catch (e) {}
+  });
 }
 
-clickToStart.addEventListener('click', startGame);
-clickToStart.addEventListener('mousedown', (e) => e.stopPropagation());
-
-// Fallback: clicking anywhere on the page starts the game
-document.addEventListener('click', () => {
-  if (document.body.contains(clickToStart)) {
-    startGame();
-  }
-});
-
-// Keyboard fallback: press Enter or Space to start
+// Toggle Minimap Expansion with Key M
 window.addEventListener('keydown', (e) => {
-  if ((e.code === 'Enter' || e.code === 'Space') && document.body.contains(clickToStart)) {
-    e.preventDefault();
-    startGame();
+  if (e.code === 'KeyM') {
+    hud.toggleMinimapExpanded();
   }
 });
 
-// Touch fallback for mobile devices
-document.addEventListener('touchstart', () => {
-  if (document.body.contains(clickToStart)) {
-    startGame();
-  }
-});
 
-document.body.appendChild(clickToStart);
 
 // Weapon switching keyboard controls (Keys 1, 2, 3)
 window.addEventListener('keydown', (e) => {
