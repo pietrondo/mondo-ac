@@ -13,18 +13,23 @@ export interface HouseOptions {
   variant?: 'small' | 'medium' | 'large';
 }
 
+const sharedWallMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63, flatShading: true });
+const sharedFloorMat = new THREE.MeshStandardMaterial({ color: 0x6D4C41, flatShading: true });
+const sharedWoodMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, flatShading: true });
+const sharedRoofMat = new THREE.MeshStandardMaterial({ color: 0x705d55, flatShading: true });
+const sharedLanternMat = new THREE.MeshBasicMaterial({ color: 0xFFB300 });
+const sharedWindowMat = new THREE.MeshStandardMaterial({ color: 0xFFEE58, emissive: 0xFFEE58, emissiveIntensity: 0.8, flatShading: true });
+
 export function createHouse(options: HouseOptions = {}): THREE.Group {
   const group = new THREE.Group();
   group.name = 'house';
 
   const variant = options.variant || 'medium';
   const scale = options.scale || (variant === 'small' ? 0.7 : variant === 'large' ? 1.3 : 1.0);
-  const wallColor = options.wallColor || 0x8D6E63;
-  const roofColor = options.roofColor || 0x5D4037;
-
-  const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, flatShading: true });
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x6D4C41, flatShading: true });
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, flatShading: true });
+  const wallMat = options.wallColor ? new THREE.MeshStandardMaterial({ color: options.wallColor, flatShading: true }) : sharedWallMat;
+  const floorMat = sharedFloorMat;
+  const woodMat = sharedWoodMat;
+  const roofMat = options.roofColor ? new THREE.MeshStandardMaterial({ color: options.roofColor, flatShading: true }) : sharedRoofMat;
 
   const baseSize = 3 * scale;
   const wallHeight = 2.5 * scale;
@@ -71,7 +76,7 @@ export function createHouse(options: HouseOptions = {}): THREE.Group {
   // Roof
   const roof = new THREE.Mesh(
     new THREE.ConeGeometry(baseSize * 0.83, 2 * scale, 4),
-    new THREE.MeshStandardMaterial({ color: roofColor, flatShading: true })
+    roofMat
   );
   roof.position.y = wallHeight + scale;
   roof.rotation.y = Math.PI / 4;
@@ -80,7 +85,7 @@ export function createHouse(options: HouseOptions = {}): THREE.Group {
   // Foundation spanning y = -4 to 0 (dark slate 0x37474F)
   const foundation = new THREE.Mesh(
     new THREE.BoxGeometry(baseSize * 1.03, 4, baseSize * 1.03),
-    new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true })
+    sharedFloorMat
   );
   foundation.position.y = -2;
   group.add(foundation);
@@ -88,30 +93,20 @@ export function createHouse(options: HouseOptions = {}): THREE.Group {
   // Chimney box
   const chimney = new THREE.Mesh(
     new THREE.BoxGeometry(0.5 * scale, 1.2 * scale, 0.5 * scale),
-    new THREE.MeshStandardMaterial({ color: 0x705d55, flatShading: true })
+    sharedRoofMat
   );
   chimney.position.set(0.8 * scale, wallHeight + 1.2 * scale, -0.8 * scale);
   group.add(chimney);
 
   // Entrance Lantern
-  const lanternMat = new THREE.MeshBasicMaterial({ color: 0xFFB300 });
-  const lanternMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2 * scale, 0.3 * scale, 0.2 * scale), lanternMat);
+  const lanternMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2 * scale, 0.3 * scale, 0.2 * scale), sharedLanternMat);
   lanternMesh.position.set(0, doorHeight + 0.25 * scale, baseSize / 2 + 0.1);
   group.add(lanternMesh);
-
-  const lanternLight = new THREE.PointLight(0xFFB300, 1.2, 8 * scale);
-  lanternLight.position.set(0, doorHeight + 0.25 * scale, baseSize / 2 + 0.2);
-  group.add(lanternLight);
 
   // Window helper function
   function createArchedWindow(): THREE.Group {
     const windowGroup = new THREE.Group();
-    const windowMat = new THREE.MeshStandardMaterial({
-      color: 0xFFEE58,
-      emissive: 0xFFEE58,
-      emissiveIntensity: 0.8,
-      flatShading: true
-    });
+    const windowMat = sharedWindowMat;
     
     const winScale = 0.6 * scale;
     // Bottom rectangular part
