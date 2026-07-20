@@ -134,8 +134,8 @@ export function createDecorations(
   const mushroomPositions: THREE.Matrix4[] = [];
   const crystalPositions: THREE.Matrix4[] = [];
 
-  for (let x = 2; x < WORLD_SIZE - 2; x += 2) {
-    for (let z = 2; z < WORLD_SIZE - 2; z += 2) {
+  for (let x = 2; x < WORLD_SIZE - 2; x += 3) {
+    for (let z = 2; z < WORLD_SIZE - 2; z += 3) {
       const hx = x;
       const hz = z;
       const h = heightMap.get(hx, hz);
@@ -203,11 +203,11 @@ export function createDecorations(
   if (treePositions.length > 0) {
     const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 2, 5);
     trunkGeometry.translate(0, 1, 0);
-    group.add(createInstancedMesh(treePositions, trunkGeometry, 0x5D4037)); // Brown trunk
+    group.add(createInstancedMesh(treePositions, trunkGeometry, 0x5D4037, true)); // Brown trunk
 
     const foliageGeometry = new THREE.ConeGeometry(2, 4, 6);
     foliageGeometry.translate(0, 3, 0);
-    group.add(createInstancedMesh(treePositions, foliageGeometry, 0x33691E)); // Green foliage
+    group.add(createInstancedMesh(treePositions, foliageGeometry, 0x33691E, true)); // Green foliage
   }
   // Rocks
   if (rockPositions.length > 0) {
@@ -320,14 +320,15 @@ function makeMatrix(x: number, y: number, z: number, scale: number): THREE.Matri
 function createInstancedMesh(
   matrices: THREE.Matrix4[],
   geometry: THREE.BufferGeometry,
-  colorHex: number
+  colorHex: number,
+  castShadow = false
 ): THREE.InstancedMesh {
   const material = new THREE.MeshStandardMaterial({
     color: colorHex,
     flatShading: true
   });
   const mesh = new THREE.InstancedMesh(geometry, material, matrices.length);
-  mesh.castShadow = true;
+  mesh.castShadow = castShadow;
   mesh.receiveShadow = true;
   for (let i = 0; i < matrices.length; i++) {
     mesh.setMatrixAt(i, matrices[i]);
