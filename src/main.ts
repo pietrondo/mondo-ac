@@ -912,8 +912,8 @@ function animate(): void {
     player.activeVehicle.update(delta, input, heightMap);
   }
 
-  // Keep weapon visible while driving to allow shooting from vehicles
-  weaponView.group.visible = true;
+  // Hide held weapon model while riding vehicles/horses for clean view
+  weaponView.group.visible = (player.activeVehicle === null);
 
   // Update player
   player.update(delta, heightMap);
