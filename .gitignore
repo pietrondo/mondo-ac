@@ -75,3 +75,6 @@ cache/
 .atl/
 .serena/
 .codegraph/
+
+# Persistent runtime data
+data/scores.json

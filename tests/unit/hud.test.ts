@@ -20,13 +20,25 @@ function createFakeElement(): FakeElement {
 }
 
 function setupDocument() {
+  const localStorageMock = (() => {
+    let store: Record<string, string> = {};
+    return {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, value: string) => { store[key] = value.toString(); },
+      clear: () => { store = {}; }
+    };
+  })();
+
   const body = {
     appendChild: vi.fn(),
   };
   const document = {
     body,
     createElement: vi.fn(() => createFakeElement()),
+    exitPointerLock: vi.fn(),
   } as any;
+
+  vi.stubGlobal('localStorage', localStorageMock);
   vi.stubGlobal('document', document);
   return { body, document };
 }
@@ -42,7 +54,7 @@ describe('HUD weapon feedback', () => {
     const hud = new HUD();
     hud.setWeaponState(12, 48, true);
 
-    expect(body.appendChild).toHaveBeenCalledTimes(9);
+    expect(body.appendChild).toHaveBeenCalledTimes(11);
     expect(hud.getScore()).toBe(0);
     expect(hud.getWeaponText()).toBe('Ammo: 12 / 48');
     expect(hud.getReloadText()).toBe('Reloading...');
@@ -78,5 +90,14 @@ describe('HUD weapon feedback', () => {
     expect(hud.getScore()).toBe(10);
     expect(hud.getWeaponText()).toBe('Ammo: 30 / 90');
     expect(hud.getReloadText()).toBe('');
+  });
+
+  it('triggers enemy death alert and updates enemy tracker', () => {
+    setupDocument();
+
+    const hud = new HUD();
+    hud.triggerEnemyDeathAlert();
+    hud.updateEnemyTracker({ x: 0, z: 0 }, 0, [{ x: 10, z: -10 }]);
+    hud.update(1.0);
   });
 });

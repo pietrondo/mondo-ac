@@ -398,6 +398,8 @@ monsterSpawnPoints.forEach((spawnPoint, index) => {
       const scaledScore = Math.floor(scoreValue * spawnPoint.difficulty);
       hud.addScore(scaledScore);
       hud.incrementCombo();
+      hud.incrementKills();
+      hud.triggerEnemyDeathAlert();
     },
     onFootstep: (pos: THREE.Vector3) => {
       const count = 3 + Math.floor(Math.random() * 3);
@@ -515,10 +517,15 @@ function animate(): void {
   gameTime += delta;
   damageCooldown -= delta;
 
-  // Track wasAlive transition for HP sync on respawn
+  // Track wasAlive transition for HP sync and leaderboard overlay on respawn/death
   const isAlive = player.isAlive();
   if (isAlive && !wasAlive) {
     updateHpDisplay();
+    hud.hideLeaderboardOverlay();
+  } else if (!isAlive && wasAlive) {
+    hud.showLeaderboardOverlay(hud.getScore(), hud.getKills(), () => {
+      player.respawn(heightMap);
+    });
   }
   wasAlive = isAlive;
 
@@ -571,6 +578,8 @@ function animate(): void {
             const scaledScore = Math.floor(scoreValue * respawn.difficulty);
             hud.addScore(scaledScore);
             hud.incrementCombo();
+            hud.incrementKills();
+            hud.triggerEnemyDeathAlert();
           },
           onFootstep: (pos: THREE.Vector3) => {
             const count = 3 + Math.floor(Math.random() * 3);
@@ -724,11 +733,17 @@ function animate(): void {
   hitMarker.update(delta);
   hud.update(delta);
 
-  const enemyPositions = monsters.map((m) => ({ x: m.mesh.position.x, z: m.mesh.position.z }));
+  const aliveEnemies = monsters.filter((m) => m.isAlive()).map((m) => ({ x: m.mesh.position.x, z: m.mesh.position.z }));
+  hud.updateEnemyTracker(
+    { x: player.mesh.position.x, z: player.mesh.position.z },
+    (player as any).yaw || 0,
+    aliveEnemies
+  );
+
   const poiPositions = features.poiPositions.map((p) => ({ x: p.position.x, z: p.position.z, type: p.type }));
   hud.updateMinimap(
     { x: player.mesh.position.x, z: player.mesh.position.z },
-    enemyPositions,
+    aliveEnemies,
     poiPositions
   );
 
