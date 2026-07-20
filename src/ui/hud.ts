@@ -578,6 +578,99 @@ export class HUD {
     return this.score;
   }
 
+  deductScore(amount: number): boolean {
+    if (this.score >= amount) {
+      this.score -= amount;
+      this.scoreElement.textContent = `SCORE: ${this.score} | KILLS: ${this.kills}`;
+      return true;
+    }
+    return false;
+  }
+
+  toggleUpgradeMenu(onUpgrade: (type: 'hp' | 'speed' | 'damage' | 'cooldown') => boolean): void {
+    let overlay = document.getElementById('skill-tree-overlay') as HTMLDivElement;
+    if (overlay) {
+      overlay.remove();
+      return;
+    }
+
+    overlay = document.createElement('div');
+    overlay.id = 'skill-tree-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 460px;
+      max-width: 90vw;
+      background: rgba(12, 16, 28, 0.95);
+      border: 2px solid #76FF03;
+      border-radius: 16px;
+      padding: 24px;
+      color: white;
+      font-family: system-ui, sans-serif;
+      z-index: 10000;
+      box-shadow: 0 0 30px rgba(118, 255, 3, 0.4);
+      pointer-events: auto;
+    `;
+
+    overlay.innerHTML = `
+      <h2 style="color: #76FF03; text-align: center; margin-bottom: 8px; font-weight: 900; letter-spacing: 2px;">⚡ ALBERO DELLE ABILITÀ</h2>
+      <p style="text-align: center; color: #b0bec5; font-size: 13px; margin-bottom: 20px;">Punti disponibili: <strong id="skill-points-txt" style="color:#00E5FF">${this.score}</strong> (Costo upgrade: 100 Punti)</p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="up-hp" style="background: rgba(255,23,68,0.2); border: 1.5px solid #FF1744; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>❤️ SALUTE MASSIMA (+25 HP)</span>
+          <span style="background: #FF1744; padding: 4px 10px; border-radius: 6px; font-size: 12px;">100 PTS</span>
+        </button>
+        <button id="up-speed" style="background: rgba(0,230,118,0.2); border: 1.5px solid #00E676; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>⚡ VELOCITÀ MOVIMENTO (+15%)</span>
+          <span style="background: #00E676; padding: 4px 10px; border-radius: 6px; font-size: 12px;">100 PTS</span>
+        </button>
+        <button id="up-damage" style="background: rgba(255,214,0,0.2); border: 1.5px solid #FFD600; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🎯 DANNO CRITICO ARMI (+20%)</span>
+          <span style="background: #FFD600; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">100 PTS</span>
+        </button>
+      </div>
+
+      <button id="close-skills-btn" style="width: 100%; margin-top: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+        CHIUDI (Premere U)
+      </button>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const updatePointsTxt = () => {
+      const el = document.getElementById('skill-points-txt');
+      if (el) el.textContent = `${this.score}`;
+    };
+
+    document.getElementById('up-hp')?.addEventListener('click', () => {
+      if (this.deductScore(100)) {
+        onUpgrade('hp');
+        updatePointsTxt();
+      }
+    });
+
+    document.getElementById('up-speed')?.addEventListener('click', () => {
+      if (this.deductScore(100)) {
+        onUpgrade('speed');
+        updatePointsTxt();
+      }
+    });
+
+    document.getElementById('up-damage')?.addEventListener('click', () => {
+      if (this.deductScore(100)) {
+        onUpgrade('damage');
+        updatePointsTxt();
+      }
+    });
+
+    document.getElementById('close-skills-btn')?.addEventListener('click', () => {
+      overlay.remove();
+    });
+  }
+
   getWeaponText(): string {
     return this.ammoElement.textContent ?? '';
   }

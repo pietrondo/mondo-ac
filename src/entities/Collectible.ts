@@ -5,8 +5,8 @@ export class Collectible {
   private bobOffset = Math.random() * Math.PI * 2;
   private value: number;
 
-  constructor(position: THREE.Vector3, type: 'coin' | 'crystal' | 'potion' = 'coin') {
-    this.value = type === 'coin' ? 1 : type === 'crystal' ? 5 : 10;
+  constructor(position: THREE.Vector3, type: 'coin' | 'crystal' | 'potion' | 'boss_chest' = 'coin') {
+    this.value = type === 'coin' ? 1 : type === 'crystal' ? 5 : type === 'potion' ? 10 : 50;
 
     let geometry: THREE.BufferGeometry;
     let color: number;
@@ -24,6 +24,10 @@ export class Collectible {
         geometry = new THREE.CylinderGeometry(0.25, 0.25, 0.5, 8);
         color = 0xE91E63;
         break;
+      case 'boss_chest':
+        geometry = new THREE.BoxGeometry(0.8, 0.6, 0.6);
+        color = 0xFFD700;
+        break;
       default:
         geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
         color = 0xFFFFFF;
@@ -32,7 +36,7 @@ export class Collectible {
     const material = new THREE.MeshStandardMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 0.3,
+      emissiveIntensity: type === 'boss_chest' ? 0.6 : 0.3,
       flatShading: true
     });
 

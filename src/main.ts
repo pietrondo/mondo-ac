@@ -717,6 +717,14 @@ function animate(): void {
             else if (monster.variant === 'stalker') scoreValue = 30;
             else if (monster.variant === 'drone') scoreValue = 25;
             else if (monster.variant === 'crawler') scoreValue = 20;
+
+            // Drop Boss Chest on boss death
+            if (monster.variant === 'titan' || monster.variant === 'golem' || monster.variant === 'annihilator') {
+              const chest = new Collectible(monster.mesh.position.clone(), 'boss_chest');
+              collectibles.push(chest);
+              scene.add(chest.mesh);
+            }
+
             const scaledScore = Math.floor(scoreValue * respawn.difficulty);
             hud.addScore(scaledScore);
             hud.incrementCombo();
@@ -1148,10 +1156,28 @@ if (startBtn) {
   });
 }
 
-// Toggle Minimap Expansion with Key M
+// Toggle Minimap Expansion with Key M and Skill Tree with Key U
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') {
     hud.toggleMinimapExpanded();
+  }
+  if (e.code === 'KeyU') {
+    try { document.exitPointerLock(); } catch (_) {}
+    hud.toggleUpgradeMenu((type) => {
+      if (type === 'hp') {
+        player.maxHp += 25;
+        player.hp += 25;
+        updateHpDisplay();
+        return true;
+      } else if (type === 'speed') {
+        (player as any).speed *= 1.15;
+        return true;
+      } else if (type === 'damage') {
+        powerUpRuntime.shotDamage = Math.round(powerUpRuntime.shotDamage * 1.2);
+        return true;
+      }
+      return false;
+    });
   }
 });
 
