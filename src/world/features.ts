@@ -384,15 +384,25 @@ export function placeFeatures(
               }
             }
 
-            for (let i = 0; i < 4; i++) {
-              npcSpawns.push(new THREE.Vector3(
-                castlePos.x + (rng.next() - 0.5) * 20,
-                elevation,
-                castlePos.z + (rng.next() - 0.5) * 20
-              ));
+            // Spawn Royal Guard NPCs at gatehouse and courtyard
+            const guardOffsets = [
+              new THREE.Vector3(-4, 0, 12),
+              new THREE.Vector3(4, 0, 12),
+              new THREE.Vector3(0, 0, 5),
+              new THREE.Vector3(6, 0, 4),
+              new THREE.Vector3(0, 1, -6), // King on throne
+            ];
+            for (const offset of guardOffsets) {
+              npcSpawns.push(castlePos.clone().add(offset));
             }
 
-            itemSpawns.push(new THREE.Vector3(castlePos.x, elevation + 1, castlePos.z));
+            for (let i = 0; i < 3; i++) {
+              itemSpawns.push(new THREE.Vector3(
+                castlePos.x + (rng.next() - 0.5) * 16,
+                elevation + 0.5,
+                castlePos.z + (rng.next() - 0.5) * 16
+              ));
+            }
 
             poiPositions.push({ position: castlePos.clone(), type: 'castle' });
           }
