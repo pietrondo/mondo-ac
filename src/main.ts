@@ -565,6 +565,18 @@ document.addEventListener('debug-player-speed', ((e: CustomEvent) => {
 
 const skillSystem = new SkillSystem(scene);
 
+await setLoadingProgress(95, 'Pre-compilazione shader WebGL e VRAM...');
+// Precompile all shaders and upload textures to GPU VRAM to prevent initial stuttering
+if (renderer) {
+  renderer.compile(scene, camera);
+  renderer.render(scene, camera);
+}
+await new Promise((resolve) => setTimeout(resolve, 60));
+
+await setLoadingProgress(100, 'Mondo caricato!');
+const loadingOverlay = document.getElementById('loading-overlay');
+if (loadingOverlay) loadingOverlay.style.display = 'none';
+
 // Game loop
 lastTime = performance.now();
 let gameTime = 0;
