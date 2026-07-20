@@ -35,6 +35,7 @@ import { WaveManager } from './game/waveManager';
 import { DayNightManager } from './world/dayNight';
 import { SkillSystem } from './game/skills';
 import { MultiplayerManager } from './net/multiplayer';
+import { ZoneManager } from './world/zones';
 
 async function setLoadingProgress(percent: number, message: string): Promise<void> {
   const fill = document.getElementById('loading-bar-fill');
@@ -140,6 +141,7 @@ let debug: DebugOverlay;
 let lastTime = 0;
 let updateHpDisplay: () => void = () => {};
 let multiplayer: MultiplayerManager;
+let zoneManager: ZoneManager;
 
 async function initGame(): Promise<void> {
   await setLoadingProgress(15, 'Inizializzazione motore 3D e WebGL...');
@@ -358,6 +360,7 @@ multiplayer.onDamageReceived = (damage, attackerName) => {
   updateHpDisplay();
   hud.showWaveBanner('⚔️ COLPITO DA ' + attackerName.toUpperCase(), `Hai subito -${damage} HP!`);
 };
+zoneManager = new ZoneManager();
 
 // F3 to toggle debug
 window.addEventListener('keydown', (e) => {
@@ -380,7 +383,7 @@ function findRandomSpawnPoint(): THREE.Vector3 {
       return new THREE.Vector3(worldX, worldY, worldZ);
     }
   }
-  return new THREE.Vector3(0, heightMap.getInterpolated(128, 128), 0);
+  return new THREE.Vector3(0, heightMap.getInterpolated(WORLD_SIZE / 2, WORLD_SIZE / 2), 0);
 }
 
 const initialSpawn = findRandomSpawnPoint();
@@ -391,11 +394,11 @@ await setLoadingProgress(80, 'Creazione entità, nemici e veicoli...');
 // Spawn vehicles near player spawn
 const hcX = initialSpawn.x + 10;
 const hcZ = initialSpawn.z;
-const hcY = heightMap.getInterpolated((hcX / WORLD_SCALE) + 128, (hcZ / WORLD_SCALE) + 128);
+const hcY = heightMap.getInterpolated((hcX / WORLD_SCALE) + WORLD_SIZE / 2, (hcZ / WORLD_SCALE) + WORLD_SIZE / 2);
 
 const ssX = initialSpawn.x - 10;
 const ssZ = initialSpawn.z;
-const ssY = heightMap.getInterpolated((ssX / WORLD_SCALE) + 128, (ssZ / WORLD_SCALE) + 128) + 2.0;
+const ssY = heightMap.getInterpolated((ssX / WORLD_SCALE) + WORLD_SIZE / 2, (ssZ / WORLD_SCALE) + WORLD_SIZE / 2) + 2.0;
 
 const vehicles: Vehicle[] = [
   new Hovercar(new THREE.Vector3(hcX, hcY, hcZ)),
@@ -640,6 +643,11 @@ function animate(): void {
   // Update Multiplayer state
   if (multiplayer) {
     multiplayer.update(delta, player.mesh.position, player.yaw, player.hp, weapons[activeWeaponIndex].name);
+  }
+
+  // Update Region Zone detection
+  if (zoneManager) {
+    zoneManager.update(player.mesh.position, hud);
   }
 
   // Track wasAlive transition for HP sync and leaderboard overlay on respawn/death

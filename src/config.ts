@@ -1,7 +1,7 @@
 import { RNG } from './utils/rng';
 
 // World config - data-driven per spec
-export const WORLD_SIZE = 256; // cells
+export const WORLD_SIZE = 384; // cells (massive 3x3k grid)
 export const WORLD_SCALE = 8; // meters per cell
 export const WORLD_HEIGHT_MIN = 0;
 export const WORLD_HEIGHT_MAX = 60;

@@ -279,13 +279,13 @@ export class Player {
     }
 
     // Clamp to world bounds
-    const worldHalf = 128 * WORLD_SCALE;
+    const worldHalf = (WORLD_SIZE / 2) * WORLD_SCALE;
     this.mesh.position.x = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.x));
     this.mesh.position.z = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.z));
 
     // Grounded jump and gravity
-    const hx = (this.mesh.position.x / WORLD_SCALE) + 128;
-    const hz = (this.mesh.position.z / WORLD_SCALE) + 128;
+    const hx = (this.mesh.position.x / WORLD_SCALE) + (WORLD_SIZE / 2);
+    const hz = (this.mesh.position.z / WORLD_SCALE) + (WORLD_SIZE / 2);
     const terrainHeight = heightMap.getInterpolated(hx, hz);
     const jumpPressed = this.input.state.jump;
     if (this.grounded && jumpPressed && !this.jumpWasPressed) {
