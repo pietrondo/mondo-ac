@@ -34,9 +34,9 @@ export function placeFeatures(
   const villages: VillageData[] = [];
   const poiPositions: { position: THREE.Vector3; type: string }[] = [];
 
-  const gridSize = 8;
-  for (let gx = 2; gx < WORLD_SIZE / gridSize - 2; gx++) {
-    for (let gz = 2; gz < WORLD_SIZE / gridSize - 2; gz++) {
+  const gridSize = 32;
+  for (let gx = 1; gx < WORLD_SIZE / gridSize - 1; gx++) {
+    for (let gz = 1; gz < WORLD_SIZE / gridSize - 1; gz++) {
       const cx = gx * gridSize + Math.floor(rng.next() * gridSize);
       const cz = gz * gridSize + Math.floor(rng.next() * gridSize);
 
@@ -49,7 +49,7 @@ export function placeFeatures(
 
       switch (biome) {
         case BiomeType.PLAINS: {
-          if (rng.next() < 0.03) {
+          if (rng.next() < 0.25) {
             const villageCenter = new THREE.Vector3(worldX, elevation, worldZ);
             const villageBuildings: THREE.Vector3[] = [];
             const villageNpcSpawns: THREE.Vector3[] = [];

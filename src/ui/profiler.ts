@@ -13,11 +13,16 @@ export class PerformanceProfiler {
     fps: 60,
     frameTimeMs: 16.6,
     drawCalls: 0,
+    lines: 0,
+    points: 0,
     triangles: 0,
     geometries: 0,
     textures: 0,
     entitiesCount: 0,
     particlesCount: 0,
+    jsHeapUsedMB: 0,
+    jsHeapTotalMB: 0,
+    gpuRenderer: 'Standard WebGL GPU',
   };
 
   constructor() {
@@ -100,6 +105,17 @@ export class PerformanceProfiler {
     }
   }
 
+  private getGpuInfo(renderer: THREE.WebGLRenderer): string {
+    try {
+      const gl = renderer.getContext();
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      if (ext) {
+        return gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || 'Unknown GPU';
+      }
+    } catch (e) {}
+    return 'Standard WebGL GPU';
+  }
+
   update(renderer: THREE.WebGLRenderer, monstersCount: number, particlesCount: number): void {
     const now = performance.now();
     const deltaMs = now - this.lastTime;
@@ -116,15 +132,22 @@ export class PerformanceProfiler {
       this.frameCount = 0;
     }
 
+    const mem = (performance as any).memory;
+
     this.latestStats = {
       fps: this.currentFps,
       frameTimeMs: this.currentFrameTime,
       drawCalls: renderer.info.render.calls,
+      lines: renderer.info.render.lines,
+      points: renderer.info.render.points,
       triangles: renderer.info.render.triangles,
       geometries: renderer.info.memory.geometries,
       textures: renderer.info.memory.textures,
       entitiesCount: monstersCount,
       particlesCount: particlesCount,
+      jsHeapUsedMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : 0,
+      jsHeapTotalMB: mem ? Math.round(mem.totalJSHeapSize / 1048576) : 0,
+      gpuRenderer: this.getGpuInfo(renderer),
     };
 
     if (this.isVisible) {
@@ -138,10 +161,13 @@ export class PerformanceProfiler {
       content.innerHTML = `
         <div style="line-height: 1.8;">
           <div>⚡ <b>FPS:</b> <span style="color:${this.latestStats.fps < 30 ? '#FF1744' : '#00E676'}">${this.latestStats.fps} FPS</span> (${this.latestStats.frameTimeMs} ms/frame)</div>
+          <div>🎮 <b>GPU:</b> ${this.latestStats.gpuRenderer}</div>
           <div>🖌️ <b>Draw Calls (Chiamate GPU):</b> ${this.latestStats.drawCalls}</div>
           <div>🔺 <b>Triangoli / Poligoni:</b> ${this.latestStats.triangles.toLocaleString()}</div>
+          <div>📏 <b>Linee / Punti WebGL:</b> ${this.latestStats.lines} linee | ${this.latestStats.points} punti</div>
           <div>📐 <b>Geometrie in VRAM:</b> ${this.latestStats.geometries}</div>
           <div>🖼️ <b>Texture in VRAM:</b> ${this.latestStats.textures}</div>
+          <div>💾 <b>Memoria JS Heap:</b> ${this.latestStats.jsHeapUsedMB > 0 ? `${this.latestStats.jsHeapUsedMB} MB / ${this.latestStats.jsHeapTotalMB} MB` : 'N/A'}</div>
           <div>👾 <b>Nemici Attivi:</b> ${this.latestStats.entitiesCount}</div>
           <div>✨ <b>Particelle Meteo/Combattimento:</b> ${this.latestStats.particlesCount}</div>
         </div>
@@ -153,11 +179,15 @@ export class PerformanceProfiler {
     return `=== MONDO 3D PERFORMANCE LOG ===
 Data/Ora: ${new Date().toISOString()}
 Screen Resolution: ${window.innerWidth}x${window.innerHeight} (DPR: ${window.devicePixelRatio})
+GPU: ${this.latestStats.gpuRenderer}
 FPS: ${this.latestStats.fps} (${this.latestStats.frameTimeMs} ms)
 WebGL Draw Calls: ${this.latestStats.drawCalls}
 WebGL Triangles: ${this.latestStats.triangles}
+WebGL Lines: ${this.latestStats.lines}
+WebGL Points: ${this.latestStats.points}
 VRAM Geometries: ${this.latestStats.geometries}
 VRAM Textures: ${this.latestStats.textures}
+JS Heap Memory: ${this.latestStats.jsHeapUsedMB > 0 ? `${this.latestStats.jsHeapUsedMB}MB / ${this.latestStats.jsHeapTotalMB}MB` : 'N/A'}
 Monsters: ${this.latestStats.entitiesCount}
 Particles: ${this.latestStats.particlesCount}
 ================================`;
