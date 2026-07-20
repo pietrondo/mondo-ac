@@ -7,11 +7,21 @@ import { DamageNumber } from '../combat/DamageNumber';
 import { HitMarker } from '../combat/HitMarker';
 import { SoundManager } from '../utils/sound';
 import { HUD } from '../ui/hud';
+import { HeightMap } from '../world/heightmap';
+import { WORLD_SCALE } from '../config';
 
 interface ActiveGrenade {
   mesh: THREE.Mesh;
   velocity: THREE.Vector3;
   timer: number;
+}
+
+interface ActiveExplosionFx {
+  ring: THREE.Mesh;
+  light: THREE.PointLight;
+  scale: number;
+  maxScale: number;
+  life: number;
 }
 
 export class SkillSystem {
@@ -21,6 +31,7 @@ export class SkillSystem {
 
   grenadeCooldown = 0;
   private activeGrenades: ActiveGrenade[] = [];
+  private explosionFxs: ActiveExplosionFx[] = [];
 
   shieldCooldown = 0;
   isShieldActive = false;
@@ -39,7 +50,8 @@ export class SkillSystem {
     damageNumber: DamageNumber,
     hitMarker: HitMarker,
     soundManager: SoundManager,
-    hud: HUD
+    hud: HUD,
+    heightMap: HeightMap
   ): void {
     // Cooldown timers
     if (this.dashCooldown > 0) this.dashCooldown -= delta;
@@ -66,16 +78,16 @@ export class SkillSystem {
     // Skill 2: Grenade (Key F)
     if (input.state.skillGrenade && this.grenadeCooldown <= 0 && player.isAlive()) {
       this.grenadeCooldown = 8.0;
-      const gGeo = new THREE.SphereGeometry(0.25, 8, 8);
-      const gMat = new THREE.MeshStandardMaterial({ color: 0xFF9100, emissive: 0xFF9100, emissiveIntensity: 2.0 });
+      const gGeo = new THREE.SphereGeometry(0.35, 12, 12);
+      const gMat = new THREE.MeshStandardMaterial({ color: 0xFF3D00, emissive: 0xFF5722, emissiveIntensity: 2.5 });
       const gMesh = new THREE.Mesh(gGeo, gMat);
       const spawnPos = camera.getWorldPosition(new THREE.Vector3()).add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(1.2));
       gMesh.position.copy(spawnPos);
       this.scene.add(gMesh);
 
-      const dir = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(22);
-      dir.y += 5;
-      this.activeGrenades.push({ mesh: gMesh, velocity: dir, timer: 1.2 });
+      const dir = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(24);
+      dir.y += 6;
+      this.activeGrenades.push({ mesh: gMesh, velocity: dir, timer: 3.0 });
       soundManager.playShot();
     }
 
@@ -83,28 +95,100 @@ export class SkillSystem {
     for (let i = this.activeGrenades.length - 1; i >= 0; i--) {
       const g = this.activeGrenades[i];
       g.timer -= delta;
-      g.velocity.y -= 9.8 * delta;
+      g.velocity.y -= 15.0 * delta; // Realistic gravity
       g.mesh.position.addScaledVector(g.velocity, delta);
+      g.mesh.rotation.x += 10 * delta;
+      g.mesh.rotation.z += 8 * delta;
 
-      if (g.timer <= 0) {
-        this.scene.remove(g.mesh);
+      // Ground height check
+      const gx = g.mesh.position.x;
+      const gz = g.mesh.position.z;
+      const hx = (gx / WORLD_SCALE) + 128;
+      const hz = (gz / WORLD_SCALE) + 128;
+      const groundY = heightMap.getInterpolated(hx, hz);
+
+      // Check collision with ground or enemies
+      let hitEnemy = false;
+      for (const m of monsters) {
+        if (m.isAlive() && m.mesh.position.distanceTo(g.mesh.position) < 1.8) {
+          hitEnemy = true;
+          break;
+        }
+      }
+
+      const hitGround = g.mesh.position.y <= groundY + 0.3;
+
+      if (hitGround || hitEnemy || g.timer <= 0) {
         const expPos = g.mesh.position.clone();
-        soundManager.playCollect();
-        player.shakeIntensity = Math.max(player.shakeIntensity, 0.8);
+        if (hitGround) expPos.y = groundY + 0.1;
 
-        for (let p = 0; p < 25; p++) {
-          const vel = new THREE.Vector3((Math.random() - 0.5) * 12, Math.random() * 8, (Math.random() - 0.5) * 12);
-          particlePool.spawn('spark', expPos.clone(), vel, 0.6 + Math.random() * 0.4);
+        this.scene.remove(g.mesh);
+        soundManager.playCollect();
+        player.shakeIntensity = Math.max(player.shakeIntensity, 1.6); // Explosive camera shake
+
+        // Create Shockwave Ring FX
+        const ringGeo = new THREE.RingGeometry(0.2, 0.6, 24);
+        ringGeo.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xFFAB00, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.copy(expPos).add(new THREE.Vector3(0, 0.15, 0));
+        this.scene.add(ringMesh);
+
+        // Flash Light
+        const expLight = new THREE.PointLight(0xFF6D00, 15, 25);
+        expLight.position.copy(expPos).add(new THREE.Vector3(0, 1.5, 0));
+        this.scene.add(expLight);
+
+        this.explosionFxs.push({ ring: ringMesh, light: expLight, scale: 1.0, maxScale: 14.0, life: 0.35 });
+
+        // Spawn 45+ particles (sparks, dust, fire burst)
+        for (let p = 0; p < 45; p++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 6 + Math.random() * 18;
+          const upSpeed = 2 + Math.random() * 12;
+          const vel = new THREE.Vector3(Math.cos(angle) * speed, upSpeed, Math.sin(angle) * speed);
+          particlePool.spawn(Math.random() < 0.5 ? 'spark' : 'dust', expPos.clone(), vel, 0.5 + Math.random() * 0.5);
         }
 
+        // Deal 120 AOE Damage + Knockback in 12m radius
+        let totalHits = 0;
         for (const monster of monsters) {
-          if (monster.isAlive() && monster.mesh.position.distanceTo(expPos) <= 10) {
-            monster.takeDamage(85);
-            damageNumber.show(85, monster.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0)), true, true);
-            hitMarker.trigger(true);
+          if (monster.isAlive()) {
+            const dist = monster.mesh.position.distanceTo(expPos);
+            if (dist <= 12) {
+              const damage = Math.round(120 * (1 - dist / 15));
+              monster.takeDamage(damage);
+              damageNumber.show(damage, monster.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0)), true, true);
+              totalHits++;
+
+              // Knockback impulse away from explosion
+              const pushDir = monster.mesh.position.clone().sub(expPos).normalize();
+              pushDir.y = 0.3;
+              monster.mesh.position.addScaledVector(pushDir, Math.max(1, 4 - dist * 0.3));
+            }
           }
         }
+        if (totalHits > 0) {
+          hitMarker.trigger(true);
+        }
+
         this.activeGrenades.splice(i, 1);
+      }
+    }
+
+    // Update Explosion FXs (shockwave ring expansion & light fade)
+    for (let i = this.explosionFxs.length - 1; i >= 0; i--) {
+      const fx = this.explosionFxs[i];
+      fx.life -= delta;
+      fx.scale += (fx.maxScale - fx.scale) * 12 * delta;
+      fx.ring.scale.set(fx.scale, fx.scale, fx.scale);
+      (fx.ring.material as THREE.MeshBasicMaterial).opacity = Math.max(0, fx.life / 0.35);
+      fx.light.intensity = 15 * (fx.life / 0.35);
+
+      if (fx.life <= 0) {
+        this.scene.remove(fx.ring);
+        this.scene.remove(fx.light);
+        this.explosionFxs.splice(i, 1);
       }
     }
 
