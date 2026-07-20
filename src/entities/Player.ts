@@ -169,29 +169,35 @@ export class Player {
     }
 
     if (this.activeVehicle) {
+      this.activeVehicle.update(delta, this.input, heightMap);
       this.mesh.position.copy(this.activeVehicle.mesh.position);
-      this.mesh.rotation.y = this.activeVehicle.yaw;
+      this.yaw = this.activeVehicle.yaw;
       this.velocity.set(0, 0, 0);
 
-      const vehicle = this.activeVehicle;
-      const yaw = vehicle.yaw;
-      const pitch = vehicle.pitch || 0;
-      
-      const offset = new THREE.Vector3(0, 3, 8);
-      offset.applyAxisAngle(new THREE.Vector3(1, 0, 0), pitch);
-      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-      
-      const targetCamPos = vehicle.mesh.position.clone().add(offset);
-      this.camera.position.copy(targetCamPos);
-      this.camera.lookAt(vehicle.mesh.position);
-      
+      // Mouse freelook while riding
+      this.yaw += this.input.state.mouseX;
+      this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
+      this.input.resetMouse();
+
+      // Camera positioned at saddle height
+      const saddleHeight = 1.9;
+      const camX = this.mesh.position.x;
+      const camY = this.mesh.position.y + saddleHeight;
+      const camZ = this.mesh.position.z;
+
+      this.camera.position.set(camX, camY, camZ);
+      this.camera.lookAt(
+        this.mesh.position.x + Math.sin(this.yaw) * Math.cos(this.pitch),
+        camY + Math.sin(this.pitch),
+        this.mesh.position.z - Math.cos(this.yaw) * Math.cos(this.pitch)
+      );
+
       if (this.shakeIntensity > 0) {
         this.camera.position.x += (Math.random() - 0.5) * this.shakeIntensity;
         this.camera.position.y += (Math.random() - 0.5) * this.shakeIntensity;
         this.camera.position.z += (Math.random() - 0.5) * this.shakeIntensity;
       }
 
-      this.input.resetMouse();
       return;
     }
 

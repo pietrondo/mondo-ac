@@ -18,16 +18,16 @@ export function createScene(): THREE.Scene {
   const sun = new THREE.DirectionalLight(0xfffaed, 1.3);
   sun.position.set(120, 220, 120);
   sun.castShadow = true;
-  sun.shadow.mapSize.width = 4096;
-  sun.shadow.mapSize.height = 4096;
+  sun.shadow.mapSize.width = 2048;
+  sun.shadow.mapSize.height = 2048;
   sun.shadow.camera.near = 0.5;
-  sun.shadow.camera.far = 600;
-  sun.shadow.camera.left = -90;
-  sun.shadow.camera.right = 90;
-  sun.shadow.camera.top = 90;
-  sun.shadow.camera.bottom = -90;
+  sun.shadow.camera.far = 250;
+  sun.shadow.camera.left = -60;
+  sun.shadow.camera.right = 60;
+  sun.shadow.camera.top = 60;
+  sun.shadow.camera.bottom = -60;
   sun.shadow.bias = -0.0001;
-  sun.shadow.radius = 2.5;
+  sun.shadow.radius = 1.5;
   scene.add(sun);
 
   return scene;

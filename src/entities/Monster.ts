@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { HeightMap } from '../world/heightmap';
-import { WORLD_SCALE } from '../config';
+import { WORLD_SCALE, WORLD_SIZE } from '../config';
 import { chooseMonsterVariant, getMonsterVariantProfile, type MonsterVariant } from '../world/monsterVariant';
 import { EnemyProjectileSystem } from '../combat/EnemyProjectile';
 import { PatternState, getPatternForVariant, calculateDirection } from '../combat/AttackPattern';
@@ -705,12 +705,15 @@ export class Monster {
       this.healthBarGroup.quaternion.copy(tempQuat).invert().premultiply(camera.quaternion);
     }
 
+    const dxP = this.mesh.position.x - playerPos.x;
+    const dzP = this.mesh.position.z - playerPos.z;
+    const horizDistToPlayer = Math.sqrt(dxP * dxP + dzP * dzP);
     const distToPlayer = this.mesh.position.distanceTo(playerPos);
     const hpRatio = this.hp / this.maxHp;
     const isLowHealth = hpRatio < 0.3;
 
     // Retreat behavior when low health
-    if (isLowHealth && this.retreatTimer <= 0 && distToPlayer < 15) {
+    if (isLowHealth && this.retreatTimer <= 0 && horizDistToPlayer < 15) {
       this.retreatTimer = 3.0; // Retreat for 3 seconds
     }
 
@@ -722,10 +725,10 @@ export class Monster {
       this.targetPos.copy(this.mesh.position).add(awayDir.multiplyScalar(20));
     }
 
-    // State machine with improved AI
+    // State machine with improved AI (works from towers & high mountains)
     if (this.retreatTimer <= 0) {
-      if (distToPlayer < this.attackRange && this.canAttack()) {
-        if (distToPlayer > this.optimalAttackDistance) {
+      if ((horizDistToPlayer < this.attackRange * 1.5 || distToPlayer < this.attackRange) && this.canAttack()) {
+        if (horizDistToPlayer > this.optimalAttackDistance) {
           this.state = 'chase';
           this.targetPos.copy(playerPos);
         } else {
@@ -739,7 +742,7 @@ export class Monster {
             this.strafeTimer = 1.5 + Math.random() * 1.5; // Change every 1.5-3 seconds
           }
         }
-      } else if (distToPlayer < 25) {
+      } else if (horizDistToPlayer < 45) {
         this.state = 'chase';
         // Flanking behavior: approach from different angles
         if (allMonsters && allMonsters.length > 1) {
@@ -754,10 +757,10 @@ export class Monster {
         } else {
           this.targetPos.copy(playerPos);
         }
-      } else if (this.state === 'chase' && distToPlayer > 35) {
+      } else if (this.state === 'chase' && horizDistToPlayer > 50) {
         this.state = 'wander';
         this.pickNewTarget();
-      } else if (this.state === 'attack' && distToPlayer > this.attackRange) {
+      } else if (this.state === 'attack' && horizDistToPlayer > this.attackRange * 1.5) {
         this.state = 'chase';
         this.targetPos.copy(playerPos);
       }
@@ -775,8 +778,8 @@ export class Monster {
       this.mesh.position.z += strafeVec.z * strafeSpeed * delta;
       
       // Update height after strafing
-      const hx = (this.mesh.position.x / WORLD_SCALE) + 128;
-      const hz = (this.mesh.position.z / WORLD_SCALE) + 128;
+      const hx = (this.mesh.position.x / WORLD_SCALE) + (WORLD_SIZE / 2);
+      const hz = (this.mesh.position.z / WORLD_SCALE) + (WORLD_SIZE / 2);
       const terrainHeight = heightMap.getInterpolated(hx, hz);
       if (this.variant === 'drone') {
         this.mesh.position.y = terrainHeight + 3.0;
@@ -817,8 +820,8 @@ export class Monster {
     }
 
     // Update height
-    const hx = (this.mesh.position.x / WORLD_SCALE) + 128;
-    const hz = (this.mesh.position.z / WORLD_SCALE) + 128;
+    const hx = (this.mesh.position.x / WORLD_SCALE) + (WORLD_SIZE / 2);
+    const hz = (this.mesh.position.z / WORLD_SCALE) + (WORLD_SIZE / 2);
     const terrainHeight = heightMap.getInterpolated(hx, hz);
     if (this.variant === 'drone') {
       this.mesh.position.y = terrainHeight + 3.0;
