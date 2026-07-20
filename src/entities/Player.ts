@@ -208,7 +208,7 @@ export class Player {
       const moveSpeed = this.input.state.run ? this.runSpeed : this.speed;
 
       const moveX = Math.sin(this.yaw) * forward + Math.cos(this.yaw) * strafe;
-      const moveZ = -Math.cos(this.yaw) * forward - Math.sin(this.yaw) * strafe;
+      const moveZ = -Math.cos(this.yaw) * forward + Math.sin(this.yaw) * strafe;
 
       const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
       if (len > 0) {
