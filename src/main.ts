@@ -35,11 +35,12 @@ import { WaveManager } from './game/waveManager';
 import { DayNightManager } from './world/dayNight';
 import { SkillSystem } from './game/skills';
 
-function setLoadingProgress(percent: number, message: string): void {
+async function setLoadingProgress(percent: number, message: string): Promise<void> {
   const fill = document.getElementById('loading-bar-fill');
   const status = document.getElementById('loading-status');
   if (fill) fill.style.width = `${percent}%`;
   if (status) status.textContent = `${message} (${percent}%)`;
+  await new Promise((resolve) => setTimeout(resolve, 40));
 }
 
 const container = document.getElementById('canvas-container');
@@ -113,102 +114,127 @@ if (!detectWebGL()) {
   showSystemError('WebGL non è supportato o è disabilitato nel tuo browser.');
 }
 
-setLoadingProgress(15, 'Inizializzazione motore 3D e WebGL...');
-
-const scene = createScene();
-const dayNight = new DayNightManager(scene);
-
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  2000
-);
-
-const soundManager = new SoundManager(camera);
-
+let scene: THREE.Scene;
+let dayNight: DayNightManager;
+let camera: THREE.PerspectiveCamera;
+let soundManager: SoundManager;
 let renderer: THREE.WebGLRenderer | undefined;
-if (!isGameHalted) {
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through to UI
-  container.appendChild(renderer.domElement);
-  renderer.compile(scene, camera); // Prewarm and compile all materials/shaders on GPU
-}
+let heightMap: HeightMap;
+let biomeMap: BiomeMap;
+let terrain: THREE.Mesh;
+let water: THREE.Mesh;
+let input: InputManager;
+let player: Player;
+let weaponView: WeaponView;
+let shotTracer: ShotTracer;
+let particlePool: ParticlePool;
+let cloudManager: CloudManager;
+let damageNumber: DamageNumber;
+let hitMarker: HitMarker;
+let powerUpRuntime: any;
+let weapons: Weapon[];
+let activeWeaponIndex = 0;
+let hud: HUD;
+let debug: DebugOverlay;
+let lastTime = 0;
+let updateHpDisplay: () => void = () => {};
 
-// Configure shadow camera layers
-const sun = scene.children.find(child => child instanceof THREE.DirectionalLight) as THREE.DirectionalLight;
-if (sun) {
-  sun.shadow.camera.layers.enable(1);
-  scene.add(sun.target);
-}
+async function initGame(): Promise<void> {
+  await setLoadingProgress(15, 'Inizializzazione motore 3D e WebGL...');
 
-setLoadingProgress(35, 'Generazione mappa d\'altezza e biomi...');
-const heightMap = new HeightMap(SEED);
-const biomeMap = new BiomeMap(heightMap, SEED + 1);
-const terrain = createTerrainMesh(heightMap, biomeMap);
-terrain.matrixAutoUpdate = false;
-terrain.updateMatrix();
-scene.add(terrain);
+  scene = createScene();
+  dayNight = new DayNightManager(scene);
 
-const water = createWater();
-water.matrixAutoUpdate = false;
-water.updateMatrix();
-scene.add(water);
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    2000
+  );
 
-setLoadingProgress(55, 'Costruzione villaggi e strutture...');
-const decorations = createDecorations(heightMap, biomeMap);
-decorations.group.traverse((child) => {
-  if (child instanceof THREE.Mesh || child instanceof THREE.InstancedMesh) {
-    child.matrixAutoUpdate = false;
-    child.updateMatrix();
+  soundManager = new SoundManager(camera);
+
+  if (!isGameHalted && container) {
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through to UI
+    container.appendChild(renderer.domElement);
+    renderer.compile(scene, camera); // Prewarm and compile all materials/shaders on GPU
   }
-});
-scene.add(decorations.group);
 
-const features = placeFeatures(heightMap, biomeMap);
-scene.add(features.structures);
-
-const lighthouses: THREE.Group[] = [];
-const houses: THREE.Group[] = [];
-features.structures.traverse((child) => {
-  if (child.name === 'lighthouse') {
-    lighthouses.push(child as THREE.Group);
-  } else if (child.name === 'house') {
-    houses.push(child as THREE.Group);
+  // Configure shadow camera layers
+  const sun = scene.children.find(child => child instanceof THREE.DirectionalLight) as THREE.DirectionalLight;
+  if (sun) {
+    sun.shadow.camera.layers.enable(1);
+    scene.add(sun.target);
   }
-});
 
-// Input & Player
-const input = new InputManager();
-const player = new Player(camera, input);
-player.setColliders(features.structureColliders, decorations.colliders);
-const weaponView = new WeaponView(camera);
-const shotTracer = new ShotTracer(scene);
-const particlePool = new ParticlePool(scene);
-particlePool.prewarm();
-const cloudManager = new CloudManager(scene);
-const damageNumber = new DamageNumber();
-const hitMarker = new HitMarker();
-const powerUpRuntime = createPowerUpRuntime(player.speed, 25);
-// Initialize weapons list (rifle, shotgun, melee knife)
-const weapons = [
-  new Weapon('rifle', {
-    onShot: (hit) => handleWeaponShot(hit),
-    onReload: () => soundManager.playReload(),
-  }),
-  new Weapon('shotgun', {
-    onShot: (hit) => handleWeaponShot(hit),
-    onReload: () => soundManager.playReload(),
-  }),
-  new Weapon('melee', {
-    onShot: (hit) => handleWeaponShot(hit),
-  }),
-];
+  await setLoadingProgress(40, 'Generazione mappa d\'altezza e biomi...');
+  heightMap = new HeightMap(SEED);
+  biomeMap = new BiomeMap(heightMap, SEED + 1);
+  terrain = createTerrainMesh(heightMap, biomeMap);
+  terrain.matrixAutoUpdate = false;
+  terrain.updateMatrix();
+  scene.add(terrain);
+
+  water = createWater();
+  water.matrixAutoUpdate = false;
+  water.updateMatrix();
+  scene.add(water);
+
+  await setLoadingProgress(65, 'Costruzione villaggi e strutture...');
+  const decorations = createDecorations(heightMap, biomeMap);
+  decorations.group.traverse((child) => {
+    if (child instanceof THREE.Mesh || child instanceof THREE.InstancedMesh) {
+      child.matrixAutoUpdate = false;
+      child.updateMatrix();
+    }
+  });
+  scene.add(decorations.group);
+
+  const features = placeFeatures(heightMap, biomeMap);
+  scene.add(features.structures);
+
+  const lighthouses: THREE.Group[] = [];
+  const houses: THREE.Group[] = [];
+  features.structures.traverse((child) => {
+    if (child.name === 'lighthouse') {
+      lighthouses.push(child as THREE.Group);
+    } else if (child.name === 'house') {
+      houses.push(child as THREE.Group);
+    }
+  });
+
+  // Input & Player
+  input = new InputManager();
+  player = new Player(camera, input);
+  player.setColliders(features.structureColliders, decorations.colliders);
+  weaponView = new WeaponView(camera);
+  shotTracer = new ShotTracer(scene);
+  particlePool = new ParticlePool(scene);
+  particlePool.prewarm();
+  cloudManager = new CloudManager(scene);
+  damageNumber = new DamageNumber();
+  hitMarker = new HitMarker();
+  powerUpRuntime = createPowerUpRuntime(player.speed, 25);
+  // Initialize weapons list (rifle, shotgun, melee knife)
+  weapons = [
+    new Weapon('rifle', {
+      onShot: (hit) => handleWeaponShot(hit),
+      onReload: () => soundManager.playReload(),
+    }),
+    new Weapon('shotgun', {
+      onShot: (hit) => handleWeaponShot(hit),
+      onReload: () => soundManager.playReload(),
+    }),
+    new Weapon('melee', {
+      onShot: (hit) => handleWeaponShot(hit),
+    }),
+  ];
 let activeWeaponIndex = 0;
 
 function findDamageableAncestor(object?: THREE.Object3D): any {
@@ -296,10 +322,10 @@ scene.add(player.mesh);
 scene.add(camera);
 
 // HUD & Debug
-const hud = new HUD();
+hud = new HUD();
 const initialWeapon = weapons[activeWeaponIndex];
 hud.setWeaponState(initialWeapon.magazineAmmo, initialWeapon.reserveAmmo, initialWeapon.isReloading, initialWeapon.name);
-const debug = new DebugOverlay(heightMap, biomeMap);
+debug = new DebugOverlay(heightMap, biomeMap);
 
 // F3 to toggle debug
 window.addEventListener('keydown', (e) => {
@@ -360,6 +386,7 @@ const spawnWorldZ = (bestSpawnHz - WORLD_SIZE / 2) * WORLD_SCALE;
 player.mesh.position.set(spawnWorldX, bestSpawnH, spawnWorldZ);
 player.setRespawnPoint(player.mesh.position.clone());
 
+await setLoadingProgress(80, 'Creazione entità, nemici e veicoli...');
 // Spawn vehicles near player spawn
 const hcX = spawnWorldX + 10;
 const hcZ = spawnWorldZ;
@@ -513,7 +540,7 @@ hpDisplay.style.cssText = `
 hpDisplay.textContent = 'HP: 100';
 document.body.appendChild(hpDisplay);
 
-function updateHpDisplay(): void {
+updateHpDisplay = (): void => {
   hpDisplay.textContent = `HP: ${Math.max(0, player.hp)}`;
   if (player.hp <= 30) {
     hpDisplay.style.color = '#ff0000';
@@ -538,7 +565,7 @@ document.addEventListener('debug-player-speed', ((e: CustomEvent) => {
 const skillSystem = new SkillSystem(scene);
 
 // Game loop
-let lastTime = performance.now();
+lastTime = performance.now();
 let gameTime = 0;
 let damageCooldown = 0;
 let wasAlive = true;
@@ -1017,11 +1044,14 @@ window.addEventListener('resize', () => {
   if (renderer) renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-setLoadingProgress(100, 'Caricamento completato!');
-setTimeout(() => {
-  const loading = document.getElementById('loading');
-  if (loading) loading.style.display = 'none';
-}, 300);
+  await setLoadingProgress(100, 'Caricamento completato!');
+  setTimeout(() => {
+    const loading = document.getElementById('loading');
+    if (loading) loading.style.display = 'none';
+  }, 300);
+}
+
+initGame();
 
 // Registration & Start Modal Overlay
 const savedName = localStorage.getItem('mondo_player_name') || '';
