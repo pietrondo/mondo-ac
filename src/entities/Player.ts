@@ -183,17 +183,19 @@ export class Player {
       this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
       this.input.resetMouse();
 
-      // Camera positioned at saddle height
-      const saddleHeight = 1.9;
-      const camX = this.mesh.position.x;
-      const camY = this.mesh.position.y + saddleHeight;
-      const camZ = this.mesh.position.z;
+      // 3rd-person chase camera for vehicles & mounts (behind and above)
+      const distBehind = 6.0;
+      const heightAbove = 3.2;
+
+      const camX = this.mesh.position.x - Math.sin(this.yaw) * distBehind;
+      const camY = this.mesh.position.y + heightAbove;
+      const camZ = this.mesh.position.z + Math.cos(this.yaw) * distBehind;
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(
-        this.mesh.position.x + Math.sin(this.yaw) * Math.cos(this.pitch),
-        camY + Math.sin(this.pitch),
-        this.mesh.position.z - Math.cos(this.yaw) * Math.cos(this.pitch)
+        this.mesh.position.x,
+        this.mesh.position.y + 1.5,
+        this.mesh.position.z
       );
 
       if (this.shakeIntensity > 0) {
