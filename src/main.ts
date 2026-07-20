@@ -265,6 +265,14 @@ const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) =
       : powerUpRuntime.shotDamage
   );
 
+  // Check if hit was on a remote player (PvP)
+  if (hit && multiplayer) {
+    let remoteId = hit.object.userData?.remotePlayerId || hit.object.parent?.userData?.remotePlayerId;
+    if (remoteId) {
+      multiplayer.sendHitPlayer(remoteId, damageDealt);
+    }
+  }
+
   const now = performance.now();
   if (now - lastShotTime > 50) {
     lastShotTime = now;
@@ -345,6 +353,11 @@ const initialWeapon = weapons[activeWeaponIndex];
 hud.setWeaponState(initialWeapon.magazineAmmo, initialWeapon.reserveAmmo, initialWeapon.isReloading, initialWeapon.name);
 debug = new DebugOverlay(heightMap, biomeMap);
 multiplayer = new MultiplayerManager(scene, camera);
+multiplayer.onDamageReceived = (damage, attackerName) => {
+  player.takeDamage(damage);
+  updateHpDisplay();
+  hud.showWaveBanner('⚔️ COLPITO DA ' + attackerName.toUpperCase(), `Hai subito -${damage} HP!`);
+};
 
 // F3 to toggle debug
 window.addEventListener('keydown', (e) => {
@@ -890,7 +903,10 @@ function animate(): void {
     reloadPressed: input.state.reload,
     canFire: input.pointerLocked && player.isAlive(),
     camera,
-    targets: monsters.filter((monster) => monster.isAlive()).map((monster) => monster.mesh),
+    targets: [
+      ...monsters.filter((monster) => monster.isAlive()).map((monster) => monster.mesh),
+      ...(multiplayer ? multiplayer.getRemoteMeshes() : [])
+    ],
   });
   weaponView.update(delta);
   if (activeWeapon.type === 'rifle' || activeWeapon.type === 'shotgun') {

@@ -195,6 +195,8 @@ wss.on('connection', (ws) => {
         broadcast({ type: 'player_update', id: playerId, ...data }, playerId);
       } else if (data.type === 'shoot') {
         broadcast({ type: 'player_shoot', id: playerId, ...data }, playerId);
+      } else if (data.type === 'hit_player') {
+        broadcast({ type: 'hit_player', attackerId: playerId, attackerName: playerInfo.name, ...data });
       }
     } catch (err) {}
   });

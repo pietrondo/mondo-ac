@@ -42,6 +42,7 @@ export class RemotePlayer {
     visor.position.set(0, 1.85, -0.15);
     this.mesh.add(visor);
 
+    this.mesh.userData.remotePlayerId = id;
     scene.add(this.mesh);
 
     // HTML Name tag banner floating over player
@@ -97,8 +98,25 @@ export class MultiplayerManager {
   private myId: string | null = null;
   private remotePlayers = new Map<string, RemotePlayer>();
   private updateTimer = 0;
+  onDamageReceived?: (damage: number, attackerName: string) => void;
 
   constructor(private scene: THREE.Scene, private camera: THREE.PerspectiveCamera) {}
+
+  getRemoteMeshes(): THREE.Object3D[] {
+    const meshes: THREE.Object3D[] = [];
+    for (const remote of this.remotePlayers.values()) {
+      meshes.push(remote.mesh);
+    }
+    return meshes;
+  }
+
+  sendHitPlayer(targetId: string, damage: number): void {
+    this.send({
+      type: 'hit_player',
+      targetId,
+      damage
+    });
+  }
 
   connect(playerName: string): void {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -193,6 +211,11 @@ export class MultiplayerManager {
         if (remote) {
           remote.destroy(this.scene);
           this.remotePlayers.delete(data.id);
+        }
+        break;
+      case 'hit_player':
+        if (data.targetId === this.myId) {
+          this.onDamageReceived?.(data.damage, data.attackerName || 'Nemico');
         }
         break;
     }
