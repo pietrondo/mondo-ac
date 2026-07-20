@@ -2,11 +2,13 @@ import * as THREE from 'three';
 
 export class Collectible {
   mesh: THREE.Mesh;
+  readonly type: 'coin' | 'crystal' | 'potion' | 'ammo' | 'boss_chest';
   private bobOffset = Math.random() * Math.PI * 2;
   private value: number;
 
-  constructor(position: THREE.Vector3, type: 'coin' | 'crystal' | 'potion' | 'boss_chest' = 'coin') {
-    this.value = type === 'coin' ? 1 : type === 'crystal' ? 5 : type === 'potion' ? 10 : 50;
+  constructor(position: THREE.Vector3, type: 'coin' | 'crystal' | 'potion' | 'ammo' | 'boss_chest' = 'coin') {
+    this.type = type;
+    this.value = type === 'coin' ? 1 : type === 'crystal' ? 5 : type === 'potion' ? 10 : type === 'ammo' ? 15 : 50;
 
     let geometry: THREE.BufferGeometry;
     let color: number;
@@ -23,6 +25,10 @@ export class Collectible {
       case 'potion':
         geometry = new THREE.CylinderGeometry(0.25, 0.25, 0.5, 8);
         color = 0xE91E63;
+        break;
+      case 'ammo':
+        geometry = new THREE.BoxGeometry(0.45, 0.35, 0.5);
+        color = 0x00E5FF;
         break;
       case 'boss_chest':
         geometry = new THREE.BoxGeometry(0.8, 0.6, 0.6);

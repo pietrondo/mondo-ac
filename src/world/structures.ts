@@ -93,6 +93,16 @@ export function createHouse(options: HouseOptions = {}): THREE.Group {
   chimney.position.set(0.8 * scale, wallHeight + 1.2 * scale, -0.8 * scale);
   group.add(chimney);
 
+  // Entrance Lantern
+  const lanternMat = new THREE.MeshBasicMaterial({ color: 0xFFB300 });
+  const lanternMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2 * scale, 0.3 * scale, 0.2 * scale), lanternMat);
+  lanternMesh.position.set(0, doorHeight + 0.25 * scale, baseSize / 2 + 0.1);
+  group.add(lanternMesh);
+
+  const lanternLight = new THREE.PointLight(0xFFB300, 1.2, 8 * scale);
+  lanternLight.position.set(0, doorHeight + 0.25 * scale, baseSize / 2 + 0.2);
+  group.add(lanternLight);
+
   // Window helper function
   function createArchedWindow(): THREE.Group {
     const windowGroup = new THREE.Group();

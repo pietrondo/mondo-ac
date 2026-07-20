@@ -745,6 +745,13 @@ function animate(): void {
             else if (monster.variant === 'drone') scoreValue = 25;
             else if (monster.variant === 'crawler') scoreValue = 20;
 
+            // Drop Powerup Collectible on enemy death
+            const dropTypes: Array<'potion' | 'ammo' | 'coin' | 'crystal'> = ['potion', 'ammo', 'coin', 'coin', 'crystal'];
+            const dropType = dropTypes[Math.floor(Math.random() * dropTypes.length)];
+            const dropItem = new Collectible(monster.mesh.position.clone(), dropType);
+            collectibles.push(dropItem);
+            scene.add(dropItem.mesh);
+
             // Drop Boss Chest on boss death
             if (monster.variant === 'titan' || monster.variant === 'golem' || monster.variant === 'annihilator') {
               const chest = new Collectible(monster.mesh.position.clone(), 'boss_chest');
@@ -791,10 +798,13 @@ function animate(): void {
       hud.addScore(value);
       hud.addCoins(value * 5); // Add money
       soundManager.playCollect();
-      // Potion heals
-      if (value === 10) {
-        player.hp = Math.min(player.maxHp, player.hp + 20);
+      if (item.type === 'potion') {
+        player.hp = Math.min(player.maxHp, player.hp + 25);
         updateHpDisplay();
+      } else if (item.type === 'ammo') {
+        const w = weapons[activeWeaponIndex];
+        w.reserveAmmo = Math.min(w.maxReserveAmmo, w.reserveAmmo + 30);
+        hud.setWeaponState(w.magazineAmmo, w.reserveAmmo, w.isReloading, w.name);
       }
     }
   }
