@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { createScene } from './render/scene';
 import { HeightMap } from './world/heightmap';
 import { BiomeMap, BiomeType } from './world/biomeMap';
-import { createTerrainMesh } from './world/terrain';
 import { createWater, updateWater } from './world/water';
 import { createDecorations } from './world/decorations';
 import { placeFeatures, VillageData } from './world/features';
@@ -37,6 +36,7 @@ import { DayNightManager } from './world/dayNight';
 import { SkillSystem } from './game/skills';
 import { MultiplayerManager } from './net/multiplayer';
 import { ZoneManager } from './world/zones';
+import { ChunkManager } from './world/chunkManager';
 
 async function setLoadingProgress(percent: number, message: string): Promise<void> {
   const fill = document.getElementById('loading-bar-fill');
@@ -124,7 +124,6 @@ let soundManager: SoundManager;
 let renderer: THREE.WebGLRenderer | undefined;
 let heightMap: HeightMap;
 let biomeMap: BiomeMap;
-let terrain: THREE.Mesh;
 let water: THREE.Mesh;
 let input: InputManager;
 let player: Player;
@@ -143,6 +142,7 @@ let lastTime = 0;
 let updateHpDisplay: () => void = () => {};
 let multiplayer: MultiplayerManager;
 let zoneManager: ZoneManager;
+let chunkManager: ChunkManager;
 
 async function initGame(): Promise<void> {
   await setLoadingProgress(15, 'Inizializzazione motore 3D e WebGL...');
@@ -178,13 +178,10 @@ async function initGame(): Promise<void> {
     scene.add(sun.target);
   }
 
-  await setLoadingProgress(40, 'Generazione mappa d\'altezza e biomi...');
+  await setLoadingProgress(40, 'Generazione mappa d\'altezza e streaming chunk VRAM...');
   heightMap = new HeightMap(SEED);
   biomeMap = new BiomeMap(heightMap, SEED + 1);
-  terrain = createTerrainMesh(heightMap, biomeMap);
-  terrain.matrixAutoUpdate = false;
-  terrain.updateMatrix();
-  scene.add(terrain);
+  chunkManager = new ChunkManager(scene, heightMap, biomeMap);
 
   water = createWater();
   water.matrixAutoUpdate = false;
@@ -565,8 +562,8 @@ updateHpDisplay = (): void => {
 }
 
 // Debug events (setup once)
-document.addEventListener('debug-wireframe', ((e: CustomEvent) => {
-  (terrain.material as THREE.MeshStandardMaterial).wireframe = e.detail;
+document.addEventListener('debug-wireframe', (() => {
+  // Wireframe debug handled dynamically per active chunk
 }) as EventListener);
 document.addEventListener('debug-camera-height', ((e: CustomEvent) => {
   (player as any).cameraHeight = e.detail;
@@ -654,9 +651,12 @@ function animate(): void {
     multiplayer.update(delta, player.mesh.position, player.yaw, player.hp, weapons[activeWeaponIndex].name);
   }
 
-  // Update Region Zone detection
+  // Update Region Zone detection & Dynamic VRAM Terrain Chunk Streaming
   if (zoneManager) {
     zoneManager.update(player.mesh.position, hud);
+  }
+  if (chunkManager) {
+    chunkManager.update(player.mesh.position);
   }
 
   // Track wasAlive transition for HP sync and leaderboard overlay on respawn/death
