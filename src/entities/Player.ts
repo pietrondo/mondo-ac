@@ -171,11 +171,23 @@ export class Player {
     if (this.activeVehicle) {
       this.activeVehicle.update(delta, this.input, heightMap);
       this.mesh.position.copy(this.activeVehicle.mesh.position);
-      this.yaw = this.activeVehicle.yaw;
       this.velocity.set(0, 0, 0);
 
-      // Mouse freelook while riding
+      // Mouse aims the crosshair & camera pitch
       this.yaw += this.input.state.mouseX;
+      // Mouse movement steers aiming relative to vehicle direction
+      if (Math.abs(this.input.state.mouseX) < 1e-5 && !this.input.state.left && !this.input.state.right) {
+        // Smoothly realign camera towards vehicle heading when not aiming or turning
+        let diff = this.activeVehicle.yaw - this.yaw;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.yaw += diff * Math.min(1.0, delta * 3.0);
+      } else if (this.input.state.left || this.input.state.right) {
+        // When turning vehicle with A/D, rotate camera along with vehicle
+        const turn = (this.input.state.left ? 1 : 0) - (this.input.state.right ? 1 : 0);
+        this.yaw += turn * 2.2 * delta;
+      }
+
       this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
       this.input.resetMouse();
 
