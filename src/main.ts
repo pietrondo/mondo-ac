@@ -865,6 +865,18 @@ function animate(): void {
               } else if (item === 'damage') {
                 powerUpRuntime.shotDamage = Math.round(powerUpRuntime.shotDamage * 1.25);
                 return true;
+              } else if (item === 'grenadelauncher' || item === 'plasma' || item === 'sniper') {
+                const existing = weapons.find(w => w.type === item);
+                if (existing) {
+                  existing.reserveAmmo = existing.maxReserveAmmo;
+                } else {
+                  weapons.push(new Weapon(item, {
+                    onShot: (hit) => handleWeaponShot(hit),
+                    onReload: () => soundManager.playReload(),
+                  }));
+                }
+                hud.showWaveBanner('⚔️ ARMA ACQUISTATA!', `Hai ottenuto: ${item.toUpperCase()}`);
+                return true;
               }
               return false;
             });
@@ -1243,12 +1255,15 @@ window.addEventListener('keydown', (e) => {
 
 
 
-// Weapon switching keyboard controls (Keys 1, 2, 3, 4)
+// Weapon switching keyboard controls (Keys 1..7)
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Digit1') switchWeapon(0);
   if (e.code === 'Digit2') switchWeapon(1);
   if (e.code === 'Digit3') switchWeapon(2);
   if (e.code === 'Digit4') switchWeapon(3);
+  if (e.code === 'Digit5') switchWeapon(4);
+  if (e.code === 'Digit6') switchWeapon(5);
+  if (e.code === 'Digit7') switchWeapon(6);
 });
 
 function switchWeapon(index: number): void {

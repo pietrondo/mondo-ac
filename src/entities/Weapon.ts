@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type WeaponType = 'rifle' | 'shotgun' | 'flamethrower' | 'melee';
+export type WeaponType = 'rifle' | 'shotgun' | 'flamethrower' | 'grenadelauncher' | 'plasma' | 'sniper' | 'melee';
 
 export interface WeaponOptions {
   onShot?: (hit: THREE.Intersection<THREE.Object3D> | undefined) => void;
@@ -64,6 +64,39 @@ export class Weapon {
         this.damage = 8;
         this.magazineAmmo = 100;
         this.reserveAmmo = 200;
+        break;
+      case 'grenadelauncher':
+        this.name = 'Grenade Launcher';
+        this.magazineCapacity = 6;
+        this.maxReserveAmmo = 30;
+        this.reloadDuration = 2.4;
+        this.shotInterval = 0.7;
+        this.range = 60;
+        this.damage = 110;
+        this.magazineAmmo = 6;
+        this.reserveAmmo = 18;
+        break;
+      case 'plasma':
+        this.name = 'Heavy Plasma Cannon';
+        this.magazineCapacity = 40;
+        this.maxReserveAmmo = 160;
+        this.reloadDuration = 1.8;
+        this.shotInterval = 0.12;
+        this.range = 100;
+        this.damage = 38;
+        this.magazineAmmo = 40;
+        this.reserveAmmo = 120;
+        break;
+      case 'sniper':
+        this.name = 'Sniper Rifle 50Cal';
+        this.magazineCapacity = 5;
+        this.maxReserveAmmo = 25;
+        this.reloadDuration = 2.8;
+        this.shotInterval = 1.2;
+        this.range = 250;
+        this.damage = 180;
+        this.magazineAmmo = 5;
+        this.reserveAmmo = 15;
         break;
       case 'melee':
       default:

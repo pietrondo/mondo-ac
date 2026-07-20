@@ -713,7 +713,7 @@ export class HUD {
     });
   }
 
-  openShopMenu(onBuy: (item: 'health' | 'ammo' | 'shield' | 'damage') => boolean): void {
+  openShopMenu(onBuy: (item: 'health' | 'ammo' | 'shield' | 'damage' | 'grenadelauncher' | 'plasma' | 'sniper') => boolean): void {
     let overlay = document.getElementById('merchant-shop-overlay') as HTMLDivElement;
     if (overlay) {
       overlay.remove();
@@ -727,12 +727,14 @@ export class HUD {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 480px;
-      max-width: 92vw;
+      width: 520px;
+      max-width: 94vw;
+      max-height: 88vh;
+      overflow-y: auto;
       background: rgba(18, 22, 34, 0.96);
       border: 2px solid #FFD700;
       border-radius: 16px;
-      padding: 26px;
+      padding: 24px;
       color: white;
       font-family: system-ui, sans-serif;
       z-index: 10000;
@@ -741,29 +743,45 @@ export class HUD {
     `;
 
     overlay.innerHTML = `
-      <h2 style="color: #FFD700; text-align: center; margin-bottom: 6px; font-weight: 900; letter-spacing: 2px;">🏪 NEGOZIO DEL MERCANTE</h2>
-      <p style="text-align: center; color: #b0bec5; font-size: 13px; margin-bottom: 20px;">Le tue monete: <strong id="shop-coins-txt" style="color:#FFD700">$${this.coins}</strong></p>
+      <h2 style="color: #FFD700; text-align: center; margin-bottom: 6px; font-weight: 900; letter-spacing: 2px;">🏪 ARMERIA DEL MERCANTE</h2>
+      <p style="text-align: center; color: #b0bec5; font-size: 13px; margin-bottom: 18px;">Le tue monete: <strong id="shop-coins-txt" style="color:#FFD700">$${this.coins}</strong></p>
 
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <button id="buy-health" style="background: rgba(255,23,68,0.2); border: 1.5px solid #FF1744; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button id="buy-health" style="background: rgba(255,23,68,0.2); border: 1.5px solid #FF1744; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-align: center;">
           <span>🧪 POZIONE DI VITA (+50 HP)</span>
           <span style="background: #FF1744; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$30</span>
         </button>
-        <button id="buy-ammo" style="background: rgba(0,229,255,0.2); border: 1.5px solid #00E5FF; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+        <button id="buy-ammo" style="background: rgba(0,229,255,0.2); border: 1.5px solid #00E5FF; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
           <span>📦 CASSA MUNIZIONI (MAX AMMO)</span>
           <span style="background: #00E5FF; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$20</span>
         </button>
-        <button id="buy-shield" style="background: rgba(179,136,255,0.2); border: 1.5px solid #B388FF; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+        <button id="buy-shield" style="background: rgba(179,136,255,0.2); border: 1.5px solid #B388FF; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
           <span>🛡️ SCUDO DI ENERGIA (INVULNERABILITÀ 5s)</span>
           <span style="background: #B388FF; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$50</span>
         </button>
-        <button id="buy-damage" style="background: rgba(255,214,0,0.2); border: 1.5px solid #FFD600; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+        <button id="buy-damage" style="background: rgba(255,214,0,0.2); border: 1.5px solid #FFD600; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
           <span>🔥 POTENZIAMENTO ARMI (+25% DANNO)</span>
           <span style="background: #FFD600; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$100</span>
         </button>
+
+        <div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 6px 0;"></div>
+        <div style="color: #FFD700; font-size: 12px; font-weight: 800; letter-spacing: 1px;">⚔️ ARMI PESANTI SPECIALE:</div>
+
+        <button id="buy-grenadelauncher" style="background: rgba(255,109,0,0.2); border: 1.5px solid #FF6D00; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>💣 LANCIA-GRANATE (110 DANNO AOE)</span>
+          <span style="background: #FF6D00; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$150</span>
+        </button>
+        <button id="buy-plasma" style="background: rgba(0,230,118,0.2); border: 1.5px solid #00E676; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>⚡ CANNONE PLASMA (40 COLPI RAPIDI)</span>
+          <span style="background: #00E676; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$200</span>
+        </button>
+        <button id="buy-sniper" style="background: rgba(224,64,251,0.2); border: 1.5px solid #E040FB; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🎯 SNIPER 50CAL (180 DANNO CRITICO)</span>
+          <span style="background: #E040FB; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$250</span>
+        </button>
       </div>
 
-      <button id="close-shop-btn" style="width: 100%; margin-top: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      <button id="close-shop-btn" style="width: 100%; margin-top: 18px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
         ESCI DAL NEGOZIO
       </button>
     `;
@@ -799,6 +817,27 @@ export class HUD {
     document.getElementById('buy-damage')?.addEventListener('click', () => {
       if (this.spendCoins(100)) {
         onBuy('damage');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-grenadelauncher')?.addEventListener('click', () => {
+      if (this.spendCoins(150)) {
+        onBuy('grenadelauncher');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-plasma')?.addEventListener('click', () => {
+      if (this.spendCoins(200)) {
+        onBuy('plasma');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-sniper')?.addEventListener('click', () => {
+      if (this.spendCoins(250)) {
+        onBuy('sniper');
         updateShopCoinsTxt();
       }
     });

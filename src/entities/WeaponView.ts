@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ParticlePool } from '../combat/particles';
+import { WeaponType } from './Weapon';
 
 export class WeaponView {
   readonly group: THREE.Group;
@@ -13,7 +14,7 @@ export class WeaponView {
   private shotgunModel!: THREE.Group;
   private flamethrowerModel!: THREE.Group;
   private knifeModel!: THREE.Group;
-  private activeType: 'rifle' | 'shotgun' | 'flamethrower' | 'melee' = 'rifle';
+  private activeType: WeaponType = 'rifle';
 
   private readonly ammoCanvas!: HTMLCanvasElement;
   private readonly ammoContext!: CanvasRenderingContext2D;
@@ -652,7 +653,7 @@ export class WeaponView {
     this.group.add(this.flamethrowerModel);
   }
 
-  setWeapon(type: 'rifle' | 'shotgun' | 'flamethrower' | 'melee'): void {
+  setWeapon(type: WeaponType): void {
     this.activeType = type;
     this.rifleModel.visible = (type === 'rifle');
     this.shotgunModel.visible = (type === 'shotgun');
