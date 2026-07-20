@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type WeaponType = 'rifle' | 'shotgun' | 'flamethrower' | 'grenadelauncher' | 'plasma' | 'sniper' | 'melee';
+export type WeaponType = 'rifle' | 'shotgun' | 'flamethrower' | 'grenadelauncher' | 'plasma' | 'sniper' | 'sword' | 'spear' | 'bow' | 'staff' | 'rock' | 'melee';
 
 export interface WeaponOptions {
   onShot?: (hit: THREE.Intersection<THREE.Object3D> | undefined) => void;
@@ -97,6 +97,61 @@ export class Weapon {
         this.damage = 180;
         this.magazineAmmo = 5;
         this.reserveAmmo = 15;
+        break;
+      case 'sword':
+        this.name = 'Longsword';
+        this.magazineCapacity = 1;
+        this.maxReserveAmmo = 0;
+        this.reloadDuration = 0.0;
+        this.shotInterval = 0.35;
+        this.range = 4.2;
+        this.damage = 65;
+        this.magazineAmmo = 1;
+        this.reserveAmmo = 0;
+        break;
+      case 'spear':
+        this.name = 'Iron Spear';
+        this.magazineCapacity = 1;
+        this.maxReserveAmmo = 0;
+        this.reloadDuration = 0.0;
+        this.shotInterval = 0.45;
+        this.range = 5.8;
+        this.damage = 75;
+        this.magazineAmmo = 1;
+        this.reserveAmmo = 0;
+        break;
+      case 'bow':
+        this.name = 'Hunting Bow';
+        this.magazineCapacity = 12;
+        this.maxReserveAmmo = 60;
+        this.reloadDuration = 1.6;
+        this.shotInterval = 0.55;
+        this.range = 140;
+        this.damage = 85;
+        this.magazineAmmo = 12;
+        this.reserveAmmo = 48;
+        break;
+      case 'staff':
+        this.name = 'Arcane Staff';
+        this.magazineCapacity = 20;
+        this.maxReserveAmmo = 80;
+        this.reloadDuration = 1.4;
+        this.shotInterval = 0.22;
+        this.range = 110;
+        this.damage = 55;
+        this.magazineAmmo = 20;
+        this.reserveAmmo = 60;
+        break;
+      case 'rock':
+        this.name = 'Thrown Rock';
+        this.magazineCapacity = 15;
+        this.maxReserveAmmo = 60;
+        this.reloadDuration = 1.0;
+        this.shotInterval = 0.3;
+        this.range = 40;
+        this.damage = 35;
+        this.magazineAmmo = 15;
+        this.reserveAmmo = 45;
         break;
       case 'melee':
       default:

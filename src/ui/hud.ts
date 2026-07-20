@@ -713,7 +713,7 @@ export class HUD {
     });
   }
 
-  openShopMenu(onBuy: (item: 'health' | 'ammo' | 'shield' | 'damage' | 'grenadelauncher' | 'plasma' | 'sniper') => boolean): void {
+  openShopMenu(onBuy: (item: 'health' | 'ammo' | 'shield' | 'damage' | 'grenadelauncher' | 'plasma' | 'sniper' | 'sword' | 'spear' | 'bow' | 'staff' | 'rock') => boolean): void {
     let overlay = document.getElementById('merchant-shop-overlay') as HTMLDivElement;
     if (overlay) {
       overlay.remove();
@@ -727,7 +727,7 @@ export class HUD {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 520px;
+      width: 540px;
       max-width: 94vw;
       max-height: 88vh;
       overflow-y: auto;
@@ -747,7 +747,7 @@ export class HUD {
       <p style="text-align: center; color: #b0bec5; font-size: 13px; margin-bottom: 18px;">Le tue monete: <strong id="shop-coins-txt" style="color:#FFD700">$${this.coins}</strong></p>
 
       <div style="display: flex; flex-direction: column; gap: 10px;">
-        <button id="buy-health" style="background: rgba(255,23,68,0.2); border: 1.5px solid #FF1744; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-align: center;">
+        <button id="buy-health" style="background: rgba(255,23,68,0.2); border: 1.5px solid #FF1744; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
           <span>🧪 POZIONE DI VITA (+50 HP)</span>
           <span style="background: #FF1744; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$30</span>
         </button>
@@ -755,17 +755,33 @@ export class HUD {
           <span>📦 CASSA MUNIZIONI (MAX AMMO)</span>
           <span style="background: #00E5FF; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$20</span>
         </button>
-        <button id="buy-shield" style="background: rgba(179,136,255,0.2); border: 1.5px solid #B388FF; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
-          <span>🛡️ SCUDO DI ENERGIA (INVULNERABILITÀ 5s)</span>
-          <span style="background: #B388FF; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$50</span>
+
+        <div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 4px 0;"></div>
+        <div style="color: #FFD700; font-size: 12px; font-weight: 800; letter-spacing: 1px;">⚔️ ARMI MEDIEVALI & MAGIA:</div>
+
+        <button id="buy-sword" style="background: rgba(255,193,7,0.2); border: 1.5px solid #FFC107; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🗡️ SPADA LUNGA (65 DANNO CORPO A CORPO)</span>
+          <span style="background: #FFC107; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$60</span>
         </button>
-        <button id="buy-damage" style="background: rgba(255,214,0,0.2); border: 1.5px solid #FFD600; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
-          <span>🔥 POTENZIAMENTO ARMI (+25% DANNO)</span>
-          <span style="background: #FFD600; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$100</span>
+        <button id="buy-spear" style="background: rgba(121,85,72,0.2); border: 1.5px solid #795548; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🔱 LANCIA DI FERRO (75 DANNO ALLUNGO 5.8m)</span>
+          <span style="background: #795548; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$80</span>
+        </button>
+        <button id="buy-bow" style="background: rgba(139,195,74,0.2); border: 1.5px solid #8BC34A; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🏹 ARCO DA CACCIA (85 DANNO FRECCIA)</span>
+          <span style="background: #8BC34A; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$100</span>
+        </button>
+        <button id="buy-staff" style="background: rgba(156,39,176,0.2); border: 1.5px solid #9C27B0; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🔮 BASTONE MAGICO (PROIETTI ARCANO 55 DANNO)</span>
+          <span style="background: #9C27B0; color: white; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$120</span>
+        </button>
+        <button id="buy-rock" style="background: rgba(158,158,158,0.2); border: 1.5px solid #9E9E9E; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🪨 SASSO DA LANCIO (35 DANNO ECONOMICO)</span>
+          <span style="background: #9E9E9E; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$15</span>
         </button>
 
-        <div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 6px 0;"></div>
-        <div style="color: #FFD700; font-size: 12px; font-weight: 800; letter-spacing: 1px;">⚔️ ARMI PESANTI SPECIALE:</div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 4px 0;"></div>
+        <div style="color: #FFD700; font-size: 12px; font-weight: 800; letter-spacing: 1px;">💥 ARMI PESANTI E SPECIALE:</div>
 
         <button id="buy-grenadelauncher" style="background: rgba(255,109,0,0.2); border: 1.5px solid #FF6D00; color: white; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
           <span>💣 LANCIA-GRANATE (110 DANNO AOE)</span>
@@ -803,6 +819,41 @@ export class HUD {
     document.getElementById('buy-ammo')?.addEventListener('click', () => {
       if (this.spendCoins(20)) {
         onBuy('ammo');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-sword')?.addEventListener('click', () => {
+      if (this.spendCoins(60)) {
+        onBuy('sword');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-spear')?.addEventListener('click', () => {
+      if (this.spendCoins(80)) {
+        onBuy('spear');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-bow')?.addEventListener('click', () => {
+      if (this.spendCoins(100)) {
+        onBuy('bow');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-staff')?.addEventListener('click', () => {
+      if (this.spendCoins(120)) {
+        onBuy('staff');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-rock')?.addEventListener('click', () => {
+      if (this.spendCoins(15)) {
+        onBuy('rock');
         updateShopCoinsTxt();
       }
     });

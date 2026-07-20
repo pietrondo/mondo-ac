@@ -884,7 +884,7 @@ function animate(): void {
               } else if (item === 'damage') {
                 powerUpRuntime.shotDamage = Math.round(powerUpRuntime.shotDamage * 1.25);
                 return true;
-              } else if (item === 'grenadelauncher' || item === 'plasma' || item === 'sniper') {
+              } else if (item === 'grenadelauncher' || item === 'plasma' || item === 'sniper' || item === 'sword' || item === 'spear' || item === 'bow' || item === 'staff' || item === 'rock') {
                 const existing = weapons.find(w => w.type === item);
                 if (existing) {
                   existing.reserveAmmo = existing.maxReserveAmmo;
@@ -1274,7 +1274,7 @@ window.addEventListener('keydown', (e) => {
 
 
 
-// Weapon switching keyboard controls (Keys 1..7)
+// Weapon switching keyboard controls (Keys 1..0)
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Digit1') switchWeapon(0);
   if (e.code === 'Digit2') switchWeapon(1);
@@ -1283,6 +1283,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Digit5') switchWeapon(4);
   if (e.code === 'Digit6') switchWeapon(5);
   if (e.code === 'Digit7') switchWeapon(6);
+  if (e.code === 'Digit8') switchWeapon(7);
+  if (e.code === 'Digit9') switchWeapon(8);
+  if (e.code === 'Digit0') switchWeapon(9);
 });
 
 function switchWeapon(index: number): void {
