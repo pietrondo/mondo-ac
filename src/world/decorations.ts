@@ -284,8 +284,7 @@ export function createDecorations(
     const geom = new THREE.IcosahedronGeometry(0.5, 1);
     const mat = new THREE.MeshStandardMaterial({
       color: 0x8D6E63,
-      flatShading: true,
-      wireframe: true
+      flatShading: true
     });
     const instancedMesh = new THREE.InstancedMesh(geom, mat, tumbleweeds.length);
     instancedMesh.castShadow = true;

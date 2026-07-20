@@ -4,7 +4,7 @@ import { BiomeMap, BiomeType } from './biomeMap';
 import { WORLD_SIZE, WORLD_SCALE } from '../config';
 
 export const CHUNK_SIZE = 32; // cells per chunk
-export const RENDER_RADIUS = 3; // active chunks radius around player
+export const RENDER_RADIUS = 2; // active chunks radius around player
 
 function biomeToColor(biome: BiomeType): THREE.Color {
   switch (biome) {

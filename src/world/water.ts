@@ -5,8 +5,8 @@ export function createWater(): THREE.Mesh {
   const geometry = new THREE.PlaneGeometry(
     WORLD_SIZE * WORLD_SCALE * 1.5,
     WORLD_SIZE * WORLD_SCALE * 1.5,
-    64,
-    64
+    16,
+    16
   );
   geometry.rotateX(-Math.PI / 2);
 
