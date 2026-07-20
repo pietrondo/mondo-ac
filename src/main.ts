@@ -98,14 +98,17 @@ const camera = new THREE.PerspectiveCamera(
 
 const soundManager = new SoundManager(camera);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through to UI
-container.appendChild(renderer.domElement);
+let renderer: THREE.WebGLRenderer | undefined;
+if (!isGameHalted) {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through to UI
+  container.appendChild(renderer.domElement);
+}
 
 // Configure shadow camera layers
 const sun = scene.children.find(child => child instanceof THREE.DirectionalLight) as THREE.DirectionalLight;
@@ -501,7 +504,7 @@ let wasAlive = true;
 let interactWasPressed = false;
 
 function animate(): void {
-  if (isGameHalted) return;
+  if (isGameHalted || !renderer) return;
 
   const now = performance.now();
   const delta = Math.min((now - lastTime) / 1000, 0.1);
@@ -871,7 +874,7 @@ animate();
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (renderer) renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 const loading = document.getElementById('loading');
@@ -885,7 +888,7 @@ clickToStart.style.cssText = 'position:fixed;top:50%;left:50%;transform:translat
 function startGame(): void {
   try {
     document.body.requestPointerLock();
-    renderer.domElement.style.pointerEvents = 'auto'; // Re-enable for gameplay
+    if (renderer) renderer.domElement.style.pointerEvents = 'auto'; // Re-enable for gameplay
     soundManager.startAmbient();
   } catch (e) {
     console.error('Pointer lock failed:', e);

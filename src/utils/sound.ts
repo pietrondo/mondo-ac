@@ -144,6 +144,7 @@ export class SoundManager {
     const sound = new THREE.Audio(this.listener);
     sound.setBuffer(this.shotBuffer);
     sound.setVolume(0.35);
+    sound.onEnded = () => { sound.disconnect(); };
     sound.play();
   }
 
@@ -151,6 +152,7 @@ export class SoundManager {
     const sound = new THREE.Audio(this.listener);
     sound.setBuffer(this.reloadBuffer);
     sound.setVolume(0.4);
+    sound.onEnded = () => { sound.disconnect(); };
     sound.play();
   }
 
@@ -158,6 +160,7 @@ export class SoundManager {
     const sound = new THREE.Audio(this.listener);
     sound.setBuffer(this.collectBuffer);
     sound.setVolume(0.25);
+    sound.onEnded = () => { sound.disconnect(); };
     sound.play();
   }
 
@@ -165,6 +168,7 @@ export class SoundManager {
     const sound = new THREE.Audio(this.listener);
     sound.setBuffer(this.hurtBuffer);
     sound.setVolume(0.5);
+    sound.onEnded = () => { sound.disconnect(); };
     sound.play();
   }
 
@@ -172,6 +176,7 @@ export class SoundManager {
     const sound = new THREE.Audio(this.listener);
     sound.setBuffer(this.meleeBuffer);
     sound.setVolume(0.3);
+    sound.onEnded = () => { sound.disconnect(); };
     sound.play();
   }
 

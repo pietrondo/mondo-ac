@@ -5,7 +5,7 @@ test.describe('Smoke', () => {
     await page.goto('/');
     await page.waitForTimeout(2000);
     
-    const canvas = page.locator('canvas');
+    const canvas = page.locator('#canvas-container canvas');
     await expect(canvas).toBeVisible();
   });
 

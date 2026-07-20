@@ -97,6 +97,8 @@ export class Player {
   }
 
   private die(): void {
+    const existingMsg = document.getElementById('death-message');
+    if (existingMsg) existingMsg.remove();
     this.alive = false;
     this.mesh.visible = false;
     this.input.reset();
@@ -206,7 +208,7 @@ export class Player {
       const moveSpeed = this.input.state.run ? this.runSpeed : this.speed;
 
       const moveX = Math.sin(this.yaw) * forward + Math.cos(this.yaw) * strafe;
-      const moveZ = -Math.cos(this.yaw) * forward + Math.sin(this.yaw) * strafe;
+      const moveZ = -Math.cos(this.yaw) * forward - Math.sin(this.yaw) * strafe;
 
       const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
       if (len > 0) {

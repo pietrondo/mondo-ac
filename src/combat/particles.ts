@@ -152,6 +152,9 @@ export class ParticlePool {
         if (oldestAny) {
           p = oldestAny;
           p.type = type;
+          if (p.mesh.material && typeof (p.mesh.material as any).dispose === 'function') {
+            (p.mesh.material as any).dispose();
+          }
           if (type === 'spark') {
             p.mesh.geometry = this.sparkGeo;
             p.mesh.material = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 1.0 });
