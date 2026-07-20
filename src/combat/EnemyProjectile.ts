@@ -52,10 +52,11 @@ export class EnemyProjectileSystem {
     // Cache the default material
     this.materialsByColor.set(this.defaultColor, this.projectileMaterial);
 
-    // Pre-allocate mesh pool
+    // Pre-allocate mesh pool and add to scene
     for (let i = 0; i < this.poolSize; i++) {
       const mesh = new THREE.Mesh(this.projectileGeometry, this.projectileMaterial);
       mesh.visible = false;
+      this.scene.add(mesh);
       this.pool.push(mesh);
     }
   }
@@ -94,7 +95,6 @@ export class EnemyProjectileSystem {
       if (this.projectiles.length > 0) {
         const oldest = this.projectiles.shift()!;
         mesh = oldest.mesh;
-        this.scene.remove(mesh);
       } else {
         return;
       }
@@ -105,9 +105,6 @@ export class EnemyProjectileSystem {
     mesh.scale.setScalar(size / this.defaultSize);
     mesh.position.copy(origin);
     mesh.visible = true;
-
-    // Add to scene
-    this.scene.add(mesh);
 
     const velocity = direction.clone().normalize().multiplyScalar(speed);
 
@@ -167,7 +164,6 @@ export class EnemyProjectileSystem {
   private removeProjectile(index: number): void {
     const proj = this.projectiles[index];
     proj.mesh.visible = false;
-    this.scene.remove(proj.mesh);
     this.projectiles.splice(index, 1);
   }
 

@@ -32,6 +32,28 @@ export class ParticlePool {
     this.maxCapacity = maxCapacity;
   }
 
+  prewarm(): void {
+    const types: Array<'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust'> = [
+      'spark', 'blood', 'shell', 'snow', 'sand', 'leaf', 'smoke', 'dust'
+    ];
+    for (const type of types) {
+      for (let i = 0; i < 12; i++) {
+        if (this.particles.length >= this.maxCapacity) break;
+        const mesh = this.createMesh(type);
+        this.particles.push({
+          mesh,
+          type,
+          active: false,
+          position: new THREE.Vector3(),
+          velocity: new THREE.Vector3(),
+          rotationVelocity: new THREE.Vector3(),
+          life: 0,
+          maxLife: 0,
+        });
+      }
+    }
+  }
+
   private createMesh(type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust'): THREE.Mesh {
     let geo: THREE.BufferGeometry;
     let mat: THREE.Material;

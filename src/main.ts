@@ -100,7 +100,7 @@ const soundManager = new SoundManager(camera);
 
 let renderer: THREE.WebGLRenderer | undefined;
 if (!isGameHalted) {
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
@@ -108,6 +108,7 @@ if (!isGameHalted) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through to UI
   container.appendChild(renderer.domElement);
+  renderer.compile(scene, camera); // Prewarm and compile all materials/shaders on GPU
 }
 
 // Configure shadow camera layers
@@ -159,6 +160,7 @@ player.setColliders(features.structureColliders, decorations.colliders);
 const weaponView = new WeaponView(camera);
 const shotTracer = new ShotTracer(scene);
 const particlePool = new ParticlePool(scene);
+particlePool.prewarm();
 const cloudManager = new CloudManager(scene);
 const damageNumber = new DamageNumber();
 const hitMarker = new HitMarker();
@@ -887,6 +889,7 @@ clickToStart.style.cssText = 'position:fixed;top:50%;left:50%;transform:translat
 
 function startGame(): void {
   try {
+    lastTime = performance.now();
     document.body.requestPointerLock();
     if (renderer) renderer.domElement.style.pointerEvents = 'auto'; // Re-enable for gameplay
     soundManager.startAmbient();
