@@ -366,66 +366,35 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Find a good spawn point on plains or forest (green areas) with decent elevation
-let bestSpawnHx = 128;
-let bestSpawnHz = 128;
-let bestSpawnH = heightMap.get(128, 128);
-
-// Search for plains or forest first
-let foundGoodBiome = false;
-for (let dx = -40; dx <= 40; dx++) {
-  for (let dz = -40; dz <= 40; dz++) {
-    const hx = 128 + dx;
-    const hz = 128 + dz;
-    if (hx < 0 || hx >= WORLD_SIZE || hz < 0 || hz >= WORLD_SIZE) continue;
+// Function to find a unique random land spawn point each time
+function findRandomSpawnPoint(): THREE.Vector3 {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const hx = Math.floor(20 + Math.random() * (WORLD_SIZE - 40));
+    const hz = Math.floor(20 + Math.random() * (WORLD_SIZE - 40));
     const h = heightMap.get(hx, hz);
     const biome = biomeMap.getBiome(hx, hz);
-    // Prefer plains or forest with good height (above water, below mountains)
-    if ((biome === BiomeType.PLAINS || biome === BiomeType.FOREST) && h > 15 && h < 35) {
-      bestSpawnHx = hx;
-      bestSpawnHz = hz;
-      bestSpawnH = h;
-      foundGoodBiome = true;
-      break;
+    if (biome !== BiomeType.COAST && h > 14) {
+      const worldX = (hx - WORLD_SIZE / 2) * WORLD_SCALE;
+      const worldZ = (hz - WORLD_SIZE / 2) * WORLD_SCALE;
+      const worldY = heightMap.getInterpolated(hx, hz);
+      return new THREE.Vector3(worldX, worldY, worldZ);
     }
   }
-  if (foundGoodBiome) break;
+  return new THREE.Vector3(0, heightMap.getInterpolated(128, 128), 0);
 }
 
-// Fallback: if no plains/forest found, find any non-water, non-snow spot
-if (!foundGoodBiome) {
-  for (let dx = -50; dx <= 50; dx += 2) {
-    for (let dz = -50; dz <= 50; dz += 2) {
-      const hx = 128 + dx;
-      const hz = 128 + dz;
-      if (hx < 0 || hx >= WORLD_SIZE || hz < 0 || hz >= WORLD_SIZE) continue;
-      const h = heightMap.get(hx, hz);
-      const biome = biomeMap.getBiome(hx, hz);
-      if (biome !== BiomeType.SNOW && biome !== BiomeType.COAST && h > 12) {
-        bestSpawnHx = hx;
-        bestSpawnHz = hz;
-        bestSpawnH = h;
-        foundGoodBiome = true;
-        break;
-      }
-    }
-    if (foundGoodBiome) break;
-  }
-}
-
-const spawnWorldX = (bestSpawnHx - WORLD_SIZE / 2) * WORLD_SCALE;
-const spawnWorldZ = (bestSpawnHz - WORLD_SIZE / 2) * WORLD_SCALE;
-player.mesh.position.set(spawnWorldX, bestSpawnH, spawnWorldZ);
-player.setRespawnPoint(player.mesh.position.clone());
+const initialSpawn = findRandomSpawnPoint();
+player.mesh.position.copy(initialSpawn);
+player.setRespawnPoint(initialSpawn);
 
 await setLoadingProgress(80, 'Creazione entità, nemici e veicoli...');
 // Spawn vehicles near player spawn
-const hcX = spawnWorldX + 10;
-const hcZ = spawnWorldZ;
+const hcX = initialSpawn.x + 10;
+const hcZ = initialSpawn.z;
 const hcY = heightMap.getInterpolated((hcX / WORLD_SCALE) + 128, (hcZ / WORLD_SCALE) + 128);
 
-const ssX = spawnWorldX - 10;
-const ssZ = spawnWorldZ;
+const ssX = initialSpawn.x - 10;
+const ssZ = initialSpawn.z;
 const ssY = heightMap.getInterpolated((ssX / WORLD_SCALE) + 128, (ssZ / WORLD_SCALE) + 128) + 2.0;
 
 const vehicles: Vehicle[] = [
@@ -676,6 +645,7 @@ function animate(): void {
       favoriteWeapon: weapons[activeWeaponIndex]?.name || 'Rifle'
     }, () => {
       survivalTime = 0;
+      player.setRespawnPoint(findRandomSpawnPoint());
       player.respawn(heightMap);
     });
   }

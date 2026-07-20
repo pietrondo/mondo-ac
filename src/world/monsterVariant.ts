@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BiomeMap } from './biomeMap';
 import { WORLD_SCALE } from '../config';
 
-export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem' | 'crawler' | 'drone' | 'sentinel' | 'annihilator' | 'phantom' | 'titan';
+export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem' | 'crawler' | 'drone' | 'sentinel' | 'annihilator' | 'phantom' | 'titan' | 'barbone' | 'punk';
 
 export interface MonsterVariantProfile {
   scale: number;
@@ -16,6 +16,26 @@ export interface MonsterVariantProfile {
 }
 
 const variantProfiles: Record<MonsterVariant, MonsterVariantProfile> = {
+  barbone: {
+    scale: 1.25,
+    bodyWidth: 1.2,
+    bodyHeight: 1.4,
+    bodyDepth: 1.1,
+    hp: 95,
+    speed: 3.2,
+    bodyColor: 0x4E342E,
+    eyeColor: 0xFFAB00,
+  },
+  punk: {
+    scale: 0.95,
+    bodyWidth: 0.9,
+    bodyHeight: 1.2,
+    bodyDepth: 0.8,
+    hp: 55,
+    speed: 4.8,
+    bodyColor: 0x880E4F,
+    eyeColor: 0x00E5FF,
+  },
   scout: {
     scale: 0.86,
     bodyWidth: 0.8,

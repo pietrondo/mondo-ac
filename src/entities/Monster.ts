@@ -119,6 +119,49 @@ export class Monster {
       }
     }
 
+    if (this.variant === 'barbone') {
+      const hairMat = new THREE.MeshStandardMaterial({ color: 0x3E2723, roughness: 0.9, flatShading: true });
+
+      // Handlebar Mustache (left & right)
+      const stacheLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.2), hairMat);
+      stacheLeft.position.set(-0.25, profile.bodyHeight * 0.65, profile.bodyDepth * 0.45);
+      stacheLeft.rotation.z = -0.2;
+      this.mesh.add(stacheLeft);
+
+      const stacheRight = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.2), hairMat);
+      stacheRight.position.set(0.25, profile.bodyHeight * 0.65, profile.bodyDepth * 0.45);
+      stacheRight.rotation.z = 0.2;
+      this.mesh.add(stacheRight);
+
+      // Long Wizard Beard
+      const beard = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.8, 6), hairMat);
+      beard.rotation.x = Math.PI;
+      beard.position.set(0, profile.bodyHeight * 0.35, profile.bodyDepth * 0.4);
+      this.mesh.add(beard);
+
+      // Long Bushy Hair
+      const hairTop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.2), hairMat);
+      hairTop.position.set(0, profile.bodyHeight * 1.05, 0);
+      this.mesh.add(hairTop);
+    }
+
+    if (this.variant === 'punk') {
+      const mohawkMat = new THREE.MeshStandardMaterial({
+        color: 0xFF007F,
+        emissive: new THREE.Color(0xFF0055),
+        emissiveIntensity: 0.8,
+        flatShading: true
+      });
+
+      // Spiky Neon Mohawk Hair
+      for (let i = 0; i < 5; i++) {
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.5, 4), mohawkMat);
+        spike.position.set(0, profile.bodyHeight * (0.95 + i * 0.05), profile.bodyDepth * 0.3 - i * 0.15);
+        spike.rotation.x = -0.2 - i * 0.1;
+        this.mesh.add(spike);
+      }
+    }
+
     if (this.variant === 'stalker') {
       const crestMat = new THREE.MeshStandardMaterial({ color: 0xc2185b, flatShading: true });
       for (let i = -1; i <= 1; i++) {
