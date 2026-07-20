@@ -499,6 +499,7 @@ export class HUD {
 
   updateMinimap(
     playerPos: { x: number; z: number },
+    playerYaw: number,
     enemies: { x: number; z: number }[],
     pois: { x: number; z: number; type: string }[]
   ): void {
@@ -508,23 +509,30 @@ export class HUD {
     const centerX = this.minimapSize / 2;
     const centerY = this.minimapSize / 2;
 
-    this.minimapCtx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    this.minimapCtx.save();
+    this.minimapCtx.fillStyle = 'rgba(10, 15, 25, 0.75)';
     this.minimapCtx.fillRect(0, 0, this.minimapSize, this.minimapSize);
+
+    // Rotate map around center so UP on minimap is forward player heading
+    this.minimapCtx.save();
+    this.minimapCtx.translate(centerX, centerY);
+    // playerYaw 0 is looking towards -Z. Rotating by (playerYaw - Math.PI/2) aligns forward with UP on canvas.
+    this.minimapCtx.rotate(playerYaw - Math.PI / 2);
 
     for (const poi of pois) {
       const relX = (poi.x - playerPos.x) * scale;
       const relZ = (poi.z - playerPos.z) * scale;
       if (Math.abs(relX) < this.minimapSize / 2 && Math.abs(relZ) < this.minimapSize / 2) {
-        const px = centerX + relX;
-        const py = centerY + relZ;
-        
         this.minimapCtx.fillStyle = '#ffd54f';
         if (poi.type === 'village') this.minimapCtx.fillStyle = '#4CAF50';
         else if (poi.type === 'castle') this.minimapCtx.fillStyle = '#9C27B0';
         else if (poi.type === 'temple') this.minimapCtx.fillStyle = '#2196F3';
+        else if (poi.type === 'windmill') this.minimapCtx.fillStyle = '#FF9800';
+        else if (poi.type === 'watchtower') this.minimapCtx.fillStyle = '#E91E63';
+        else if (poi.type === 'blacksmith') this.minimapCtx.fillStyle = '#FF5722';
         
         this.minimapCtx.beginPath();
-        this.minimapCtx.arc(px, py, 4, 0, Math.PI * 2);
+        this.minimapCtx.arc(relX, relZ, 4, 0, Math.PI * 2);
         this.minimapCtx.fill();
       }
     }
@@ -534,25 +542,21 @@ export class HUD {
     for (const enemy of enemies) {
       const relX = (enemy.x - playerPos.x) * scale;
       const relZ = (enemy.z - playerPos.z) * scale;
-      const maxOffset = (this.minimapSize / 2) - 8;
+      const maxOffset = (this.minimapSize / 2) - 10;
 
       const isInside = Math.abs(relX) <= maxOffset && Math.abs(relZ) <= maxOffset;
 
       if (isInside) {
-        const px = centerX + relX;
-        const py = centerY + relZ;
-        
         this.minimapCtx.fillStyle = drawAlertPulsing ? '#ff9900' : '#ff4444';
         this.minimapCtx.beginPath();
-        this.minimapCtx.arc(px, py, drawAlertPulsing ? 4 : 3, 0, Math.PI * 2);
+        this.minimapCtx.arc(relX, relZ, drawAlertPulsing ? 4 : 3, 0, Math.PI * 2);
         this.minimapCtx.fill();
       }
 
       if (!isInside || drawAlertPulsing) {
         const angle = Math.atan2(relZ, relX);
-        const edgeRadius = maxOffset;
-        const edgeX = centerX + Math.cos(angle) * edgeRadius;
-        const edgeY = centerY + Math.sin(angle) * edgeRadius;
+        const edgeX = Math.cos(angle) * maxOffset;
+        const edgeY = Math.sin(angle) * maxOffset;
 
         this.minimapCtx.save();
         this.minimapCtx.translate(edgeX, edgeY);
@@ -571,17 +575,22 @@ export class HUD {
       }
     }
 
+    this.minimapCtx.restore(); // restore map rotation
+
+    // Draw Player Arrow at Center pointing UP
     this.minimapCtx.fillStyle = '#00ff00';
     this.minimapCtx.beginPath();
-    this.minimapCtx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+    this.minimapCtx.moveTo(centerX, centerY - 9);
+    this.minimapCtx.lineTo(centerX - 6, centerY + 5);
+    this.minimapCtx.lineTo(centerX, centerY + 2);
+    this.minimapCtx.lineTo(centerX + 6, centerY + 5);
+    this.minimapCtx.closePath();
     this.minimapCtx.fill();
-    
-    this.minimapCtx.strokeStyle = '#00ff00';
-    this.minimapCtx.lineWidth = 2;
-    this.minimapCtx.beginPath();
-    this.minimapCtx.moveTo(centerX, centerY);
-    this.minimapCtx.lineTo(centerX, centerY - 6);
+    this.minimapCtx.strokeStyle = '#ffffff';
+    this.minimapCtx.lineWidth = 1;
     this.minimapCtx.stroke();
+
+    this.minimapCtx.restore();
   }
 
   async showLeaderboardOverlay(stats: PlayerEndStats, onRespawn: () => void): Promise<void> {

@@ -1683,3 +1683,182 @@ export function createHayBale(): THREE.Group {
 
   return group;
 }
+
+export function createWindmill(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'windmill';
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xD7CCC8, flatShading: true });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, flatShading: true });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63, flatShading: true });
+  const sailMat = new THREE.MeshStandardMaterial({ color: 0xFFF8E1, flatShading: true, side: THREE.DoubleSide });
+
+  // Main tower
+  const towerHeight = 10;
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.2, towerHeight, 8), wallMat);
+  tower.position.y = towerHeight / 2;
+  group.add(tower);
+
+  // Roof
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.6, 3, 8), roofMat);
+  roof.position.y = towerHeight + 1.5;
+  group.add(roof);
+
+  // Door
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.0, 0.2), woodMat);
+  door.position.set(0, 1.0, 3.1);
+  group.add(door);
+
+  // Blade Hub & Sails Group
+  const sailPivot = new THREE.Group();
+  sailPivot.name = 'windmillSails';
+  sailPivot.position.set(0, towerHeight + 0.5, 2.4);
+
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.4, 8), woodMat);
+  hub.rotation.x = Math.PI / 2;
+  sailPivot.add(hub);
+
+  for (let i = 0; i < 4; i++) {
+    const angle = (i / 4) * Math.PI * 2;
+    const spar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 5.5, 0.12), woodMat);
+    spar.position.set(Math.cos(angle) * 2.5, Math.sin(angle) * 2.5, 0);
+    spar.rotation.z = angle + Math.PI / 2;
+    sailPivot.add(spar);
+
+    const sail = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 4.5), sailMat);
+    sail.position.set(Math.cos(angle) * 2.5 + Math.sin(angle) * 0.5, Math.sin(angle) * 2.5 - Math.cos(angle) * 0.5, 0.05);
+    sail.rotation.z = angle + Math.PI / 2;
+    sailPivot.add(sail);
+  }
+  group.add(sailPivot);
+
+  // Foundation & Collider
+  const foundation = new THREE.Mesh(new THREE.BoxGeometry(6.6, 4, 6.6), new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true }));
+  foundation.position.y = -2;
+  group.add(foundation);
+
+  const box = new THREE.Box3();
+  box.setFromCenterAndSize(new THREE.Vector3(0, towerHeight / 2, 0), new THREE.Vector3(6.4, towerHeight, 6.4));
+  (group as any).collider = { box, type: 'solid' };
+
+  return group;
+}
+
+export function createWatchtower(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'watchtower';
+
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, flatShading: true });
+  const darkWood = new THREE.MeshStandardMaterial({ color: 0x3E2723, flatShading: true });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63, flatShading: true });
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x455A64, flatShading: true });
+
+  const height = 11;
+  const baseSize = 4;
+
+  // Stone base legs
+  for (const dx of [-1.6, 1.6]) {
+    for (const dz of [-1.6, 1.6]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.8, height, 0.8), woodMat);
+      leg.position.set(dx, height / 2, dz);
+      group.add(leg);
+    }
+  }
+
+  // Cross braces
+  for (const y of [3.5, 7.0]) {
+    const brace1 = new THREE.Mesh(new THREE.BoxGeometry(baseSize, 0.3, 0.3), darkWood);
+    brace1.position.set(0, y, -1.6);
+    group.add(brace1);
+    const brace2 = new THREE.Mesh(new THREE.BoxGeometry(baseSize, 0.3, 0.3), darkWood);
+    brace2.position.set(0, y, 1.6);
+    group.add(brace2);
+  }
+
+  // Guard Platform at top
+  const platform = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.4, 5.2), woodMat);
+  platform.position.y = height;
+  group.add(platform);
+
+  // Railing
+  const railingNorth = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.0, 0.2), darkWood);
+  railingNorth.position.set(0, height + 0.7, -2.5);
+  group.add(railingNorth);
+  const railingSouth = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.0, 0.2), darkWood);
+  railingSouth.position.set(0, height + 0.7, 2.5);
+  group.add(railingSouth);
+
+  // Canopy Roof
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 2.5, 4), roofMat);
+  roof.position.y = height + 3.2;
+  roof.rotation.y = Math.PI / 4;
+  group.add(roof);
+
+  // Foundation
+  const foundation = new THREE.Mesh(new THREE.BoxGeometry(baseSize + 1, 4, baseSize + 1), stoneMat);
+  foundation.position.y = -2;
+  group.add(foundation);
+
+  const box = new THREE.Box3();
+  box.setFromCenterAndSize(new THREE.Vector3(0, height / 2, 0), new THREE.Vector3(baseSize + 0.5, height + 3, baseSize + 0.5));
+  (group as any).collider = { box, type: 'solid' };
+
+  return group;
+}
+
+export function createBlacksmith(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'blacksmith';
+
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x616161, flatShading: true });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x4E342E, flatShading: true });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true });
+  const ironMat = new THREE.MeshStandardMaterial({ color: 0x212121, metalness: 0.8, roughness: 0.3 });
+  const fireMat = new THREE.MeshBasicMaterial({ color: 0xFF5722 });
+
+  // Main shop building
+  const shop = new THREE.Mesh(new THREE.BoxGeometry(5.0, 3.5, 4.5), stoneMat);
+  shop.position.set(-1.0, 1.75, 0);
+  group.add(shop);
+
+  // Roof
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 2.0, 4), roofMat);
+  roof.position.set(-1.0, 4.5, 0);
+  roof.rotation.y = Math.PI / 4;
+  group.add(roof);
+
+  // Large Chimney
+  const chimney = new THREE.Mesh(new THREE.BoxGeometry(1.2, 5.5, 1.2), stoneMat);
+  chimney.position.set(1.2, 2.75, 1.0);
+  group.add(chimney);
+
+  // Glowing Forge / Furnace
+  const forge = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 1.4), stoneMat);
+  forge.position.set(1.8, 0.6, -1.0);
+  group.add(forge);
+
+  const fire = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), fireMat);
+  fire.position.set(1.8, 1.3, -1.0);
+  group.add(fire);
+
+  // Anvil
+  const anvilBase = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), woodMat);
+  anvilBase.position.set(2.2, 0.3, 0.5);
+  group.add(anvilBase);
+
+  const anvilTop = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.4), ironMat);
+  anvilTop.position.set(2.2, 0.7, 0.5);
+  group.add(anvilTop);
+
+  // Foundation
+  const foundation = new THREE.Mesh(new THREE.BoxGeometry(7.0, 4, 5.5), stoneMat);
+  foundation.position.y = -2;
+  group.add(foundation);
+
+  const box = new THREE.Box3();
+  box.setFromCenterAndSize(new THREE.Vector3(0, 1.75, 0), new THREE.Vector3(6.5, 4.5, 5.0));
+  (group as any).collider = { box, type: 'solid' };
+
+  return group;
+}
+

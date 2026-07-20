@@ -36,6 +36,22 @@ import { WaveManager } from './game/waveManager';
 const container = document.getElementById('canvas-container');
 if (!container) throw new Error('No container');
 
+// Unregister any active Service Workers and clear Cache Storage to force fresh loads
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+    }
+  }).catch(() => {});
+}
+if ('caches' in window) {
+  caches.keys().then((names) => {
+    for (const name of names) {
+      caches.delete(name);
+    }
+  }).catch(() => {});
+}
+
 // WebGL presence check
 function detectWebGL(): boolean {
   try {
@@ -712,8 +728,8 @@ function animate(): void {
     player.activeVehicle.update(delta, input, heightMap);
   }
 
-  // Hide weapon if driving
-  weaponView.group.visible = !player.activeVehicle;
+  // Keep weapon visible while driving to allow shooting from vehicles
+  weaponView.group.visible = true;
 
   // Update player
   player.update(delta, heightMap);
@@ -722,7 +738,7 @@ function animate(): void {
   activeWeapon.update(delta, {
     fireHeld: input.state.attack,
     reloadPressed: input.state.reload,
-    canFire: input.pointerLocked && player.isAlive() && !player.activeVehicle,
+    canFire: input.pointerLocked && player.isAlive(),
     camera,
     targets: monsters.filter((monster) => monster.isAlive()).map((monster) => monster.mesh),
   });
@@ -779,8 +795,10 @@ function animate(): void {
   );
 
   const poiPositions = features.poiPositions.map((p) => ({ x: p.position.x, z: p.position.z, type: p.type }));
+  const currentYaw = player.activeVehicle ? player.activeVehicle.yaw : ((player as any).yaw || 0);
   hud.updateMinimap(
     { x: player.mesh.position.x, z: player.mesh.position.z },
+    currentYaw,
     aliveEnemies,
     poiPositions
   );
@@ -790,12 +808,17 @@ function animate(): void {
     decorations.tumbleweedManager.update(delta, heightMap);
   }
 
-  // Rotate lighthouse spotlight beams
+  // Rotate lighthouse spotlight beams & windmill sails
   for (const lh of lighthouses) {
     if (lh.userData.spotlightPivot) {
       lh.userData.spotlightPivot.rotation.y += delta * 0.8;
     }
   }
+  features.structures.traverse((child) => {
+    if (child.name === 'windmillSails') {
+      child.rotation.z += delta * 0.8;
+    }
+  });
 
   // Spawn chimney smoke
   for (const house of houses) {

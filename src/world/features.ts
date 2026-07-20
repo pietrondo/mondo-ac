@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HeightMap } from './heightmap';
 import { BiomeMap, BiomeType } from './biomeMap';
-import { createHouse, createCastle, createRuin, createPyramid, createLighthouse, createTavern, createTemple, createWarehouse, createLibrary, createBunker, createWell, createMarketStall, createLantern, createFarmField, createPath, createCart, createTreeStump, createHayBale } from './structures';
+import { createHouse, createCastle, createRuin, createPyramid, createLighthouse, createTavern, createTemple, createWarehouse, createLibrary, createBunker, createWell, createMarketStall, createLantern, createFarmField, createPath, createCart, createTreeStump, createHayBale, createWindmill, createWatchtower, createBlacksmith } from './structures';
 import { WORLD_SIZE, WORLD_SCALE, rng } from '../config';
 import { getSpawnConfigForBiome, MonsterSpawnPoint, calculateDifficultyMultiplier } from './spawnSelection';
 
@@ -322,8 +322,49 @@ export function placeFeatures(
             }
 
             itemSpawns.push(new THREE.Vector3(worldX, elevation + 1, worldZ));
-
             poiPositions.push({ position: new THREE.Vector3(worldX, elevation, worldZ), type: 'library' });
+          }
+
+          if (rng.next() < 0.015) {
+            const windmill = createWindmill();
+            windmill.position.set(worldX, elevation, worldZ);
+            structures.add(windmill);
+
+            const windmillCollider = (windmill as any).collider;
+            if (windmillCollider) {
+              const worldBox = windmillCollider.box.clone();
+              worldBox.translate(windmill.position);
+              structureColliders.push({ box: worldBox, type: windmillCollider.type });
+            }
+            poiPositions.push({ position: new THREE.Vector3(worldX, elevation, worldZ), type: 'windmill' });
+          }
+
+          if (rng.next() < 0.015) {
+            const watchtower = createWatchtower();
+            watchtower.position.set(worldX, elevation, worldZ);
+            structures.add(watchtower);
+
+            const watchtowerCollider = (watchtower as any).collider;
+            if (watchtowerCollider) {
+              const worldBox = watchtowerCollider.box.clone();
+              worldBox.translate(watchtower.position);
+              structureColliders.push({ box: worldBox, type: watchtowerCollider.type });
+            }
+            poiPositions.push({ position: new THREE.Vector3(worldX, elevation, worldZ), type: 'watchtower' });
+          }
+
+          if (rng.next() < 0.012) {
+            const blacksmith = createBlacksmith();
+            blacksmith.position.set(worldX, elevation, worldZ);
+            structures.add(blacksmith);
+
+            const blacksmithCollider = (blacksmith as any).collider;
+            if (blacksmithCollider) {
+              const worldBox = blacksmithCollider.box.clone();
+              worldBox.translate(blacksmith.position);
+              structureColliders.push({ box: worldBox, type: blacksmithCollider.type });
+            }
+            poiPositions.push({ position: new THREE.Vector3(worldX, elevation, worldZ), type: 'blacksmith' });
           }
           break;
         }

@@ -135,7 +135,13 @@ const server = http.createServer((req, res) => {
         res.writeHead(500);
         res.end('Server Error');
       } else {
-        res.writeHead(200, { 'Content-Type': contentType });
+        const headers = {
+          'Content-Type': contentType,
+          'Cache-Control': ext === '.html' ? 'no-cache, no-store, must-revalidate' : 'no-cache',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        };
+        res.writeHead(200, headers);
         res.end(content);
       }
     });
