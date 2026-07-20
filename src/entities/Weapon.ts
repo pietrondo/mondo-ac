@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type WeaponType = 'rifle' | 'shotgun' | 'melee';
+export type WeaponType = 'rifle' | 'shotgun' | 'flamethrower' | 'melee';
 
 export interface WeaponOptions {
   onShot?: (hit: THREE.Intersection<THREE.Object3D> | undefined) => void;
@@ -53,6 +53,17 @@ export class Weapon {
         this.damage = 15; // per pellet
         this.magazineAmmo = 6;
         this.reserveAmmo = 12;
+        break;
+      case 'flamethrower':
+        this.name = 'Flamethrower';
+        this.magazineCapacity = 100;
+        this.maxReserveAmmo = 300;
+        this.reloadDuration = 2.5;
+        this.shotInterval = 0.05;
+        this.range = 16;
+        this.damage = 8;
+        this.magazineAmmo = 100;
+        this.reserveAmmo = 200;
         break;
       case 'melee':
       default:

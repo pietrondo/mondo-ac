@@ -11,8 +11,9 @@ export class WeaponView {
 
   private rifleModel!: THREE.Group;
   private shotgunModel!: THREE.Group;
+  private flamethrowerModel!: THREE.Group;
   private knifeModel!: THREE.Group;
-  private activeType: 'rifle' | 'shotgun' | 'melee' = 'rifle';
+  private activeType: 'rifle' | 'shotgun' | 'flamethrower' | 'melee' = 'rifle';
 
   private readonly ammoCanvas!: HTMLCanvasElement;
   private readonly ammoContext!: CanvasRenderingContext2D;
@@ -604,13 +605,58 @@ export class WeaponView {
     pommelScrew.position.set(0.03, 0.04, 0.23);
     this.knifeModel.add(pommelScrew);
 
+    this.createFlamethrowerModel();
     this.group.add(this.knifeModel);
   }
 
-  setWeapon(type: 'rifle' | 'shotgun' | 'melee'): void {
+  private createFlamethrowerModel(): void {
+    this.flamethrowerModel = new THREE.Group();
+
+    // Body chassis
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.28, 0.8),
+      new THREE.MeshStandardMaterial({ color: 0x263238, flatShading: true, metalness: 0.4, roughness: 0.6 })
+    );
+    this.flamethrowerModel.add(body);
+
+    // Dual Fuel Tanks
+    const tankGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.65, 12);
+    tankGeo.rotateX(Math.PI / 2);
+    const tankMat = new THREE.MeshStandardMaterial({ color: 0xFF3D00, emissive: 0xDD2C00, emissiveIntensity: 0.3, metalness: 0.6 });
+
+    const tank1 = new THREE.Mesh(tankGeo, tankMat);
+    tank1.position.set(-0.16, 0.18, 0.1);
+    this.flamethrowerModel.add(tank1);
+
+    const tank2 = new THREE.Mesh(tankGeo, tankMat);
+    tank2.position.set(0.16, 0.18, 0.1);
+    this.flamethrowerModel.add(tank2);
+
+    // Nozzle Barrel
+    const barrel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.14, 0.6, 12),
+      new THREE.MeshStandardMaterial({ color: 0x37474F, metalness: 0.8, roughness: 0.3 })
+    );
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, -0.02, -0.6);
+    this.flamethrowerModel.add(barrel);
+
+    // Pilot Flame Light
+    const pilotLight = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xFFAB00 })
+    );
+    pilotLight.position.set(0, -0.02, -0.92);
+    this.flamethrowerModel.add(pilotLight);
+
+    this.group.add(this.flamethrowerModel);
+  }
+
+  setWeapon(type: 'rifle' | 'shotgun' | 'flamethrower' | 'melee'): void {
     this.activeType = type;
     this.rifleModel.visible = (type === 'rifle');
     this.shotgunModel.visible = (type === 'shotgun');
+    this.flamethrowerModel.visible = (type === 'flamethrower');
     this.knifeModel.visible = (type === 'melee');
 
     if (type === 'melee') {
@@ -620,6 +666,10 @@ export class WeaponView {
       this.group.position.set(0.35, -0.44, -0.85);
       this.group.rotation.set(-0.06, 0.24, -0.04);
       this.muzzleFlash.position.set(0.44, 0.04, -0.41);
+    } else if (type === 'flamethrower') {
+      this.group.position.set(0.34, -0.42, -0.85);
+      this.group.rotation.set(-0.05, 0.22, -0.03);
+      this.muzzleFlash.position.set(0.34, -0.02, -0.92);
     } else {
       this.group.position.set(0.38, -0.42, -0.95);
       this.group.rotation.set(-0.08, 0.28, -0.05);

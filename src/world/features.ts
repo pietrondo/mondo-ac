@@ -422,6 +422,48 @@ export function placeFeatures(
           break;
         }
         case BiomeType.DESERT: {
+          if (rng.next() < 0.03) {
+            // Desert Oasis Village
+            const oasisCenter = new THREE.Vector3(worldX, elevation, worldZ);
+            const oasisBuildings: THREE.Vector3[] = [];
+            const oasisNpcSpawns: THREE.Vector3[] = [];
+
+            const well = createWell();
+            well.position.copy(oasisCenter);
+            structures.add(well);
+
+            for (let i = 0; i < 4; i++) {
+              const angle = (i / 4) * Math.PI * 2;
+              const radius = 14;
+              const housePos = new THREE.Vector3(
+                worldX + Math.cos(angle) * radius,
+                elevation,
+                worldZ + Math.sin(angle) * radius
+              );
+              const house = createHouse({ variant: 'medium', wallColor: 0xE0C097, roofColor: 0x8D6E63, scale: 1.0 });
+              house.position.copy(housePos);
+              house.lookAt(oasisCenter);
+              structures.add(house);
+              oasisBuildings.push(housePos);
+
+              const npcSpawn = housePos.clone().add(new THREE.Vector3(0, 0, 2));
+              oasisNpcSpawns.push(npcSpawn);
+              npcSpawns.push(npcSpawn);
+            }
+
+            const market = createMarketStall();
+            market.position.set(worldX + 5, elevation, worldZ + 5);
+            structures.add(market);
+
+            villages.push({
+              center: oasisCenter,
+              radius: 18,
+              buildings: oasisBuildings,
+              npcSpawns: oasisNpcSpawns,
+            });
+            poiPositions.push({ position: oasisCenter.clone(), type: 'desert_oasis' });
+          }
+
           if (rng.next() < 0.02) {
             const pyramid = createPyramid();
             const pyramidPos = new THREE.Vector3(worldX, elevation, worldZ);

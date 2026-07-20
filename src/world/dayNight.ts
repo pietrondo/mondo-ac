@@ -99,7 +99,10 @@ export class DayNightManager {
     if (this.scene.background instanceof THREE.Color) {
       this.scene.background.copy(skyColor);
     }
-    if (this.scene.fog instanceof THREE.Fog) {
+    if (this.scene.fog instanceof THREE.FogExp2) {
+      this.scene.fog.color.copy(fogColor);
+      this.scene.fog.density = this.weather === 'storm' ? 0.005 : this.weather === 'rain' ? 0.0035 : 0.0022;
+    } else if (this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color.copy(fogColor);
     }
     if (this.sun) {

@@ -221,13 +221,17 @@ async function initGame(): Promise<void> {
   damageNumber = new DamageNumber();
   hitMarker = new HitMarker();
   powerUpRuntime = createPowerUpRuntime(player.speed, 25);
-  // Initialize weapons list (rifle, shotgun, melee knife)
+  // Initialize weapons list (rifle, shotgun, flamethrower, melee knife)
   weapons = [
     new Weapon('rifle', {
       onShot: (hit) => handleWeaponShot(hit),
       onReload: () => soundManager.playReload(),
     }),
     new Weapon('shotgun', {
+      onShot: (hit) => handleWeaponShot(hit),
+      onReload: () => soundManager.playReload(),
+    }),
+    new Weapon('flamethrower', {
       onShot: (hit) => handleWeaponShot(hit),
       onReload: () => soundManager.playReload(),
     }),
@@ -267,8 +271,20 @@ const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) =
       soundManager.playMelee();
     } else {
       soundManager.playShot();
-      // Set camera shake intensity (higher for shotgun)
-      player.shakeIntensity = Math.max(player.shakeIntensity, activeWeapon.type === 'shotgun' ? 0.8 : 0.4);
+      player.shakeIntensity = Math.max(player.shakeIntensity, activeWeapon.type === 'shotgun' ? 0.8 : activeWeapon.type === 'flamethrower' ? 0.15 : 0.4);
+    }
+  }
+
+  // Flamethrower continuous flame particle stream
+  if (activeWeapon.type === 'flamethrower') {
+    const camPos = camera.getWorldPosition(new THREE.Vector3());
+    const camDir = camera.getWorldDirection(new THREE.Vector3());
+    for (let f = 0; f < 3; f++) {
+      const dist = 1 + Math.random() * 12;
+      const spread = (Math.random() - 0.5) * 0.8;
+      const fPos = camPos.clone().addScaledVector(camDir, dist).add(new THREE.Vector3(spread, spread, spread));
+      const fVel = camDir.clone().multiplyScalar(14 + Math.random() * 6);
+      particlePool.spawn('spark', fPos, fVel, 0.4);
     }
   }
 
@@ -1183,11 +1199,12 @@ window.addEventListener('keydown', (e) => {
 
 
 
-// Weapon switching keyboard controls (Keys 1, 2, 3)
+// Weapon switching keyboard controls (Keys 1, 2, 3, 4)
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Digit1') switchWeapon(0);
   if (e.code === 'Digit2') switchWeapon(1);
   if (e.code === 'Digit3') switchWeapon(2);
+  if (e.code === 'Digit4') switchWeapon(3);
 });
 
 function switchWeapon(index: number): void {
