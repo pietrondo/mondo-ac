@@ -19,7 +19,7 @@ describe('applyRifleHitDamage', () => {
       25
     );
 
-    expect(applied).toBe(true);
+    expect(applied).toBe(25);
     expect(damageable.takeDamage).toHaveBeenCalledWith(25);
   });
 });

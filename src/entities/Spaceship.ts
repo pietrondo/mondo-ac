@@ -7,7 +7,7 @@ import { WORLD_SCALE, WORLD_SIZE } from '../config';
 export class Spaceship extends Vehicle {
   constructor(position: THREE.Vector3) {
     super();
-    this.maxSpeed = 35;
+    this.maxSpeed = 65;
 
     // Body (pointing forward along -Z)
     const spaceshipBody = new THREE.Mesh(
@@ -60,7 +60,7 @@ export class Spaceship extends Vehicle {
 
   update(delta: number, input: InputManager, heightMap: HeightMap): void {
     // 1. Yaw Steering (A/D)
-    const turnSpeed = 2.0; // rad/s
+    const turnSpeed = 2.5; // rad/s
     if (input.state.left) {
       this.yaw += turnSpeed * delta;
     }
@@ -78,7 +78,7 @@ export class Spaceship extends Vehicle {
     this.pitch += (targetPitch - this.pitch) * 5.0 * delta;
 
     // 4. Throttle / Speed (W/S)
-    const accel = 25.0;
+    const accel = 40.0;
     const friction = 5.0;
 
     if (input.state.forward) {
@@ -94,7 +94,7 @@ export class Spaceship extends Vehicle {
     }
 
     // 5. Vertical velocity (Space = Climb, Shift/run = Descend)
-    const climbSpeed = 15.0;
+    const climbSpeed = 25.0;
     let vertVel = 0;
     if (input.state.jump) {
       vertVel = climbSpeed;

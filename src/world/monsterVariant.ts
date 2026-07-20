@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { BiomeMap, BiomeType } from './biomeMap';
+import { BiomeMap } from './biomeMap';
 import { WORLD_SCALE } from '../config';
 
-export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem' | 'crawler' | 'drone';
+export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem' | 'crawler' | 'drone' | 'sentinel' | 'annihilator';
 
 export interface MonsterVariantProfile {
   scale: number;
@@ -76,7 +76,29 @@ const variantProfiles: Record<MonsterVariant, MonsterVariantProfile> = {
     bodyColor: 0x00bcd4,
     eyeColor: 0xffffff,
   },
+  sentinel: {
+    scale: 1.1,
+    bodyWidth: 0.9,
+    bodyHeight: 1.3,
+    bodyDepth: 0.9,
+    hp: 65,
+    speed: 2.8,
+    bodyColor: 0x00ACC1,
+    eyeColor: 0x84FFFF,
+  },
+  annihilator: {
+    scale: 1.4,
+    bodyWidth: 1.5,
+    bodyHeight: 1.5,
+    bodyDepth: 1.5,
+    hp: 200,
+    speed: 1.2,
+    bodyColor: 0x37474F,
+    eyeColor: 0xFF6D00,
+  },
 };
+
+import { selectMonsterVariantForBiome } from './spawnSelection';
 
 export function chooseMonsterVariant(
   position: THREE.Vector3,
@@ -87,14 +109,16 @@ export function chooseMonsterVariant(
     const hx = (position.x / WORLD_SCALE) + 128;
     const hz = (position.z / WORLD_SCALE) + 128;
     const biome = biomeMap.getBiome(hx, hz);
-    if (biome === BiomeType.MOUNTAIN || biome === BiomeType.DESERT) {
-      return 'golem';
-    }
+    const rng = () => {
+      const raw = Math.abs(Math.floor(position.x * 17 + position.z * 31 + position.y * 11 + index * 13));
+      return (raw % 1000) / 1000;
+    };
+    return selectMonsterVariantForBiome(biome, rng);
   }
   const raw = Math.abs(
     Math.floor(position.x * 17 + position.z * 31 + position.y * 11 + index * 13)
   );
-  const variants: MonsterVariant[] = ['scout', 'brute', 'stalker', 'crawler', 'drone'];
+  const variants: MonsterVariant[] = ['scout', 'brute', 'stalker', 'crawler', 'drone', 'sentinel', 'annihilator'];
   return variants[raw % variants.length];
 }
 

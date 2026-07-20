@@ -3,9 +3,9 @@ import { createScene } from './render/scene';
 import { HeightMap } from './world/heightmap';
 import { BiomeMap, BiomeType } from './world/biomeMap';
 import { createTerrainMesh } from './world/terrain';
-import { createWater } from './world/water';
+import { createWater, updateWater } from './world/water';
 import { createDecorations } from './world/decorations';
-import { placeFeatures } from './world/features';
+import { placeFeatures, VillageData } from './world/features';
 import { InputManager } from './controls/input';
 import { Player } from './entities/Player';
 import { NPC } from './entities/NPC';
@@ -15,6 +15,8 @@ import { PowerUp } from './entities/PowerUp';
 import { Weapon } from './entities/Weapon';
 import { WeaponView } from './entities/WeaponView';
 import { applyRifleHitDamage } from './combat/rifleHit';
+import { DamageNumber } from './combat/DamageNumber';
+import { HitMarker } from './combat/HitMarker';
 import { Vehicle } from './entities/Vehicle';
 import { Hovercar } from './entities/Hovercar';
 import { Spaceship } from './entities/Spaceship';
@@ -24,7 +26,7 @@ import { applyPowerUp, createPowerUpRuntime, tickPowerUpRuntime } from './game/p
 import { HUD } from './ui/hud';
 import { DebugOverlay } from './ui/debug';
 import { SEED, WORLD_SIZE, WORLD_SCALE } from './config';
-import { selectMonsterSpawns } from './world/spawnSelection';
+import { selectMonsterSpawnPoints } from './world/spawnSelection';
 import { chooseMonsterVariant } from './world/monsterVariant';
 import { SoundManager } from './utils/sound';
 import { ParticlePool } from './combat/particles';
@@ -155,6 +157,8 @@ const weaponView = new WeaponView(camera);
 const shotTracer = new ShotTracer(scene);
 const particlePool = new ParticlePool(scene);
 const cloudManager = new CloudManager(scene);
+const damageNumber = new DamageNumber();
+const hitMarker = new HitMarker();
 const powerUpRuntime = createPowerUpRuntime(player.speed, 25);
 // Initialize weapons list (rifle, shotgun, melee knife)
 const weapons = [
@@ -185,7 +189,7 @@ function findDamageableAncestor(object?: THREE.Object3D): any {
 let lastShotTime = 0;
 const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) => {
   const activeWeapon = weapons[activeWeaponIndex];
-  applyRifleHitDamage(
+  const damageDealt = applyRifleHitDamage(
     hit,
     activeWeapon.type === 'melee'
       ? activeWeapon.damage
@@ -220,6 +224,26 @@ const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) =
       );
       particlePool.spawn(type, hit.point, velocity, 0.4 + Math.random() * 0.4);
     }
+
+    // Combat juice: mostra damage number e hit marker quando colpisci un nemico
+    if (isMonster && damageDealt > 0) {
+      // Calcola posizione sopra il punto di impatto
+      const damagePos = hit.point.clone().add(new THREE.Vector3(0, 1.5, 0));
+
+      // Determina se è un colpo critico (danno > 50) o pesante (danno > 35)
+      const isCritical = damageDealt >= 50;
+      const isHeavy = damageDealt >= 35;
+
+      // Mostra il numero di danno
+      damageNumber.show(damageDealt, damagePos, isCritical, isHeavy);
+
+      // Attiva l'hit marker
+      hitMarker.trigger(true);
+
+      // Aumenta lo screen shake quando colpisci (aggiungi 0.2 al shake esistente)
+      const baseShake = activeWeapon.type === 'shotgun' ? 0.8 : 0.4;
+      player.shakeIntensity = Math.max(player.shakeIntensity, baseShake + 0.2);
+    }
   }
 
   const origin = new THREE.Vector3();
@@ -234,6 +258,7 @@ const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) =
   shotTracer.spawn(origin, end);
 };
 scene.add(player.mesh);
+scene.add(camera);
 
 // HUD & Debug
 const hud = new HUD();
@@ -320,16 +345,35 @@ vehicles.forEach((v) => {
 // Spawn entities from features
 const npcs: NPC[] = [];
 for (const pos of features.npcSpawns.slice(0, 10)) {
-  const npc = new NPC(pos);
+  // Find closest village for this NPC
+  let closestVillage: VillageData | null = null;
+  let minDist = Infinity;
+  
+  for (const village of features.villages) {
+    const dist = pos.distanceTo(village.center);
+    if (dist < minDist && dist < village.radius * 1.5) {
+      minDist = dist;
+      closestVillage = village;
+    }
+  }
+  
+  const villageContext = closestVillage ? {
+    center: closestVillage.center,
+    radius: closestVillage.radius,
+    buildings: closestVillage.buildings
+  } : undefined;
+  
+  const npc = new NPC(pos, villageContext);
   npcs.push(npc);
   scene.add(npc.mesh);
 }
 
 const monsters: Monster[] = [];
+const monsterSpawnData = new Map<Monster, { position: THREE.Vector3; variantIndex: number; biome: BiomeType; difficulty: number }>();
 const enemyProjectileSystem = new EnemyProjectileSystem(scene);
-const monsterSpawns = selectMonsterSpawns(features.monsterSpawns, player.mesh.position, 8, 60);
-monsterSpawns.forEach((pos, index) => {
-  const monsterPosition = pos.clone();
+const monsterSpawnPoints = selectMonsterSpawnPoints(features.monsterSpawns, player.mesh.position, 8, 60);
+monsterSpawnPoints.forEach((spawnPoint, index) => {
+  const monsterPosition = spawnPoint.position.clone();
   const hx = (monsterPosition.x / WORLD_SCALE) + WORLD_SIZE / 2;
   const hz = (monsterPosition.z / WORLD_SCALE) + WORLD_SIZE / 2;
   monsterPosition.y = heightMap.getInterpolated(hx, hz);
@@ -346,9 +390,11 @@ monsterSpawns.forEach((pos, index) => {
       else if (monster.variant === 'drone') scoreValue = 25;
       else if (monster.variant === 'crawler') scoreValue = 20;
       
-      hud.addScore(scoreValue);
+      const scaledScore = Math.floor(scoreValue * spawnPoint.difficulty);
+      hud.addScore(scaledScore);
+      hud.incrementCombo();
     },
-    onFootstep: (pos) => {
+    onFootstep: (pos: THREE.Vector3) => {
       const count = 3 + Math.floor(Math.random() * 3);
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
@@ -365,8 +411,20 @@ monsterSpawns.forEach((pos, index) => {
   monster.mesh.userData.damageable = monster;
   monster.setProjectileSystem(enemyProjectileSystem);
   monsters.push(monster);
+  monsterSpawnData.set(monster, { position: spawnPoint.position.clone(), variantIndex: index, biome: spawnPoint.biome, difficulty: spawnPoint.difficulty });
   scene.add(monster.mesh);
 });
+
+interface MonsterRespawn {
+  position: THREE.Vector3;
+  variantIndex: number;
+  timer: number;
+  biome: BiomeType;
+  difficulty: number;
+}
+const monsterRespawns: MonsterRespawn[] = [];
+const deadMonstersQueued = new Set<Monster>();
+const RESPAWN_DELAY = 20;
 
 const collectibles: Collectible[] = [];
 for (const pos of features.itemSpawns.slice(0, 15)) {
@@ -463,16 +521,74 @@ function animate(): void {
   for (const npc of npcs) npc.update(delta, heightMap);
   for (const monster of monsters) {
     if (monster.isAlive()) {
-      monster.update(delta, heightMap, player.mesh.position, camera);
-      // Check damage to player
+      monster.update(delta, heightMap, player.mesh.position, camera, monsters);
       if (damageCooldown <= 0 && player.isAlive() && monster.mesh.position.distanceTo(player.mesh.position) < 2) {
         player.takeDamage(10);
-        damageCooldown = 1; // 1 second between damage
+        damageCooldown = 1;
         updateHpDisplay();
         soundManager.playHurt();
       }
+    } else if (!deadMonstersQueued.has(monster)) {
+      deadMonstersQueued.add(monster);
+      const spawnData = monsterSpawnData.get(monster);
+      if (spawnData) {
+        monsterRespawns.push({ position: spawnData.position.clone(), variantIndex: spawnData.variantIndex, timer: RESPAWN_DELAY, biome: spawnData.biome, difficulty: spawnData.difficulty });
+      }
+      scene.remove(monster.mesh);
     }
   }
+  for (let i = monsters.length - 1; i >= 0; i--) {
+    if (!monsters[i].isAlive() && deadMonstersQueued.has(monsters[i])) {
+      monsters.splice(i, 1);
+    }
+  }
+
+  for (let i = monsterRespawns.length - 1; i >= 0; i--) {
+    const respawn = monsterRespawns[i];
+    respawn.timer -= delta;
+    if (respawn.timer <= 0) {
+      const distToPlayer = respawn.position.distanceTo(player.mesh.position);
+      if (distToPlayer > 40) {
+        const monsterPosition = respawn.position.clone();
+        const hx = (monsterPosition.x / WORLD_SCALE) + WORLD_SIZE / 2;
+        const hz = (monsterPosition.z / WORLD_SCALE) + WORLD_SIZE / 2;
+        monsterPosition.y = heightMap.getInterpolated(hx, hz);
+        const monster = new Monster(monsterPosition, {
+          variant: chooseMonsterVariant(monsterPosition, respawn.variantIndex, biomeMap),
+          onAttack: () => { soundManager.playPositionalAttack(monster.mesh); },
+          onDeath: () => {
+            let scoreValue = 20;
+            if (monster.variant === 'golem') scoreValue = 100;
+            else if (monster.variant === 'brute') scoreValue = 50;
+            else if (monster.variant === 'stalker') scoreValue = 30;
+            else if (monster.variant === 'drone') scoreValue = 25;
+            else if (monster.variant === 'crawler') scoreValue = 20;
+            const scaledScore = Math.floor(scoreValue * respawn.difficulty);
+            hud.addScore(scaledScore);
+            hud.incrementCombo();
+          },
+          onFootstep: (pos: THREE.Vector3) => {
+            const count = 3 + Math.floor(Math.random() * 3);
+            for (let j = 0; j < count; j++) {
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 0.5 + Math.random() * 1.0;
+              const vel = new THREE.Vector3(Math.cos(angle) * speed, 0.5 + Math.random() * 0.8, Math.sin(angle) * speed);
+              particlePool.spawn('dust', pos.clone(), vel, 0.6 + Math.random() * 0.4);
+            }
+          }
+        });
+        monster.mesh.userData.damageable = monster;
+        monster.setProjectileSystem(enemyProjectileSystem);
+        monsters.push(monster);
+        scene.add(monster.mesh);
+        monsterSpawnData.set(monster, { position: respawn.position.clone(), variantIndex: respawn.variantIndex, biome: respawn.biome, difficulty: respawn.difficulty });
+      } else {
+        respawn.timer = 5;
+      }
+      monsterRespawns.splice(i, 1);
+    }
+  }
+
   for (const item of collectibles) item.update(gameTime);
   for (const powerUp of powerUps) powerUp.update(gameTime);
 
@@ -599,6 +715,17 @@ function animate(): void {
 
   shotTracer.update(delta);
   particlePool.update(delta, heightMap);
+  damageNumber.update(delta, camera);
+  hitMarker.update(delta);
+  hud.update(delta);
+
+  const enemyPositions = monsters.map((m) => ({ x: m.mesh.position.x, z: m.mesh.position.z }));
+  const poiPositions = features.poiPositions.map((p) => ({ x: p.position.x, z: p.position.z, type: p.type }));
+  hud.updateMinimap(
+    { x: player.mesh.position.x, z: player.mesh.position.z },
+    enemyPositions,
+    poiPositions
+  );
 
   // Update tumbleweeds
   if (decorations.tumbleweedManager) {
@@ -729,16 +856,8 @@ function animate(): void {
     sun.target.updateMatrixWorld();
   }
 
-  // Update water vertices (waves)
-  const waterPos = water.geometry.attributes.position;
-  for (let i = 0; i < waterPos.count; i++) {
-    const x = waterPos.getX(i);
-    const z = waterPos.getZ(i);
-    const height = Math.sin(x * 0.05 + gameTime * 2.0) * 0.5 + Math.cos(z * 0.05 + gameTime * 1.5) * 0.5;
-    waterPos.setY(i, height);
-  }
-  waterPos.needsUpdate = true;
-  water.geometry.computeVertexNormals();
+// Update water animation
+        updateWater(water, gameTime);
 
   // Render
   renderer.render(scene, camera);

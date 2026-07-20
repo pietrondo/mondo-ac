@@ -90,6 +90,7 @@ export class Player {
     if (!this.alive) return;
     if (this.isInvulnerable) return;
     this.hp -= amount;
+    this.shakeIntensity = Math.max(this.shakeIntensity, 1.2);
     if (this.hp <= 0) {
       this.die();
     }

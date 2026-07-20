@@ -15,6 +15,7 @@ function createFakeElement(): FakeElement {
     textContent: '',
     appendChild: vi.fn(),
     remove: vi.fn(),
+    getContext: vi.fn(() => ({})),
   };
 }
 
@@ -41,7 +42,7 @@ describe('HUD weapon feedback', () => {
     const hud = new HUD();
     hud.setWeaponState(12, 48, true);
 
-    expect(body.appendChild).toHaveBeenCalledTimes(7);
+    expect(body.appendChild).toHaveBeenCalledTimes(9);
     expect(hud.getScore()).toBe(0);
     expect(hud.getWeaponText()).toBe('Ammo: 12 / 48');
     expect(hud.getReloadText()).toBe('Reloading...');

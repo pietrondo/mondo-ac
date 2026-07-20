@@ -76,14 +76,16 @@ function createMonsterAttackBuffer(ctx: AudioContext): AudioBuffer {
 }
 
 function createWindBuffer(ctx: AudioContext): AudioBuffer {
-  const duration = 4.0;
+  const duration = 6.0;
   const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   let lastOut = 0.0;
   for (let i = 0; i < data.length; i++) {
+    const t = i / ctx.sampleRate;
+    const envelope = 0.3 + 0.7 * Math.sin(t * 0.5) * Math.sin(t * 0.5);
     const white = Math.random() * 2 - 1;
-    lastOut = 0.95 * lastOut + 0.05 * white;
-    data[i] = lastOut * 1.2;
+    lastOut = 0.98 * lastOut + 0.02 * white;
+    data[i] = lastOut * envelope * 0.6;
   }
   return buffer;
 }
@@ -125,7 +127,7 @@ export class SoundManager {
     this.ambientSound = new THREE.Audio(this.listener);
     this.ambientSound.setBuffer(this.windBuffer);
     this.ambientSound.setLoop(true);
-    this.ambientSound.setVolume(0.15);
+    this.ambientSound.setVolume(0.04);
   }
 
   private initBuffers(): void {
@@ -199,24 +201,24 @@ export class SoundManager {
     switch (biome) {
       case BiomeType.MOUNTAIN:
       case BiomeType.SNOW:
-        this.ambientSound.setVolume(0.3);
+        this.ambientSound.setVolume(0.08);
         this.ambientSound.setPlaybackRate(0.8);
         break;
       case BiomeType.FOREST:
-        this.ambientSound.setVolume(0.12);
+        this.ambientSound.setVolume(0.03);
         this.ambientSound.setPlaybackRate(1.15);
         break;
       case BiomeType.DESERT:
-        this.ambientSound.setVolume(0.18);
+        this.ambientSound.setVolume(0.05);
         this.ambientSound.setPlaybackRate(0.9);
         break;
       case BiomeType.COAST:
-        this.ambientSound.setVolume(0.25);
+        this.ambientSound.setVolume(0.06);
         this.ambientSound.setPlaybackRate(1.0);
         break;
       case BiomeType.PLAINS:
       default:
-        this.ambientSound.setVolume(0.15);
+        this.ambientSound.setVolume(0.04);
         this.ambientSound.setPlaybackRate(1.0);
         break;
     }

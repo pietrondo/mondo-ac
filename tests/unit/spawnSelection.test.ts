@@ -7,14 +7,14 @@ describe('selectMonsterSpawns', () => {
     const anchor = new THREE.Vector3(0, 0, 0);
     const candidates = [
       new THREE.Vector3(100, 0, 0),
-      new THREE.Vector3(10, 0, 0),
+      new THREE.Vector3(22, 0, 0),
       new THREE.Vector3(50, 0, 0),
       new THREE.Vector3(25, 0, 0),
     ];
 
     const selected = selectMonsterSpawns(candidates, anchor, 2);
 
-    expect(selected.map((pos) => pos.x)).toEqual([10, 25]);
+    expect(selected.map((pos) => pos.x)).toEqual([22, 25]);
   });
 
   it('falls back to a nearby pack when every candidate is too far away', () => {

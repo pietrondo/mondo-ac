@@ -19,10 +19,10 @@ function findDamageableAncestor(object?: THREE.Object3D): Damageable | undefined
 export function applyRifleHitDamage(
   hit: THREE.Intersection<THREE.Object3D> | undefined,
   damage = 25
-): boolean {
+): number {
   const damageable = hit ? findDamageableAncestor(hit.object) : undefined;
-  if (!damageable) return false;
+  if (!damageable) return 0;
 
   damageable.takeDamage(damage);
-  return true;
+  return damage;
 }

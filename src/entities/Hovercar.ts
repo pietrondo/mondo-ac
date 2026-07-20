@@ -7,7 +7,7 @@ import { WORLD_SCALE, WORLD_SIZE } from '../config';
 export class Hovercar extends Vehicle {
   constructor(position: THREE.Vector3) {
     super();
-    this.maxSpeed = 25;
+    this.maxSpeed = 45;
 
     // Body
     const carBody = new THREE.Mesh(
@@ -53,7 +53,7 @@ export class Hovercar extends Vehicle {
 
   update(delta: number, input: InputManager, heightMap: HeightMap): void {
     // 1. Steering (A/D rotates yaw)
-    const turnSpeed = 2.5; // rad/s
+    const turnSpeed = 3.0; // rad/s
     if (input.state.left) {
       this.yaw += turnSpeed * delta;
     }
@@ -65,7 +65,7 @@ export class Hovercar extends Vehicle {
     this.yaw = (this.yaw + Math.PI * 2) % (Math.PI * 2);
 
     // 2. Acceleration (W/S)
-    const accel = 20.0;
+    const accel = 30.0;
     const friction = 5.0;
 
     if (input.state.forward) {
