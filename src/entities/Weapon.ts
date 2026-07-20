@@ -91,7 +91,7 @@ export class Weapon {
       return;
     }
 
-    if (input.reloadPressed && this.type !== 'melee' && this.magazineAmmo < this.magazineCapacity && this.reserveAmmo > 0) {
+    if ((input.reloadPressed || (input.fireHeld && this.magazineAmmo === 0)) && this.type !== 'melee' && this.magazineAmmo < this.magazineCapacity && this.reserveAmmo > 0) {
       this.isReloading = true;
       this.reloadRemaining = this.reloadDuration;
       this.onReload?.();
@@ -104,6 +104,13 @@ export class Weapon {
       this.fire(input.camera, input.targets);
       this.shotCooldown += this.shotInterval;
       if (this.type === 'melee') break; // only once for melee
+    }
+
+    // Auto-reload when magazine drops to 0 after firing
+    if (this.type !== 'melee' && this.magazineAmmo === 0 && this.reserveAmmo > 0 && !this.isReloading) {
+      this.isReloading = true;
+      this.reloadRemaining = this.reloadDuration;
+      this.onReload?.();
     }
   }
 
