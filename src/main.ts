@@ -620,7 +620,7 @@ function animate(): void {
   if (isGameHalted || !renderer) return;
 
   const now = performance.now();
-  const delta = Math.min((now - lastTime) / 1000, 0.1);
+  const delta = Math.min((now - lastTime) / 1000, 0.05);
   lastTime = now;
 
   gameTime += delta;
