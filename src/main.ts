@@ -162,7 +162,7 @@ async function initGame(): Promise<void> {
   if (!isGameHalted && container) {
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     updateRendererSize();
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = false;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through to UI

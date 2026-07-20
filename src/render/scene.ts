@@ -17,7 +17,7 @@ export function createScene(): THREE.Scene {
   // High Quality Directional Sun Light
   const sun = new THREE.DirectionalLight(0xfffaed, 1.3);
   sun.position.set(120, 220, 120);
-  sun.castShadow = true;
+  sun.castShadow = false;
   sun.shadow.mapSize.width = 2048;
   sun.shadow.mapSize.height = 2048;
   sun.shadow.camera.near = 0.5;

@@ -34,6 +34,10 @@ export class Player {
   private decorationColliders: { position: THREE.Vector3; radius: number; height: number }[] = [];
   private playerRadius = 0.5; // Player collision radius
 
+  private static readonly tempPlayerBox = new THREE.Box3();
+  private static readonly tempMinVec = new THREE.Vector3();
+  private static readonly tempMaxVec = new THREE.Vector3();
+
   constructor(camera: THREE.PerspectiveCamera, input: InputManager) {
     this.camera = camera;
     this.input = input;
@@ -171,23 +175,11 @@ export class Player {
     if (this.activeVehicle) {
       this.activeVehicle.update(delta, this.input, heightMap);
       this.mesh.position.copy(this.activeVehicle.mesh.position);
+      this.mesh.rotation.y = this.activeVehicle.yaw;
       this.velocity.set(0, 0, 0);
 
-      // Mouse aims the crosshair & camera pitch
-      this.yaw += this.input.state.mouseX;
-      // Mouse movement steers aiming relative to vehicle direction
-      if (Math.abs(this.input.state.mouseX) < 1e-5 && !this.input.state.left && !this.input.state.right) {
-        // Smoothly realign camera towards vehicle heading when not aiming or turning
-        let diff = this.activeVehicle.yaw - this.yaw;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        this.yaw += diff * Math.min(1.0, delta * 3.0);
-      } else if (this.input.state.left || this.input.state.right) {
-        // When turning vehicle with A/D, rotate camera along with vehicle
-        const turn = (this.input.state.left ? 1 : 0) - (this.input.state.right ? 1 : 0);
-        this.yaw += turn * 2.2 * delta;
-      }
-
+      // Lock camera heading to vehicle heading (A/D turns vehicle & view together)
+      this.yaw = this.activeVehicle.yaw;
       this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
       this.input.resetMouse();
 
@@ -245,31 +237,28 @@ export class Player {
     this.mesh.position.z += this.velocity.z * delta;
 
     // Collision resolution with structures (AABB)
-    const playerBox = new THREE.Box3();
-
     for (const collider of this.structureColliders) {
       if (collider.type !== 'solid') continue;
 
-      playerBox.set(
-        new THREE.Vector3(
-          this.mesh.position.x - this.playerRadius,
-          this.mesh.position.y,
-          this.mesh.position.z - this.playerRadius
-        ),
-        new THREE.Vector3(
-          this.mesh.position.x + this.playerRadius,
-          this.mesh.position.y + this.cameraHeight,
-          this.mesh.position.z + this.playerRadius
-        )
+      Player.tempMinVec.set(
+        this.mesh.position.x - this.playerRadius,
+        this.mesh.position.y,
+        this.mesh.position.z - this.playerRadius
       );
+      Player.tempMaxVec.set(
+        this.mesh.position.x + this.playerRadius,
+        this.mesh.position.y + this.cameraHeight,
+        this.mesh.position.z + this.playerRadius
+      );
+      Player.tempPlayerBox.set(Player.tempMinVec, Player.tempMaxVec);
 
-      if (playerBox.intersectsBox(collider.box)) {
-        const overlapX1 = playerBox.max.x - collider.box.min.x;
-        const overlapX2 = collider.box.max.x - playerBox.min.x;
+      if (Player.tempPlayerBox.intersectsBox(collider.box)) {
+        const overlapX1 = Player.tempPlayerBox.max.x - collider.box.min.x;
+        const overlapX2 = collider.box.max.x - Player.tempPlayerBox.min.x;
         const pushX = overlapX1 < overlapX2 ? -overlapX1 : overlapX2;
 
-        const overlapZ1 = playerBox.max.z - collider.box.min.z;
-        const overlapZ2 = collider.box.max.z - playerBox.min.z;
+        const overlapZ1 = Player.tempPlayerBox.max.z - collider.box.min.z;
+        const overlapZ2 = collider.box.max.z - Player.tempPlayerBox.min.z;
         const pushZ = overlapZ1 < overlapZ2 ? -overlapZ1 : overlapZ2;
 
         if (Math.abs(pushX) < Math.abs(pushZ)) {

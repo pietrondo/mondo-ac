@@ -186,7 +186,7 @@ export class Hovercar extends Vehicle {
     this.hoverTime += delta;
 
     // 1. Steering (A/D rotates yaw & banks)
-    const turnSpeed = 3.2;
+    const turnSpeed = 4.2;
     let turnInput = 0;
     if (input.state.left) {
       this.yaw += turnSpeed * delta;
@@ -198,14 +198,16 @@ export class Hovercar extends Vehicle {
     }
 
     this.yaw = (this.yaw + Math.PI * 2) % (Math.PI * 2);
+    this.mesh.rotation.y = this.yaw;
 
     // Smooth banking roll during turns
-    const targetBank = turnInput * 0.18;
-    this.currentBank += (targetBank - this.currentBank) * Math.min(1.0, delta * 8.0);
+    const targetBank = turnInput * 0.25;
+    this.currentBank += (targetBank - this.currentBank) * Math.min(1.0, delta * 10.0);
+    this.bodyGroup.rotation.z = -this.currentBank;
 
     // 2. Acceleration (W/S)
-    const accel = 35.0;
-    const friction = 6.0;
+    const accel = 55.0;
+    const friction = 14.0;
 
     if (input.state.forward) {
       this.speed = Math.min(this.maxSpeed, this.speed + accel * delta);

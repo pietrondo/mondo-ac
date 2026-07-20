@@ -99,12 +99,12 @@ export class Horse extends Vehicle {
     const turn = (input.state.left ? 1 : 0) - (input.state.right ? 1 : 0);
 
     // Turning
-    this.yaw += turn * 2.2 * delta;
+    this.yaw += turn * 3.6 * delta;
     this.mesh.rotation.y = this.yaw;
 
     // Acceleration & Gallop Speed
     const targetSpeed = moveForward * (input.state.run ? this.maxSpeed : this.maxSpeed * 0.6);
-    this.speed += (targetSpeed - this.speed) * 8 * delta;
+    this.speed += (targetSpeed - this.speed) * 14 * delta;
 
     // Forward Direction
     const forwardX = Math.sin(this.yaw);

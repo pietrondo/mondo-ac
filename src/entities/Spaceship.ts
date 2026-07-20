@@ -60,7 +60,7 @@ export class Spaceship extends Vehicle {
 
   update(delta: number, input: InputManager, heightMap: HeightMap): void {
     // 1. Yaw Steering (A/D)
-    const turnSpeed = 2.5; // rad/s
+    const turnSpeed = 3.8; // rad/s
     if (input.state.left) {
       this.yaw += turnSpeed * delta;
     }
@@ -68,6 +68,7 @@ export class Spaceship extends Vehicle {
       this.yaw -= turnSpeed * delta;
     }
     this.yaw = (this.yaw + Math.PI * 2) % (Math.PI * 2);
+    this.mesh.rotation.y = this.yaw;
 
     // 2. Roll banking (tilt left on A, right on D)
     const targetRoll = input.state.left ? 0.5 : (input.state.right ? -0.5 : 0);

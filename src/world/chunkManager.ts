@@ -31,9 +31,6 @@ export class ChunkManager {
   private heightMap: HeightMap;
   private biomeMap: BiomeMap;
   private scene: THREE.Scene;
-  private lastPlayerChunkX = -9999;
-  private lastPlayerChunkZ = -9999;
-
   constructor(scene: THREE.Scene, heightMap: HeightMap, biomeMap: BiomeMap) {
     this.scene = scene;
     this.heightMap = heightMap;
@@ -55,16 +52,10 @@ export class ChunkManager {
     const playerChunkX = Math.floor(gridX / CHUNK_SIZE);
     const playerChunkZ = Math.floor(gridZ / CHUNK_SIZE);
 
-    if (playerChunkX === this.lastPlayerChunkX && playerChunkZ === this.lastPlayerChunkZ) {
-      return; // Player still inside same chunk
-    }
-
-    this.lastPlayerChunkX = playerChunkX;
-    this.lastPlayerChunkZ = playerChunkZ;
-
     const visibleKeys = new Set<string>();
+    let createdThisFrame = false;
 
-    // Load active chunks around player
+    // Load active chunks around player (max 1 chunk creation per frame to avoid CPU spike)
     for (let dx = -RENDER_RADIUS; dx <= RENDER_RADIUS; dx++) {
       for (let dz = -RENDER_RADIUS; dz <= RENDER_RADIUS; dz++) {
         const cx = playerChunkX + dx;
@@ -77,10 +68,11 @@ export class ChunkManager {
         const key = `${cx}_${cz}`;
         visibleKeys.add(key);
 
-        if (!this.activeChunks.has(key)) {
+        if (!this.activeChunks.has(key) && !createdThisFrame) {
           const chunkMesh = this.buildChunkMesh(cx, cz);
           this.activeChunks.set(key, { mesh: chunkMesh, key, cx, cz });
           this.scene.add(chunkMesh);
+          createdThisFrame = true;
         }
       }
     }
