@@ -51,8 +51,8 @@ data/         World data
 tests/        Test suites
 ```
 
-## Documentation
+## Quality & Code Simplification Guidelines
 
-- [Gameplay Changes](docs/gameplay-changes.md) — detailed changelog of gameplay additions
-- [Design Specs](docs/superpowers/specs/) — design specifications
-- [Implementation Plans](docs/superpowers/plans/) — implementation plans
+This repository follows [Ponytail](https://ponytail.dev/) principles:
+At the end of every task or change, run `ponytail-review` / `ponytail-audit` to inspect code for over-engineering, remove unused/speculative code, and keep implementations lean.
+

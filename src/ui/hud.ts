@@ -313,6 +313,108 @@ export class HUD {
       box-shadow: 0 0 24px rgba(255, 213, 79, 0.5);
     `;
     document.body.appendChild(this.waveNotificationElement);
+
+    // Boss Health Bar UI
+    this.bossBarContainer = document.createElement('div');
+    this.bossBarContainer.style.cssText = `
+      position: fixed;
+      top: 55px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 450px;
+      max-width: 90vw;
+      background: rgba(15, 5, 5, 0.85);
+      border: 2px solid #FF1744;
+      border-radius: 8px;
+      padding: 6px 12px;
+      z-index: 150;
+      display: none;
+      box-shadow: 0 0 20px rgba(255, 23, 68, 0.5);
+      font-family: system-ui, sans-serif;
+    `;
+    this.bossBarContainer.innerHTML = `
+      <div id="boss-name" style="color: #FF5252; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; text-align: center; margin-bottom: 4px;">👑 BOSS TITANO</div>
+      <div style="width: 100%; height: 14px; background: rgba(0,0,0,0.6); border-radius: 6px; overflow: hidden; border: 1px solid #ff1744;">
+        <div id="boss-hp-fill" style="width: 100%; height: 100%; background: linear-gradient(90deg, #ff1744, #ff5252); transition: width 0.15s ease-out;"></div>
+      </div>
+    `;
+    document.body.appendChild(this.bossBarContainer);
+
+    // Skill Bar UI
+    this.skillBarElement = document.createElement('div');
+    this.skillBarElement.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 150;
+      font-family: system-ui, sans-serif;
+    `;
+    this.skillBarElement.innerHTML = `
+      <div id="skill-dash" style="background: rgba(0,229,255,0.2); border: 2px solid #00E5FF; border-radius: 8px; padding: 6px 12px; color: white; font-weight: bold; font-size: 13px; text-align: center; min-width: 75px; box-shadow: 0 0 10px rgba(0,229,255,0.3);">
+        <div style="font-size: 11px; color: #80DEEA;">[Q] DASH</div>
+        <div id="cd-dash" style="font-size: 12px; color: #76FF03; margin-top: 2px;">PRONTO</div>
+      </div>
+      <div id="skill-grenade" style="background: rgba(255,145,0,0.2); border: 2px solid #FF9100; border-radius: 8px; padding: 6px 12px; color: white; font-weight: bold; font-size: 13px; text-align: center; min-width: 75px; box-shadow: 0 0 10px rgba(255,145,0,0.3);">
+        <div style="font-size: 11px; color: #FFE082;">[F] GRANATA</div>
+        <div id="cd-grenade" style="font-size: 12px; color: #76FF03; margin-top: 2px;">PRONTO</div>
+      </div>
+      <div id="skill-shield" style="background: rgba(179,136,255,0.2); border: 2px solid #B388FF; border-radius: 8px; padding: 6px 12px; color: white; font-weight: bold; font-size: 13px; text-align: center; min-width: 75px; box-shadow: 0 0 10px rgba(179,136,255,0.3);">
+        <div style="font-size: 11px; color: #D1C4E9;">[C] SCUDO</div>
+        <div id="cd-shield" style="font-size: 12px; color: #76FF03; margin-top: 2px;">PRONTO</div>
+      </div>
+    `;
+    document.body.appendChild(this.skillBarElement);
+
+    // Time & Weather UI
+    this.timeWeatherElement = document.createElement('div');
+    this.timeWeatherElement.style.cssText = `
+      position: fixed;
+      top: 25px;
+      right: 120px;
+      color: #E0E0E0;
+      font-family: system-ui, monospace;
+      font-size: 14px;
+      font-weight: bold;
+      background: rgba(0,0,0,0.5);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.2);
+      z-index: 100;
+    `;
+    this.timeWeatherElement.textContent = '☀️ 12:00';
+    document.body.appendChild(this.timeWeatherElement);
+  }
+
+  private bossBarContainer: HTMLDivElement;
+  private skillBarElement: HTMLDivElement;
+  private timeWeatherElement: HTMLDivElement;
+
+  updateSkillCooldowns(dashCd: number, grenadeCd: number, shieldCd: number): void {
+    const cdDash = document.getElementById('cd-dash');
+    const cdGrenade = document.getElementById('cd-grenade');
+    const cdShield = document.getElementById('cd-shield');
+    if (cdDash) cdDash.textContent = dashCd > 0 ? `${dashCd.toFixed(1)}s` : 'PRONTO';
+    if (cdGrenade) cdGrenade.textContent = grenadeCd > 0 ? `${grenadeCd.toFixed(1)}s` : 'PRONTO';
+    if (cdShield) cdShield.textContent = shieldCd > 0 ? `${shieldCd.toFixed(1)}s` : 'PRONTO';
+  }
+
+  showBossHealthBar(name: string, hp: number, maxHp: number): void {
+    this.bossBarContainer.style.display = 'block';
+    const nameEl = document.getElementById('boss-name');
+    const fillEl = document.getElementById('boss-hp-fill');
+    if (nameEl) nameEl.textContent = `👑 ${name}`;
+    if (fillEl) fillEl.style.width = `${Math.max(0, (hp / maxHp) * 100)}%`;
+  }
+
+  hideBossHealthBar(): void {
+    this.bossBarContainer.style.display = 'none';
+  }
+
+  updateEnvironmentUI(timeStr: string, weatherIcon: string): void {
+    this.timeWeatherElement.textContent = `${weatherIcon} ${timeStr}`;
   }
 
   getVersionText(): string {

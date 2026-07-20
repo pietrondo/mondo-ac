@@ -32,6 +32,15 @@ import { SoundManager } from './utils/sound';
 import { ParticlePool } from './combat/particles';
 import { CloudManager } from './world/clouds';
 import { WaveManager } from './game/waveManager';
+import { DayNightManager } from './world/dayNight';
+import { SkillSystem } from './game/skills';
+
+function setLoadingProgress(percent: number, message: string): void {
+  const fill = document.getElementById('loading-bar-fill');
+  const status = document.getElementById('loading-status');
+  if (fill) fill.style.width = `${percent}%`;
+  if (status) status.textContent = `${message} (${percent}%)`;
+}
 
 const container = document.getElementById('canvas-container');
 if (!container) throw new Error('No container');
@@ -104,7 +113,10 @@ if (!detectWebGL()) {
   showSystemError('WebGL non è supportato o è disabilitato nel tuo browser.');
 }
 
+setLoadingProgress(15, 'Inizializzazione motore 3D e WebGL...');
+
 const scene = createScene();
+const dayNight = new DayNightManager(scene);
 
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -135,7 +147,7 @@ if (sun) {
   scene.add(sun.target);
 }
 
-// Generate world
+setLoadingProgress(35, 'Generazione mappa d\'altezza e biomi...');
 const heightMap = new HeightMap(SEED);
 const biomeMap = new BiomeMap(heightMap, SEED + 1);
 const terrain = createTerrainMesh(heightMap, biomeMap);
@@ -148,6 +160,7 @@ water.matrixAutoUpdate = false;
 water.updateMatrix();
 scene.add(water);
 
+setLoadingProgress(55, 'Costruzione villaggi e strutture...');
 const decorations = createDecorations(heightMap, biomeMap);
 decorations.group.traverse((child) => {
   if (child instanceof THREE.Mesh || child instanceof THREE.InstancedMesh) {
@@ -522,6 +535,8 @@ document.addEventListener('debug-player-speed', ((e: CustomEvent) => {
   (player as any).speed = e.detail;
 }) as EventListener);
 
+const skillSystem = new SkillSystem(scene);
+
 // Game loop
 let lastTime = performance.now();
 let gameTime = 0;
@@ -560,6 +575,28 @@ function animate(): void {
   gameTime += delta;
   damageCooldown -= delta;
 
+  // Update Day/Night & Environment
+  dayNight.update(delta);
+  hud.updateEnvironmentUI(dayNight.getFormattedTime(), dayNight.getWeatherIcon());
+
+  // Spawn rain/storm particles
+  if (dayNight.weather === 'rain' || dayNight.weather === 'storm') {
+    const rainRate = dayNight.weather === 'storm' ? 80 : 40;
+    const count = Math.floor(delta * rainRate) + (Math.random() < (delta * rainRate) % 1 ? 1 : 0);
+    const pPos = player.mesh.position;
+    for (let r = 0; r < count; r++) {
+      const rx = (Math.random() - 0.5) * 50;
+      const rz = (Math.random() - 0.5) * 50;
+      const ry = 15 + Math.random() * 15;
+      const pos = pPos.clone().add(new THREE.Vector3(rx, ry, rz));
+      const vel = new THREE.Vector3((Math.random() - 0.5) * 0.5, -16 - Math.random() * 6, (Math.random() - 0.5) * 0.5);
+      particlePool.spawn('spark', pos, vel, 0.8);
+    }
+  }
+
+  // Active Skills Update
+  skillSystem.update(delta, input, player, camera, monsters, particlePool, damageNumber, hitMarker, soundManager, hud);
+
   // Track wasAlive transition for HP sync and leaderboard overlay on respawn/death
   const isAlive = player.isAlive();
   if (isAlive && !wasAlive) {
@@ -586,16 +623,33 @@ function animate(): void {
     hud.updateWaveInfo(waveManager.getWaveNumber(), waveManager.getEnemiesRemaining(), waveManager.hasBoss);
   }
 
-  // Update entities
+  // Boss Health Bar UI update
+  let activeBoss: Monster | null = null;
+  for (const m of monsters) {
+    if (m.isAlive() && (m.variant === 'titan' || m.variant === 'golem' || m.variant === 'annihilator')) {
+      activeBoss = m;
+      break;
+    }
+  }
+  if (activeBoss) {
+    hud.showBossHealthBar(activeBoss.variant, (activeBoss as any).hp || 0, activeBoss.maxHp);
+  } else {
+    hud.hideBossHealthBar();
+  }
+
+  // Update entities (night speed boost)
+  const nightSpeedFactor = dayNight.getNightSpeedMultiplier();
   for (const npc of npcs) npc.update(delta, heightMap);
   for (const monster of monsters) {
     if (monster.isAlive()) {
-      monster.update(delta, heightMap, player.mesh.position, camera, monsters);
+      monster.update(delta * nightSpeedFactor, heightMap, player.mesh.position, camera, monsters);
       if (damageCooldown <= 0 && player.isAlive() && monster.mesh.position.distanceTo(player.mesh.position) < 2) {
-        player.takeDamage(10);
-        damageCooldown = 1;
-        updateHpDisplay();
-        soundManager.playHurt();
+        if (!skillSystem.isShieldActive) {
+          player.takeDamage(10);
+          damageCooldown = 1;
+          updateHpDisplay();
+          soundManager.playHurt();
+        }
       }
     } else if (!deadMonstersQueued.has(monster)) {
       deadMonstersQueued.add(monster);
@@ -963,12 +1017,15 @@ window.addEventListener('resize', () => {
   if (renderer) renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-const loading = document.getElementById('loading');
-if (loading) loading.style.display = 'none';
+setLoadingProgress(100, 'Caricamento completato!');
+setTimeout(() => {
+  const loading = document.getElementById('loading');
+  if (loading) loading.style.display = 'none';
+}, 300);
 
 // Click to start overlay
 const clickToStart = document.createElement('div');
-clickToStart.textContent = 'Clicca per iniziare (WASD per muoverti, E per interagire)';
+clickToStart.textContent = 'Clicca per iniziare (WASD per muoverti, E per interagire, Q/F/C per Abilità)';
 clickToStart.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-size:24px;cursor:pointer;z-index:9999;padding:20px;background:rgba(0,0,0,0.5);border-radius:10px;pointer-events:auto;';
 
 function startGame(): void {

@@ -8,6 +8,9 @@ export interface InputState {
   reload: boolean;
   attack: boolean;
   run: boolean;
+  skillDash: boolean;
+  skillGrenade: boolean;
+  skillShield: boolean;
   mouseX: number;
   mouseY: number;
 }
@@ -23,6 +26,9 @@ export class InputManager {
     reload: false,
     attack: false,
     run: false,
+    skillDash: false,
+    skillGrenade: false,
+    skillShield: false,
     mouseX: 0,
     mouseY: 0
   };
@@ -66,6 +72,15 @@ export class InputManager {
         break;
       case 'KeyR':
         this.state.reload = pressed;
+        break;
+      case 'KeyQ':
+        this.state.skillDash = pressed;
+        break;
+      case 'KeyF':
+        this.state.skillGrenade = pressed;
+        break;
+      case 'KeyC':
+        this.state.skillShield = pressed;
         break;
       case 'ShiftLeft':
       case 'ShiftRight':
