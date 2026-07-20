@@ -32,6 +32,10 @@ export class ParticlePool {
     this.maxCapacity = maxCapacity;
   }
 
+  getActiveCount(): number {
+    return this.particles.filter(p => p.active).length;
+  }
+
   prewarm(): void {
     const types: Array<'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust'> = [
       'spark', 'blood', 'shell', 'snow', 'sand', 'leaf', 'smoke', 'dust'

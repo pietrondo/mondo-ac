@@ -1,0 +1,165 @@
+import * as THREE from 'three';
+
+export class PerformanceProfiler {
+  private overlay: HTMLDivElement | null = null;
+  private isVisible = false;
+  private frameTimeBuffer: number[] = [];
+  private lastTime = performance.now();
+  private frameCount = 0;
+  private currentFps = 60;
+  private currentFrameTime = 16.6;
+
+  private latestStats = {
+    fps: 60,
+    frameTimeMs: 16.6,
+    drawCalls: 0,
+    triangles: 0,
+    geometries: 0,
+    textures: 0,
+    entitiesCount: 0,
+    particlesCount: 0,
+  };
+
+  constructor() {
+    this.createOverlay();
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'l') {
+        this.toggle();
+      }
+    });
+  }
+
+  private createOverlay(): void {
+    if (typeof document === 'undefined') return;
+    this.overlay = document.createElement('div');
+    this.overlay.id = 'profiler-log-overlay';
+    this.overlay.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 550px;
+      max-width: 90vw;
+      background: rgba(10, 15, 25, 0.95);
+      border: 2px solid #00E5FF;
+      box-shadow: 0 0 25px rgba(0, 229, 255, 0.4);
+      border-radius: 12px;
+      padding: 20px;
+      color: #E0F7FA;
+      font-family: monospace;
+      font-size: 13px;
+      z-index: 10000;
+      display: none;
+      user-select: text;
+    `;
+    this.overlay.innerHTML = `
+      <div style="display:flex; justify-between; align-items:center; border-bottom: 1px solid #00E5FF; padding-bottom: 10px; margin-bottom: 15px;">
+        <span style="font-weight:bold; font-size:16px; color:#00E5FF;">📊 DIAGNOSTICA PRESTAZIONI (TASTO L)</span>
+        <button id="close-profiler-btn" style="background:#FF1744; border:none; color:white; padding:4px 10px; border-radius:4px; cursor:pointer;">X</button>
+      </div>
+      <div id="profiler-stats-content">Caricamento log...</div>
+      <div style="margin-top: 15px; display: flex; gap: 10px;">
+        <button id="copy-log-btn" style="flex:1; background:#00E5FF; border:none; color:#0A0F19; font-weight:bold; padding:8px; border-radius:6px; cursor:pointer;">📋 COPIA LOG NEGLI APPUNTI</button>
+      </div>
+    `;
+    document.body.appendChild(this.overlay);
+
+    const closeBtn = this.overlay.querySelector('#close-profiler-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.hide());
+    }
+
+    const copyBtn = this.overlay.querySelector('#copy-log-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        const text = this.generateLogText();
+        navigator.clipboard.writeText(text).then(() => {
+          alert('Log prestazionale copiato negli appunti! Invialo per la diagnosi.');
+        });
+      });
+    }
+  }
+
+  toggle(): void {
+    if (this.isVisible) this.hide();
+    else this.show();
+  }
+
+  show(): void {
+    this.isVisible = true;
+    if (this.overlay) {
+      this.overlay.style.display = 'block';
+      this.renderContent();
+    }
+  }
+
+  hide(): void {
+    this.isVisible = false;
+    if (this.overlay) {
+      this.overlay.style.display = 'none';
+    }
+  }
+
+  update(renderer: THREE.WebGLRenderer, monstersCount: number, particlesCount: number): void {
+    const now = performance.now();
+    const deltaMs = now - this.lastTime;
+    this.lastTime = now;
+    this.frameCount++;
+
+    this.frameTimeBuffer.push(deltaMs);
+    if (this.frameTimeBuffer.length > 60) this.frameTimeBuffer.shift();
+
+    if (this.frameCount >= 15) {
+      const avgMs = this.frameTimeBuffer.reduce((a, b) => a + b, 0) / this.frameTimeBuffer.length;
+      this.currentFrameTime = Math.round(avgMs * 10) / 10;
+      this.currentFps = Math.round(1000 / (avgMs || 1));
+      this.frameCount = 0;
+    }
+
+    this.latestStats = {
+      fps: this.currentFps,
+      frameTimeMs: this.currentFrameTime,
+      drawCalls: renderer.info.render.calls,
+      triangles: renderer.info.render.triangles,
+      geometries: renderer.info.memory.geometries,
+      textures: renderer.info.memory.textures,
+      entitiesCount: monstersCount,
+      particlesCount: particlesCount,
+    };
+
+    if (this.isVisible) {
+      this.renderContent();
+    }
+  }
+
+  private renderContent(): void {
+    const content = this.overlay?.querySelector('#profiler-stats-content');
+    if (content) {
+      content.innerHTML = `
+        <div style="line-height: 1.8;">
+          <div>⚡ <b>FPS:</b> <span style="color:${this.latestStats.fps < 30 ? '#FF1744' : '#00E676'}">${this.latestStats.fps} FPS</span> (${this.latestStats.frameTimeMs} ms/frame)</div>
+          <div>🖌️ <b>Draw Calls (Chiamate GPU):</b> ${this.latestStats.drawCalls}</div>
+          <div>🔺 <b>Triangoli / Poligoni:</b> ${this.latestStats.triangles.toLocaleString()}</div>
+          <div>📐 <b>Geometrie in VRAM:</b> ${this.latestStats.geometries}</div>
+          <div>🖼️ <b>Texture in VRAM:</b> ${this.latestStats.textures}</div>
+          <div>👾 <b>Nemici Attivi:</b> ${this.latestStats.entitiesCount}</div>
+          <div>✨ <b>Particelle Meteo/Combattimento:</b> ${this.latestStats.particlesCount}</div>
+        </div>
+      `;
+    }
+  }
+
+  private generateLogText(): string {
+    return `=== MONDO 3D PERFORMANCE LOG ===
+Data/Ora: ${new Date().toISOString()}
+Screen Resolution: ${window.innerWidth}x${window.innerHeight} (DPR: ${window.devicePixelRatio})
+FPS: ${this.latestStats.fps} (${this.latestStats.frameTimeMs} ms)
+WebGL Draw Calls: ${this.latestStats.drawCalls}
+WebGL Triangles: ${this.latestStats.triangles}
+VRAM Geometries: ${this.latestStats.geometries}
+VRAM Textures: ${this.latestStats.textures}
+Monsters: ${this.latestStats.entitiesCount}
+Particles: ${this.latestStats.particlesCount}
+================================`;
+  }
+}

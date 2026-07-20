@@ -24,6 +24,7 @@ import { ShotTracer } from './combat/shotTracer';
 import { EnemyProjectileSystem } from './combat/EnemyProjectile';
 import { applyPowerUp, createPowerUpRuntime, tickPowerUpRuntime } from './game/powerUpEffects';
 import { HUD } from './ui/hud';
+import { PerformanceProfiler } from './ui/profiler';
 import { DebugOverlay } from './ui/debug';
 import { SEED, WORLD_SIZE, WORLD_SCALE } from './config';
 import { selectMonsterSpawnPoints } from './world/spawnSelection';
@@ -169,6 +170,8 @@ async function initGame(): Promise<void> {
     container.appendChild(renderer.domElement);
     renderer.compile(scene, camera); // Prewarm and compile all materials/shaders on GPU
   }
+
+  const profiler = new PerformanceProfiler();
 
   // Configure shadow camera layers
   const sun = scene.children.find(child => child instanceof THREE.DirectionalLight) as THREE.DirectionalLight;
@@ -1123,6 +1126,13 @@ function animate(): void {
 
   // Render
   renderer.render(scene, camera);
+  if (profiler && renderer) {
+    profiler.update(
+      renderer,
+      monsters.filter((m) => m.isAlive()).length,
+      particlePool ? particlePool.getActiveCount() : 0
+    );
+  }
 
   // Next frame
   requestAnimationFrame(animate);
