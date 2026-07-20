@@ -1,6 +1,12 @@
 import { defineConfig } from 'vite';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
+
+let commitHash = 'dev';
+try {
+  commitHash = execSync('git rev-parse --short HEAD').toString().trim();
+} catch (e) {}
 
 function scoresApiPlugin() {
   const dataDir = path.resolve(__dirname, 'data');
@@ -76,6 +82,9 @@ function scoresApiPlugin() {
 }
 
 export default defineConfig({
+  define: {
+    __COMMIT_HASH__: JSON.stringify(commitHash)
+  },
   plugins: [scoresApiPlugin()],
   server: {
     port: 3000,

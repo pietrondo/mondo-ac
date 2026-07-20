@@ -1,3 +1,5 @@
+declare const __COMMIT_HASH__: string;
+
 export interface ScoreEntry {
   id: string;
   name: string;
@@ -17,6 +19,7 @@ export class HUD {
   private comboElement: HTMLDivElement;
   private enemyTrackerElement: HTMLDivElement;
   private leaderboardOverlay: HTMLDivElement;
+  private versionElement: HTMLDivElement;
 
   private score = 0;
   private kills = 0;
@@ -238,6 +241,28 @@ export class HUD {
       color: white;
     `;
     document.body.appendChild(this.leaderboardOverlay);
+
+    const versionStr = typeof __COMMIT_HASH__ !== 'undefined' ? __COMMIT_HASH__ : 'dev';
+    this.versionElement = document.createElement('div');
+    this.versionElement.style.cssText = `
+      position: fixed;
+      top: 6px;
+      right: 20px;
+      color: rgba(255, 255, 255, 0.6);
+      font-family: monospace;
+      font-size: 12px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+      z-index: 100;
+      pointer-events: none;
+      user-select: none;
+    `;
+    this.versionElement.textContent = `v:${versionStr}`;
+    document.body.appendChild(this.versionElement);
+  }
+
+  getVersionText(): string {
+    return this.versionElement.textContent ?? '';
   }
 
   addScore(amount: number): void {
