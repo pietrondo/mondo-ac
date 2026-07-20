@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BiomeMap } from './biomeMap';
 import { WORLD_SCALE } from '../config';
 
-export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem' | 'crawler' | 'drone' | 'sentinel' | 'annihilator';
+export type MonsterVariant = 'scout' | 'brute' | 'stalker' | 'golem' | 'crawler' | 'drone' | 'sentinel' | 'annihilator' | 'phantom' | 'titan';
 
 export interface MonsterVariantProfile {
   scale: number;
@@ -96,6 +96,26 @@ const variantProfiles: Record<MonsterVariant, MonsterVariantProfile> = {
     bodyColor: 0x37474F,
     eyeColor: 0xFF6D00,
   },
+  phantom: {
+    scale: 0.9,
+    bodyWidth: 0.7,
+    bodyHeight: 1.4,
+    bodyDepth: 0.6,
+    hp: 45,
+    speed: 5.2,
+    bodyColor: 0x4A148C,
+    eyeColor: 0xEA80FC,
+  },
+  titan: {
+    scale: 2.2,
+    bodyWidth: 2.2,
+    bodyHeight: 2.4,
+    bodyDepth: 2.0,
+    hp: 350,
+    speed: 1.0,
+    bodyColor: 0x212121,
+    eyeColor: 0xFF1744,
+  },
 };
 
 import { selectMonsterVariantForBiome } from './spawnSelection';
@@ -118,7 +138,7 @@ export function chooseMonsterVariant(
   const raw = Math.abs(
     Math.floor(position.x * 17 + position.z * 31 + position.y * 11 + index * 13)
   );
-  const variants: MonsterVariant[] = ['scout', 'brute', 'stalker', 'crawler', 'drone', 'sentinel', 'annihilator'];
+  const variants: MonsterVariant[] = ['scout', 'brute', 'stalker', 'crawler', 'drone', 'sentinel', 'annihilator', 'phantom', 'titan'];
   return variants[raw % variants.length];
 }
 

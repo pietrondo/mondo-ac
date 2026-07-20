@@ -74,8 +74,7 @@ export const PATTERNS: Record<string, AttackPattern> = {
     arc: 360,
   },
 
-  // New patterns for variety
-  sentinal: {
+  sentinel: {
     type: 'wave',
     projectileCount: 5,
     spacing: 0.1,
@@ -89,6 +88,22 @@ export const PATTERNS: Record<string, AttackPattern> = {
     spacing: 0.08,
     duration: 0.96,
     arc: 60,
+  },
+
+  phantom: {
+    type: 'spiral',
+    projectileCount: 6,
+    spacing: 0.08,
+    duration: 0.48,
+    spiralRotation: 60,
+  },
+
+  titan: {
+    type: 'ring',
+    projectileCount: 16,
+    spacing: 0.04,
+    duration: 0.64,
+    arc: 360,
   },
 };
 

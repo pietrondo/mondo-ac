@@ -274,6 +274,47 @@ export class Monster {
       this.mesh.add(eyeSlit);
     }
 
+    if (this.variant === 'phantom') {
+      // Floating aura blades
+      const bladeMat = new THREE.MeshStandardMaterial({
+        color: 0xEA80FC,
+        emissive: new THREE.Color(0xEA80FC),
+        emissiveIntensity: 2.5,
+        flatShading: true
+      });
+      const leftBlade = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.8, 4), bladeMat);
+      leftBlade.position.set(-0.55, profile.bodyHeight * 0.9, 0);
+      leftBlade.rotation.z = Math.PI / 4;
+      this.mesh.add(leftBlade);
+      const rightBlade = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.8, 4), bladeMat);
+      rightBlade.position.set(0.55, profile.bodyHeight * 0.9, 0);
+      rightBlade.rotation.z = -Math.PI / 4;
+      this.mesh.add(rightBlade);
+    }
+
+    if (this.variant === 'titan') {
+      // Massive dual cannons & chest reactor core
+      const titanMetal = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9, roughness: 0.2 });
+      const cannonL = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 1.2, 8), titanMetal);
+      cannonL.position.set(-1.1, profile.bodyHeight * 0.85, 0.2);
+      cannonL.rotation.x = Math.PI / 2;
+      this.mesh.add(cannonL);
+      const cannonR = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 1.2, 8), titanMetal);
+      cannonR.position.set(1.1, profile.bodyHeight * 0.85, 0.2);
+      cannonR.rotation.x = Math.PI / 2;
+      this.mesh.add(cannonR);
+
+      // Glowing red reactor core
+      const reactorMat = new THREE.MeshStandardMaterial({
+        color: 0xFF1744,
+        emissive: new THREE.Color(0xFF1744),
+        emissiveIntensity: 3.5,
+      });
+      const reactor = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), reactorMat);
+      reactor.position.set(0, profile.bodyHeight * 0.55, profile.bodyDepth * 0.52);
+      this.mesh.add(reactor);
+    }
+
     // Health bar construction above monster mesh
     this.healthBarGroup = new THREE.Group();
     this.healthBarGroup.position.set(0, profile.bodyHeight + 0.6, 0);
@@ -398,6 +439,10 @@ export class Monster {
         return { speed: 35, damage: 15, color: 0xd32f2f, size: 0.12, cooldown: 1.5, burst: 3, burstDelay: 0.15 };
       case 'drone':
         return { speed: 40, damage: 10, color: 0x00e5ff, size: 0.15, cooldown: 1.2, burst: 5, burstDelay: 0.08 };
+      case 'phantom':
+        return { speed: 50, damage: 14, color: 0xEA80FC, size: 0.14, cooldown: 1.2 };
+      case 'titan':
+        return { speed: 30, damage: 25, color: 0xFF1744, size: 0.35, cooldown: 2.8 };
       case 'stalker':
       default:
         return { speed: 35, damage: 12, color: 0xff3333, size: 0.15, cooldown: 1.5 };

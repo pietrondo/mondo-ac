@@ -406,8 +406,12 @@ monsterSpawnPoints.forEach((spawnPoint, index) => {
     },
     onDeath: () => {
       let scoreValue = 20;
-      if (monster.variant === 'golem') scoreValue = 100;
+      if (monster.variant === 'titan') scoreValue = 250;
+      else if (monster.variant === 'annihilator') scoreValue = 180;
+      else if (monster.variant === 'golem') scoreValue = 100;
+      else if (monster.variant === 'sentinel') scoreValue = 70;
       else if (monster.variant === 'brute') scoreValue = 50;
+      else if (monster.variant === 'phantom') scoreValue = 40;
       else if (monster.variant === 'stalker') scoreValue = 30;
       else if (monster.variant === 'drone') scoreValue = 25;
       else if (monster.variant === 'crawler') scoreValue = 20;
@@ -623,8 +627,12 @@ function animate(): void {
           onAttack: () => { soundManager.playPositionalAttack(monster.mesh); },
           onDeath: () => {
             let scoreValue = 20;
-            if (monster.variant === 'golem') scoreValue = 100;
+            if (monster.variant === 'titan') scoreValue = 250;
+            else if (monster.variant === 'annihilator') scoreValue = 180;
+            else if (monster.variant === 'golem') scoreValue = 100;
+            else if (monster.variant === 'sentinel') scoreValue = 70;
             else if (monster.variant === 'brute') scoreValue = 50;
+            else if (monster.variant === 'phantom') scoreValue = 40;
             else if (monster.variant === 'stalker') scoreValue = 30;
             else if (monster.variant === 'drone') scoreValue = 25;
             else if (monster.variant === 'crawler') scoreValue = 20;
