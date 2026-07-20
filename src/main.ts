@@ -161,8 +161,7 @@ async function initGame(): Promise<void> {
 
   if (!isGameHalted && container) {
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    updateRendererSize();
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1130,11 +1129,35 @@ function animate(): void {
 }
 animate();
 
+function updateRendererSize(): void {
+  if (!renderer) return;
+  const maxW = 1280;
+  const maxH = 720;
+  const aspect = window.innerWidth / window.innerHeight;
+  let renderW = window.innerWidth;
+  let renderH = window.innerHeight;
+
+  if (renderW > maxW || renderH > maxH) {
+    if (renderW / maxW > renderH / maxH) {
+      renderW = maxW;
+      renderH = Math.round(maxW / aspect);
+    } else {
+      renderH = maxH;
+      renderW = Math.round(maxH * aspect);
+    }
+  }
+
+  renderer.setSize(renderW, renderH, false);
+  renderer.domElement.style.width = '100vw';
+  renderer.domElement.style.height = '100vh';
+  renderer.setPixelRatio(1.0);
+}
+
 // Resize handler
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  if (renderer) renderer.setSize(window.innerWidth, window.innerHeight);
+  updateRendererSize();
 });
 
   await setLoadingProgress(100, 'Caricamento completato!');
