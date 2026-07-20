@@ -183,25 +183,19 @@ export class Player {
       this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
       this.input.resetMouse();
 
-      // Steering A/D turns vehicle yaw
-      if (this.input.state.left || this.input.state.right) {
-        const turn = (this.input.state.left ? 1 : 0) - (this.input.state.right ? 1 : 0);
-        this.yaw += turn * 3.6 * delta;
-      }
-
       // 3rd-person chase camera for vehicles & mounts (behind and above)
       const distBehind = 6.0;
       const heightAbove = 2.8;
 
-      const camX = this.mesh.position.x - Math.sin(this.yaw) * Math.cos(this.pitch) * distBehind;
+      const camX = this.mesh.position.x - Math.sin(this.activeVehicle.yaw) * Math.cos(this.pitch) * distBehind;
       const camY = this.mesh.position.y + heightAbove + Math.sin(this.pitch) * distBehind;
-      const camZ = this.mesh.position.z + Math.cos(this.yaw) * Math.cos(this.pitch) * distBehind;
+      const camZ = this.mesh.position.z + Math.cos(this.activeVehicle.yaw) * Math.cos(this.pitch) * distBehind;
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(
-        this.mesh.position.x + Math.sin(this.yaw) * Math.cos(this.pitch) * 50,
+        this.mesh.position.x + Math.sin(this.activeVehicle.yaw) * Math.cos(this.pitch) * 50,
         this.mesh.position.y + heightAbove + Math.sin(this.pitch) * 50,
-        this.mesh.position.z - Math.cos(this.yaw) * Math.cos(this.pitch) * 50
+        this.mesh.position.z - Math.cos(this.activeVehicle.yaw) * Math.cos(this.pitch) * 50
       );
 
       if (this.shakeIntensity > 0) {
