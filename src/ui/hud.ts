@@ -36,9 +36,36 @@ export class HUD {
   private waveElement: HTMLDivElement;
   private waveNotificationElement: HTMLDivElement;
 
+  private coinsElement: HTMLDivElement;
+
   private score = 0;
+  private coins = 50; // Starting money
   private kills = 0;
   private combo = 0;
+
+  addCoins(amount: number): void {
+    this.coins += amount;
+    this.updateCoinsDisplay();
+  }
+
+  spendCoins(amount: number): boolean {
+    if (this.coins >= amount) {
+      this.coins -= amount;
+      this.updateCoinsDisplay();
+      return true;
+    }
+    return false;
+  }
+
+  getCoins(): number {
+    return this.coins;
+  }
+
+  private updateCoinsDisplay(): void {
+    if (this.coinsElement) {
+      this.coinsElement.textContent = `💰 MONETE: $${this.coins}`;
+    }
+  }
   private comboTimer = 0;
   private readonly comboDuration = 3.0; // Seconds to maintain combo
 
@@ -81,6 +108,21 @@ export class HUD {
     `;
     this.scoreElement.textContent = 'Score: 0';
     document.body.appendChild(this.scoreElement);
+
+    this.coinsElement = document.createElement('div');
+    this.coinsElement.style.cssText = `
+      position: fixed;
+      top: 52px;
+      left: 20px;
+      color: #FFD700;
+      font-family: system-ui, sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+      z-index: 100;
+    `;
+    this.coinsElement.textContent = '💰 MONETE: $50';
+    document.body.appendChild(this.coinsElement);
 
     this.ammoElement = document.createElement('div');
     this.ammoElement.style.cssText = `
@@ -671,8 +713,99 @@ export class HUD {
     });
   }
 
-  getWeaponText(): string {
-    return this.ammoElement.textContent ?? '';
+  openShopMenu(onBuy: (item: 'health' | 'ammo' | 'shield' | 'damage') => boolean): void {
+    let overlay = document.getElementById('merchant-shop-overlay') as HTMLDivElement;
+    if (overlay) {
+      overlay.remove();
+      return;
+    }
+
+    overlay = document.createElement('div');
+    overlay.id = 'merchant-shop-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 480px;
+      max-width: 92vw;
+      background: rgba(18, 22, 34, 0.96);
+      border: 2px solid #FFD700;
+      border-radius: 16px;
+      padding: 26px;
+      color: white;
+      font-family: system-ui, sans-serif;
+      z-index: 10000;
+      box-shadow: 0 0 35px rgba(255, 215, 0, 0.4);
+      pointer-events: auto;
+    `;
+
+    overlay.innerHTML = `
+      <h2 style="color: #FFD700; text-align: center; margin-bottom: 6px; font-weight: 900; letter-spacing: 2px;">🏪 NEGOZIO DEL MERCANTE</h2>
+      <p style="text-align: center; color: #b0bec5; font-size: 13px; margin-bottom: 20px;">Le tue monete: <strong id="shop-coins-txt" style="color:#FFD700">$${this.coins}</strong></p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="buy-health" style="background: rgba(255,23,68,0.2); border: 1.5px solid #FF1744; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🧪 POZIONE DI VITA (+50 HP)</span>
+          <span style="background: #FF1744; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$30</span>
+        </button>
+        <button id="buy-ammo" style="background: rgba(0,229,255,0.2); border: 1.5px solid #00E5FF; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>📦 CASSA MUNIZIONI (MAX AMMO)</span>
+          <span style="background: #00E5FF; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$20</span>
+        </button>
+        <button id="buy-shield" style="background: rgba(179,136,255,0.2); border: 1.5px solid #B388FF; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🛡️ SCUDO DI ENERGIA (INVULNERABILITÀ 5s)</span>
+          <span style="background: #B388FF; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$50</span>
+        </button>
+        <button id="buy-damage" style="background: rgba(255,214,0,0.2); border: 1.5px solid #FFD600; color: white; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+          <span>🔥 POTENZIAMENTO ARMI (+25% DANNO)</span>
+          <span style="background: #FFD600; color: black; padding: 4px 10px; border-radius: 6px; font-size: 12px;">$100</span>
+        </button>
+      </div>
+
+      <button id="close-shop-btn" style="width: 100%; margin-top: 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+        ESCI DAL NEGOZIO
+      </button>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const updateShopCoinsTxt = () => {
+      const el = document.getElementById('shop-coins-txt');
+      if (el) el.textContent = `$${this.coins}`;
+    };
+
+    document.getElementById('buy-health')?.addEventListener('click', () => {
+      if (this.spendCoins(30)) {
+        onBuy('health');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-ammo')?.addEventListener('click', () => {
+      if (this.spendCoins(20)) {
+        onBuy('ammo');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-shield')?.addEventListener('click', () => {
+      if (this.spendCoins(50)) {
+        onBuy('shield');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('buy-damage')?.addEventListener('click', () => {
+      if (this.spendCoins(100)) {
+        onBuy('damage');
+        updateShopCoinsTxt();
+      }
+    });
+
+    document.getElementById('close-shop-btn')?.addEventListener('click', () => {
+      overlay.remove();
+    });
   }
 
   getReloadText(): string {

@@ -778,6 +778,7 @@ function animate(): void {
     if (item.isVisible() && player.mesh.position.distanceTo(item.mesh.position) < 2) {
       const value = item.collect();
       hud.addScore(value);
+      hud.addCoins(value * 5); // Add money
       soundManager.playCollect();
       // Potion heals
       if (value === 10) {
@@ -831,6 +832,34 @@ function animate(): void {
       }
       if (nearestVehicle) {
         player.activeVehicle = nearestVehicle;
+      } else {
+        // Check near NPC for Merchant Shop
+        for (const npc of npcs) {
+          if (player.mesh.position.distanceTo(npc.mesh.position) < 4) {
+            try { document.exitPointerLock(); } catch (_) {}
+            hud.openShopMenu((item) => {
+              if (item === 'health') {
+                player.hp = Math.min(player.maxHp, player.hp + 50);
+                updateHpDisplay();
+                return true;
+              } else if (item === 'ammo') {
+                const w = weapons[activeWeaponIndex];
+                w.reserveAmmo = w.maxReserveAmmo;
+                hud.setWeaponState(w.magazineAmmo, w.reserveAmmo, w.isReloading, w.name);
+                return true;
+              } else if (item === 'shield') {
+                (player as any).hp = Math.min(player.maxHp + 25, player.hp + 25);
+                updateHpDisplay();
+                return true;
+              } else if (item === 'damage') {
+                powerUpRuntime.shotDamage = Math.round(powerUpRuntime.shotDamage * 1.25);
+                return true;
+              }
+              return false;
+            });
+            break;
+          }
+        }
       }
     }
   }
