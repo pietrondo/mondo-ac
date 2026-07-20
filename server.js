@@ -87,6 +87,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Admin Auth helper
+  function checkAdminAuth(req) {
+    const auth = req.headers['authorization'];
+    if (!auth || !auth.startsWith('Basic ')) return false;
+    const credentials = Buffer.from(auth.substring(6), 'base64').toString('utf-8');
+    return credentials === 'admin:admin';
+  }
+
   // API Endpoints
   if (pathname === '/api/scores') {
     if (req.method === 'GET') {
@@ -111,6 +119,61 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+  }
+
+  if (pathname === '/api/admin/stats') {
+    if (!checkAdminAuth(req)) {
+      res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Admin Area"' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+    const scores = getScores();
+    const onlinePlayers = Array.from(playersMap.values()).map(p => p.data);
+    const statsData = {
+      onlinePlayersCount: onlinePlayers.length,
+      totalGames: scores.length,
+      highScore: scores.length > 0 ? scores[0].score : 0,
+      uptimeSec: Math.floor(process.uptime()),
+      onlinePlayers,
+      scores
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(statsData));
+    return;
+  }
+
+  if (pathname === '/api/admin/broadcast' && req.method === 'POST') {
+    if (!checkAdminAuth(req)) {
+      res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Admin Area"' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { message } = JSON.parse(body);
+        broadcast({ type: 'announcement', message });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(400);
+        res.end();
+      }
+    });
+    return;
+  }
+
+  if (pathname === '/api/admin/clear-scores' && req.method === 'POST') {
+    if (!checkAdminAuth(req)) {
+      res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Admin Area"' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+    fs.writeFileSync(SCORES_FILE, JSON.stringify([], null, 2), 'utf-8');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    return;
   }
 
   // Serve static files from dist/

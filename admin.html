@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mondo 3D - Pannello Amministrazione</title>
+  <style>
+    :root {
+      --bg-dark: #0a0f19;
+      --bg-card: rgba(16, 24, 40, 0.9);
+      --border-cyan: #00e5ff;
+      --accent-cyan: #00e5ff;
+      --text-main: #e0f7fa;
+      --text-dim: #90a4ae;
+      --danger: #ff1744;
+      --success: #00e676;
+      --gold: #ffd700;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 50% 50%, #152238 0%, #0a0f19 100%);
+      color: var(--text-main);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Modal Login */
+    #login-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 15, 0.95);
+      backdrop-filter: blur(10px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 99999;
+    }
+
+    .login-box {
+      background: var(--bg-card);
+      border: 2px solid var(--border-cyan);
+      box-shadow: 0 0 30px rgba(0, 229, 255, 0.3);
+      padding: 30px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+
+    .login-box h2 {
+      color: var(--accent-cyan);
+      margin-bottom: 20px;
+      font-size: 22px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 6px;
+      color: white;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent-cyan);
+      border: none;
+      color: #0a0f19;
+      font-weight: bold;
+      font-size: 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-submit:hover {
+      background: #80deea;
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
+    }
+
+    .login-error {
+      color: var(--danger);
+      margin-top: 10px;
+      font-size: 13px;
+      display: none;
+    }
+
+    /* Main Navbar & Layout */
+    header {
+      background: rgba(16, 24, 40, 0.8);
+      border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 20px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logout-btn {
+      background: transparent;
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .logout-btn:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    main {
+      padding: 30px;
+      max-width: 1300px;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(0, 229, 255, 0.2);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+
+    .stat-card .title {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card .value {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--accent-cyan);
+    }
+
+    /* Table Styles */
+    .section-title {
+      font-size: 18px;
+      color: var(--accent-cyan);
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .data-table-container {
+      background: var(--bg-card);
+      border: 1px solid rgba(0, 229, 255, 0.2);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 30px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: rgba(0, 229, 255, 0.1);
+      color: var(--accent-cyan);
+      padding: 12px 16px;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    tr:hover td {
+      background: rgba(0, 229, 255, 0.03);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .badge-online { background: rgba(0, 230, 118, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .badge-weapon { background: rgba(0, 229, 255, 0.15); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
+
+    .action-btn {
+      background: rgba(255, 23, 68, 0.2);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .action-btn:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    /* Broadcast Control Box */
+    .control-box {
+      background: var(--bg-card);
+      border: 1px solid rgba(0, 229, 255, 0.2);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .flex-form {
+      display: flex;
+      gap: 12px;
+    }
+
+    .flex-form input {
+      flex: 1;
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Modal -->
+  <div id="login-modal">
+    <div class="login-box">
+      <h2>🔐 ACCESSO AMMINISTRATORE</h2>
+      <form id="login-form">
+        <input type="text" id="username" class="input-field" placeholder="Username (admin)" required autocomplete="off">
+        <input type="password" id="password" class="input-field" placeholder="Password (admin)" required>
+        <button type="submit" class="btn-submit">ENTRA NEL PANNELLO</button>
+        <div id="login-error" class="login-error">Credenziali errate (Usi: admin / admin)</div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <h1>🛡️ MONDO 3D - PANNELLO AMMINISTRAZIONE</h1>
+    <button class="logout-btn" id="logout-btn">DISCONNETTI</button>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <div class="grid-container">
+      <div class="stat-card">
+        <div class="title">Giocatori Online</div>
+        <div class="value" id="stat-online-players">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="title">Partite Registrate</div>
+        <div class="value" id="stat-total-games">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="title">Punteggio Massimo</div>
+        <div class="value" id="stat-high-score">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="title">Uptime Server</div>
+        <div class="value" id="stat-uptime">0s</div>
+      </div>
+    </div>
+
+    <!-- Broadcast Controls -->
+    <div class="control-box">
+      <div class="section-title">📢 Invia Messaggio Globale ai Giocatori</div>
+      <form id="broadcast-form" class="flex-form">
+        <input type="text" id="broadcast-msg" class="input-field" placeholder="Scrivi un annuncio globale..." required>
+        <button type="submit" class="btn-submit" style="width: 180px;">INVIA MESSAGGIO</button>
+      </form>
+    </div>
+
+    <!-- Online Players Table -->
+    <div class="section-title">
+      <span>👥 Giocatori Connessi in Tempo Reale</span>
+      <span style="font-size: 13px; color: var(--text-dim);" id="auto-refresh-timer">Aggiornamento automatico in corso...</span>
+    </div>
+    <div class="data-table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>ID Giocatore</th>
+            <th>Nome</th>
+            <th>Stato HP</th>
+            <th>Posizione (X, Y, Z)</th>
+            <th>Arma Impugnata</th>
+          </tr>
+        </thead>
+        <tbody id="online-players-body">
+          <tr><td colspan="5" style="text-align: center; color: var(--text-dim);">Nessun giocatore connesso al momento.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Leaderboard Scores Table -->
+    <div class="section-title">
+      <span>🏆 Classifica e Statistiche Storiche</span>
+      <button class="action-btn" id="clear-scores-btn">SVUOTA CLASSIFICA</button>
+    </div>
+    <div class="data-table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Posizione</th>
+            <th>Giocatore</th>
+            <th>Punteggio</th>
+            <th>Uccisioni</th>
+            <th>Ondata Max</th>
+            <th>Arma Preferita</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody id="scores-body">
+          <tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Caricamento classifica...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const loginModal = document.getElementById('login-modal');
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+    const logoutBtn = document.getElementById('logout-btn');
+    const broadcastForm = document.getElementById('broadcast-form');
+    const clearScoresBtn = document.getElementById('clear-scores-btn');
+
+    let authHeader = sessionStorage.getItem('mondo_admin_auth') || '';
+
+    if (authHeader) {
+      loginModal.style.display = 'none';
+      loadAdminData();
+    }
+
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value.trim();
+
+      if (u === 'admin' && p === 'admin') {
+        authHeader = 'Basic ' + btoa(`${u}:${p}`);
+        sessionStorage.setItem('mondo_admin_auth', authHeader);
+        loginModal.style.display = 'none';
+        loginError.style.display = 'none';
+        loadAdminData();
+      } else {
+        loginError.style.display = 'block';
+      }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+      sessionStorage.removeItem('mondo_admin_auth');
+      authHeader = '';
+      loginModal.style.display = 'flex';
+    });
+
+    async function loadAdminData() {
+      if (!authHeader) return;
+      try {
+        const res = await fetch('/api/admin/stats', {
+          headers: { 'Authorization': authHeader }
+        });
+        if (res.status === 401) {
+          sessionStorage.removeItem('mondo_admin_auth');
+          loginModal.style.display = 'flex';
+          return;
+        }
+        const data = await res.json();
+        
+        document.getElementById('stat-online-players').textContent = data.onlinePlayersCount || 0;
+        document.getElementById('stat-total-games').textContent = data.totalGames || 0;
+        document.getElementById('stat-high-score').textContent = data.highScore ? data.highScore.toLocaleString() : 0;
+        document.getElementById('stat-uptime').textContent = formatUptime(data.uptimeSec || 0);
+
+        renderOnlinePlayers(data.onlinePlayers || []);
+        renderScores(data.scores || []);
+      } catch (err) {
+        console.error('Failed to load admin stats', err);
+      }
+    }
+
+    function renderOnlinePlayers(players) {
+      const tbody = document.getElementById('online-players-body');
+      if (players.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-dim);">Nessun giocatore connesso al momento.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = players.map(p => `
+        <tr>
+          <td><code>${p.id}</code></td>
+          <td><b>${escapeHtml(p.name)}</b></td>
+          <td><span class="status-badge badge-online">❤️ ${p.hp} HP</span></td>
+          <td>(${Math.round(p.x)}, ${Math.round(p.y)}, ${Math.round(p.z)})</td>
+          <td><span class="status-badge badge-weapon">${(p.weapon || 'Rifle').toUpperCase()}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderScores(scores) {
+      const tbody = document.getElementById('scores-body');
+      if (scores.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Nessun punteggio registrato.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = scores.map((s, idx) => `
+        <tr>
+          <td>#${idx + 1}</td>
+          <td><b>${escapeHtml(s.name)}</b></td>
+          <td><span style="color:var(--gold); font-weight:bold;">${s.score.toLocaleString()}</span></td>
+          <td>💀 ${s.kills || 0}</td>
+          <td>🌊 Ondata ${s.waveReached || 1}</td>
+          <td>${s.favoriteWeapon || 'Rifle'}</td>
+          <td>${new Date(s.date).toLocaleDateString()}</td>
+        </tr>
+      `).join('');
+    }
+
+    broadcastForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('broadcast-msg').value.trim();
+      if (!msg) return;
+
+      try {
+        await fetch('/api/admin/broadcast', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader
+          },
+          body: JSON.stringify({ message: msg })
+        });
+        alert('Messaggio globale inviato a tutti i giocatori online!');
+        document.getElementById('broadcast-msg').value = '';
+      } catch (e) {
+        alert('Errore durante l\'invio del messaggio.');
+      }
+    });
+
+    clearScoresBtn.addEventListener('click', async () => {
+      if (!confirm('Sei sicuro di voler svuotare tutti i punteggi salvati nella classifica?')) return;
+      try {
+        await fetch('/api/admin/clear-scores', {
+          method: 'POST',
+          headers: { 'Authorization': authHeader }
+        });
+        loadAdminData();
+      } catch (e) {
+        alert('Errore durante la cancellazione della classifica.');
+      }
+    });
+
+    function formatUptime(sec) {
+      const m = Math.floor(sec / 60);
+      const h = Math.floor(m / 60);
+      if (h > 0) return `${h}h ${m % 60}m`;
+      if (m > 0) return `${m}m ${sec % 60}s`;
+      return `${sec}s`;
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    setInterval(loadAdminData, 3000);
+  </script>
+</body>
+</html>

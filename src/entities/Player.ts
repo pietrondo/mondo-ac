@@ -20,6 +20,7 @@ export class Player {
   private readonly gravity = 24;
   cameraHeight = 2.4; // Eye level height
   yaw = 0;
+  private cameraOrbitYaw = 0;
   private pitch = 0.3;
 
   // HP and death
@@ -178,8 +179,8 @@ export class Player {
       this.mesh.rotation.y = this.activeVehicle.yaw;
       this.velocity.set(0, 0, 0);
 
-      // Mouse aims crosshair & camera angle while riding
-      this.yaw += this.input.state.mouseX;
+      // Mouse orbits camera around the vehicle
+      this.cameraOrbitYaw += this.input.state.mouseX;
       this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
       this.input.resetMouse();
 
@@ -187,15 +188,15 @@ export class Player {
       const distBehind = 6.0;
       const heightAbove = 2.8;
 
-      const camX = this.mesh.position.x - Math.sin(this.activeVehicle.yaw) * Math.cos(this.pitch) * distBehind;
+      const camX = this.mesh.position.x - Math.sin(this.activeVehicle.yaw + this.cameraOrbitYaw) * Math.cos(this.pitch) * distBehind;
       const camY = this.mesh.position.y + heightAbove + Math.sin(this.pitch) * distBehind;
-      const camZ = this.mesh.position.z + Math.cos(this.activeVehicle.yaw) * Math.cos(this.pitch) * distBehind;
+      const camZ = this.mesh.position.z + Math.cos(this.activeVehicle.yaw + this.cameraOrbitYaw) * Math.cos(this.pitch) * distBehind;
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(
-        this.mesh.position.x + Math.sin(this.activeVehicle.yaw) * Math.cos(this.pitch) * 50,
+        this.mesh.position.x + Math.sin(this.activeVehicle.yaw + this.cameraOrbitYaw) * Math.cos(this.pitch) * 50,
         this.mesh.position.y + heightAbove + Math.sin(this.pitch) * 50,
-        this.mesh.position.z - Math.cos(this.activeVehicle.yaw) * Math.cos(this.pitch) * 50
+        this.mesh.position.z - Math.cos(this.activeVehicle.yaw + this.cameraOrbitYaw) * Math.cos(this.pitch) * 50
       );
 
       if (this.shakeIntensity > 0) {
