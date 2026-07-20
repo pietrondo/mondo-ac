@@ -20,6 +20,7 @@ import { HitMarker } from './combat/HitMarker';
 import { Vehicle } from './entities/Vehicle';
 import { Hovercar } from './entities/Hovercar';
 import { Spaceship } from './entities/Spaceship';
+import { Horse } from './entities/Horse';
 import { ShotTracer } from './combat/shotTracer';
 import { EnemyProjectileSystem } from './combat/EnemyProjectile';
 import { applyPowerUp, createPowerUpRuntime, tickPowerUpRuntime } from './game/powerUpEffects';
@@ -400,10 +401,18 @@ const ssX = initialSpawn.x - 10;
 const ssZ = initialSpawn.z;
 const ssY = heightMap.getInterpolated((ssX / WORLD_SCALE) + WORLD_SIZE / 2, (ssZ / WORLD_SCALE) + WORLD_SIZE / 2) + 2.0;
 
+const horseX = initialSpawn.x + 5;
+const horseZ = initialSpawn.z + 5;
+const horseY = heightMap.getInterpolated((horseX / WORLD_SCALE) + WORLD_SIZE / 2, (horseZ / WORLD_SCALE) + WORLD_SIZE / 2);
+
 const vehicles: Vehicle[] = [
   new Hovercar(new THREE.Vector3(hcX, hcY, hcZ)),
-  new Spaceship(new THREE.Vector3(ssX, ssY, ssZ))
+  new Spaceship(new THREE.Vector3(ssX, ssY, ssZ)),
+  new Horse(new THREE.Vector3(horseX, horseY, horseZ)),
 ];
+for (const vData of features.villages.slice(0, 4)) {
+  vehicles.push(new Horse(vData.center.clone().add(new THREE.Vector3(4, 0, 4))));
+}
 vehicles.forEach((v) => {
   scene.add(v.mesh);
 });
