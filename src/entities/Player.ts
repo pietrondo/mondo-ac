@@ -19,7 +19,7 @@ export class Player {
   private readonly jumpVelocity = 8;
   private readonly gravity = 24;
   cameraHeight = 2.4; // Eye level height
-  private yaw = 0;
+  yaw = 0;
   private pitch = 0.3;
 
   // HP and death

@@ -2,6 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { WebSocketServer } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,6 +149,71 @@ const server = http.createServer((req, res) => {
   });
 });
 
+
+
+// Real-time Multiplayer State
+const playersMap = new Map();
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (request, socket, head) => {
+  const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+  if (url.pathname === '/ws') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+wss.on('connection', (ws) => {
+  const playerId = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+  let playerInfo = { id: playerId, name: 'Giocatore', x: 0, y: 0, z: 0, yaw: 0, hp: 100, weapon: 'rifle' };
+
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      if (data.type === 'join') {
+        playerInfo.name = (data.name || 'Giocatore').substring(0, 20);
+        playersMap.set(playerId, { ws, data: playerInfo });
+
+        // Send init state with all currently connected players
+        const onlineList = Array.from(playersMap.values()).map(p => p.data);
+        ws.send(JSON.stringify({ type: 'init', yourId: playerId, players: onlineList }));
+
+        // Broadcast new player joined to everyone else
+        broadcast({ type: 'player_joined', player: playerInfo }, playerId);
+      } else if (data.type === 'move') {
+        playerInfo.x = data.x;
+        playerInfo.y = data.y;
+        playerInfo.z = data.z;
+        playerInfo.yaw = data.yaw;
+        playerInfo.hp = data.hp;
+        playerInfo.weapon = data.weapon;
+
+        broadcast({ type: 'player_update', id: playerId, ...data }, playerId);
+      } else if (data.type === 'shoot') {
+        broadcast({ type: 'player_shoot', id: playerId, ...data }, playerId);
+      }
+    } catch (err) {}
+  });
+
+  ws.on('close', () => {
+    playersMap.delete(playerId);
+    broadcast({ type: 'player_left', id: playerId });
+  });
+});
+
+function broadcast(msgObj, excludeId = null) {
+  const jsonStr = JSON.stringify(msgObj);
+  for (const [id, client] of playersMap.entries()) {
+    if (id !== excludeId && client.ws.readyState === 1) {
+      client.ws.send(jsonStr);
+    }
+  }
+}
+
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Mondo 3D Server running on http://0.0.0.0:${PORT}`);
+  console.log(`Mondo 3D Server with Multiplayer running on http://0.0.0.0:${PORT}`);
 });

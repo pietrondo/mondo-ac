@@ -34,6 +34,7 @@ import { CloudManager } from './world/clouds';
 import { WaveManager } from './game/waveManager';
 import { DayNightManager } from './world/dayNight';
 import { SkillSystem } from './game/skills';
+import { MultiplayerManager } from './net/multiplayer';
 
 async function setLoadingProgress(percent: number, message: string): Promise<void> {
   const fill = document.getElementById('loading-bar-fill');
@@ -138,6 +139,7 @@ let hud: HUD;
 let debug: DebugOverlay;
 let lastTime = 0;
 let updateHpDisplay: () => void = () => {};
+let multiplayer: MultiplayerManager;
 
 async function initGame(): Promise<void> {
   await setLoadingProgress(15, 'Inizializzazione motore 3D e WebGL...');
@@ -342,6 +344,7 @@ hud = new HUD();
 const initialWeapon = weapons[activeWeaponIndex];
 hud.setWeaponState(initialWeapon.magazineAmmo, initialWeapon.reserveAmmo, initialWeapon.isReloading, initialWeapon.name);
 debug = new DebugOverlay(heightMap, biomeMap);
+multiplayer = new MultiplayerManager(scene, camera);
 
 // F3 to toggle debug
 window.addEventListener('keydown', (e) => {
@@ -639,6 +642,11 @@ function animate(): void {
 
   // Active Skills Update
   skillSystem.update(delta, input, player, camera, monsters, particlePool, damageNumber, hitMarker, soundManager, hud, heightMap);
+
+  // Update Multiplayer state
+  if (multiplayer) {
+    multiplayer.update(delta, player.mesh.position, player.yaw, player.hp, weapons[activeWeaponIndex].name);
+  }
 
   // Track wasAlive transition for HP sync and leaderboard overlay on respawn/death
   const isAlive = player.isAlive();
@@ -1181,6 +1189,7 @@ if (startBtn) {
     const nameInput = document.getElementById('reg-player-name') as HTMLInputElement;
     const finalName = nameInput?.value.trim() || 'Giocatore';
     hud.setPlayerName(finalName);
+    if (multiplayer) multiplayer.connect(finalName);
 
     // Apply class passive bonuses
     if (selectedClass === 'warrior') {
