@@ -16,23 +16,31 @@ export class PowerUp {
   private bobOffset: number;
   private collected = false;
 
+  private static readonly geoBoxAmmo = new THREE.BoxGeometry(0.5, 0.35, 0.28);
+  private static readonly geoBoxHealth = new THREE.BoxGeometry(0.34, 0.34, 0.34);
+  private static readonly geoOcta = new THREE.OctahedronGeometry(0.32);
+  private static readonly geoIcosa = new THREE.IcosahedronGeometry(0.32);
+  private static readonly geoTorus = new THREE.TorusGeometry(0.28, 0.1, 8, 14);
+  private static readonly geoCross = new THREE.BoxGeometry(0.12, 0.42, 0.12);
+
   constructor(position: THREE.Vector3, kind: PowerUpKind) {
     this.kind = kind;
     this.bobOffset = (Math.abs(position.x * 13 + position.z * 7) % 1) * Math.PI * 2;
     this.mesh = new THREE.Group();
 
     const profile = powerUpProfiles[kind];
+    const geo = kind === 'ammo'
+      ? PowerUp.geoBoxAmmo
+      : kind === 'health'
+        ? PowerUp.geoBoxHealth
+        : kind === 'adrenaline'
+          ? PowerUp.geoOcta
+          : kind === 'shield'
+            ? PowerUp.geoIcosa
+            : PowerUp.geoTorus;
 
     const core = new THREE.Mesh(
-      kind === 'ammo'
-        ? new THREE.BoxGeometry(0.5, 0.35, 0.28)
-        : kind === 'health'
-          ? new THREE.BoxGeometry(0.34, 0.34, 0.34)
-          : kind === 'adrenaline'
-            ? new THREE.OctahedronGeometry(0.32)
-            : kind === 'shield'
-              ? new THREE.IcosahedronGeometry(0.32)
-              : new THREE.TorusGeometry(0.28, 0.1, 8, 14),
+      geo,
       new THREE.MeshStandardMaterial({
         color: profile.color,
         emissive: profile.labelColor,
@@ -45,7 +53,7 @@ export class PowerUp {
 
     if (kind === 'health') {
       const cross = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 0.42, 0.12),
+        PowerUp.geoCross,
         new THREE.MeshStandardMaterial({
           color: 0xffffff,
           emissive: 0xffffff,

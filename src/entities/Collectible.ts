@@ -6,45 +6,52 @@ export class Collectible {
   private bobOffset = Math.random() * Math.PI * 2;
   private value: number;
 
+  private static readonly geoCoin = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16);
+  private static readonly geoCrystal = new THREE.OctahedronGeometry(0.4);
+  private static readonly geoPotion = new THREE.CylinderGeometry(0.25, 0.25, 0.5, 8);
+  private static readonly geoAmmo = new THREE.BoxGeometry(0.45, 0.35, 0.5);
+  private static readonly geoChest = new THREE.BoxGeometry(0.8, 0.6, 0.6);
+
+  private static readonly matCoin = new THREE.MeshStandardMaterial({ color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.3, flatShading: true });
+  private static readonly matCrystal = new THREE.MeshStandardMaterial({ color: 0x00BCD4, emissive: 0x00BCD4, emissiveIntensity: 0.3, flatShading: true });
+  private static readonly matPotion = new THREE.MeshStandardMaterial({ color: 0xE91E63, emissive: 0xE91E63, emissiveIntensity: 0.3, flatShading: true });
+  private static readonly matAmmo = new THREE.MeshStandardMaterial({ color: 0x00E5FF, emissive: 0x00E5FF, emissiveIntensity: 0.3, flatShading: true });
+  private static readonly matChest = new THREE.MeshStandardMaterial({ color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.6, flatShading: true });
+
   constructor(position: THREE.Vector3, type: 'coin' | 'crystal' | 'potion' | 'ammo' | 'boss_chest' = 'coin') {
+    this.type = type;
+    this.value = type === 'coin' ? 1 : type === 'crystal' ? 5 : type === 'potion' ? 10 : type === 'ammo' ? 15 : 50;
     this.type = type;
     this.value = type === 'coin' ? 1 : type === 'crystal' ? 5 : type === 'potion' ? 10 : type === 'ammo' ? 15 : 50;
 
     let geometry: THREE.BufferGeometry;
-    let color: number;
+    let material: THREE.Material;
 
     switch (type) {
       case 'coin':
-        geometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16);
-        color = 0xFFD700;
+        geometry = Collectible.geoCoin;
+        material = Collectible.matCoin;
         break;
       case 'crystal':
-        geometry = new THREE.OctahedronGeometry(0.4);
-        color = 0x00BCD4;
+        geometry = Collectible.geoCrystal;
+        material = Collectible.matCrystal;
         break;
       case 'potion':
-        geometry = new THREE.CylinderGeometry(0.25, 0.25, 0.5, 8);
-        color = 0xE91E63;
+        geometry = Collectible.geoPotion;
+        material = Collectible.matPotion;
         break;
       case 'ammo':
-        geometry = new THREE.BoxGeometry(0.45, 0.35, 0.5);
-        color = 0x00E5FF;
+        geometry = Collectible.geoAmmo;
+        material = Collectible.matAmmo;
         break;
       case 'boss_chest':
-        geometry = new THREE.BoxGeometry(0.8, 0.6, 0.6);
-        color = 0xFFD700;
+        geometry = Collectible.geoChest;
+        material = Collectible.matChest;
         break;
       default:
-        geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
-        color = 0xFFFFFF;
+        geometry = Collectible.geoAmmo;
+        material = Collectible.matAmmo;
     }
-
-    const material = new THREE.MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: type === 'boss_chest' ? 0.6 : 0.3,
-      flatShading: true
-    });
 
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.position.copy(position);
