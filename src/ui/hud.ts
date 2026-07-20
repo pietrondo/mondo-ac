@@ -5,7 +5,20 @@ export interface ScoreEntry {
   name: string;
   score: number;
   kills: number;
+  survivalTimeSec?: number;
+  waveReached?: number;
+  accuracyPct?: number;
+  favoriteWeapon?: string;
   date: string;
+}
+
+export interface PlayerEndStats {
+  score: number;
+  kills: number;
+  survivalTimeSec: number;
+  waveReached: number;
+  accuracyPct: number;
+  favoriteWeapon: string;
 }
 
 export class HUD {
@@ -20,6 +33,8 @@ export class HUD {
   private enemyTrackerElement: HTMLDivElement;
   private leaderboardOverlay: HTMLDivElement;
   private versionElement: HTMLDivElement;
+  private waveElement: HTMLDivElement;
+  private waveNotificationElement: HTMLDivElement;
 
   private score = 0;
   private kills = 0;
@@ -259,6 +274,45 @@ export class HUD {
     `;
     this.versionElement.textContent = `v:${versionStr}`;
     document.body.appendChild(this.versionElement);
+
+    this.waveElement = document.createElement('div');
+    this.waveElement.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ffd54f;
+      font-family: system-ui, sans-serif;
+      font-size: 20px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      z-index: 100;
+      pointer-events: none;
+      user-select: none;
+    `;
+    this.waveElement.textContent = 'ONDATA 1 | Nemici: 0';
+    document.body.appendChild(this.waveElement);
+
+    this.waveNotificationElement = document.createElement('div');
+    this.waveNotificationElement.style.cssText = `
+      position: fixed;
+      top: 35%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ffffff;
+      background: rgba(10, 10, 20, 0.9);
+      border: 2px solid #ffd54f;
+      border-radius: 12px;
+      padding: 18px 36px;
+      text-align: center;
+      font-family: system-ui, sans-serif;
+      z-index: 200;
+      pointer-events: none;
+      user-select: none;
+      display: none;
+      box-shadow: 0 0 24px rgba(255, 213, 79, 0.5);
+    `;
+    document.body.appendChild(this.waveNotificationElement);
   }
 
   getVersionText(): string {
@@ -286,6 +340,22 @@ export class HUD {
 
   triggerEnemyDeathAlert(): void {
     this.enemyAlertTimer = 6.0; // Show tracker alert for 6 seconds
+  }
+
+  updateWaveInfo(wave: number, enemiesRemaining: number, isBossActive: boolean): void {
+    const bossText = isBossActive ? ' | ⚠️ BOSS PRESENTE!' : '';
+    this.waveElement.textContent = `ONDATA ${wave} | Nemici: ${enemiesRemaining}${bossText}`;
+  }
+
+  showWaveBanner(title: string, subtitle: string, durationSec = 3): void {
+    this.waveNotificationElement.innerHTML = `
+      <h1 style="margin: 0; font-size: 32px; color: #ffd54f; text-shadow: 0 0 10px rgba(255,213,79,0.5);">${title}</h1>
+      <p style="margin: 6px 0 0 0; font-size: 18px; color: #ddd;">${subtitle}</p>
+    `;
+    this.waveNotificationElement.style.display = 'block';
+    setTimeout(() => {
+      this.waveNotificationElement.style.display = 'none';
+    }, durationSec * 1000);
   }
 
   private updateComboDisplay(): void {
@@ -329,7 +399,6 @@ export class HUD {
       return;
     }
 
-    // Find nearest enemy
     let nearestDist = Infinity;
     let nearestEnemy: { x: number; z: number } | null = null;
 
@@ -348,18 +417,14 @@ export class HUD {
       return;
     }
 
-    // Calculate relative angle to player's forward direction
     const dx = nearestEnemy.x - playerPos.x;
     const dz = nearestEnemy.z - playerPos.z;
-    // Enemy world angle relative to player
-    const enemyAngle = Math.atan2(dx, -dz); // 0 = north (-Z)
+    const enemyAngle = Math.atan2(dx, -dz);
     let relAngle = enemyAngle - playerYaw;
 
-    // Normalize relAngle to [-PI, PI]
     while (relAngle > Math.PI) relAngle -= Math.PI * 2;
     while (relAngle < -Math.PI) relAngle += Math.PI * 2;
 
-    // Convert relative angle to arrow direction symbol
     let arrow = '⬆️';
     const deg = (relAngle * 180) / Math.PI;
     if (deg > -22.5 && deg <= 22.5) arrow = '⬆️ AVANTI';
@@ -446,7 +511,6 @@ export class HUD {
     this.minimapCtx.fillStyle = 'rgba(255, 255, 255, 0.1)';
     this.minimapCtx.fillRect(0, 0, this.minimapSize, this.minimapSize);
 
-    // Points of Interest
     for (const poi of pois) {
       const relX = (poi.x - playerPos.x) * scale;
       const relZ = (poi.z - playerPos.z) * scale;
@@ -465,7 +529,6 @@ export class HUD {
       }
     }
 
-    // Enemies & Edge Directional Arrows
     const drawAlertPulsing = this.enemyAlertTimer > 0;
 
     for (const enemy of enemies) {
@@ -485,7 +548,6 @@ export class HUD {
         this.minimapCtx.fill();
       }
 
-      // Draw directional arrow on edge if outside or if death alert is active
       if (!isInside || drawAlertPulsing) {
         const angle = Math.atan2(relZ, relX);
         const edgeRadius = maxOffset;
@@ -509,7 +571,6 @@ export class HUD {
       }
     }
 
-    // Player marker at center
     this.minimapCtx.fillStyle = '#00ff00';
     this.minimapCtx.beginPath();
     this.minimapCtx.arc(centerX, centerY, 4, 0, Math.PI * 2);
@@ -523,17 +584,28 @@ export class HUD {
     this.minimapCtx.stroke();
   }
 
-  async showLeaderboardOverlay(score: number, kills: number, onRespawn: () => void): Promise<void> {
+  async showLeaderboardOverlay(stats: PlayerEndStats, onRespawn: () => void): Promise<void> {
     this.leaderboardOverlay.style.display = 'flex';
     document.exitPointerLock();
 
-    // Submit current score
+    const formattedTime = `${Math.floor(stats.survivalTimeSec / 60).toString().padStart(2, '0')}:${Math.floor(stats.survivalTimeSec % 60).toString().padStart(2, '0')}`;
+
     let scoresList: ScoreEntry[] = [];
+    const payload = {
+      name: this.playerName,
+      score: stats.score,
+      kills: stats.kills,
+      survivalTimeSec: Math.round(stats.survivalTimeSec),
+      waveReached: stats.waveReached,
+      accuracyPct: Math.round(stats.accuracyPct),
+      favoriteWeapon: stats.favoriteWeapon
+    };
+
     try {
       const res = await fetch('/api/scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: this.playerName, score, kills })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         scoresList = await res.json();
@@ -548,9 +620,15 @@ export class HUD {
 
     const render = () => {
       this.leaderboardOverlay.innerHTML = `
-        <div style="background: rgba(20, 20, 30, 0.95); border: 2px solid #ff4444; border-radius: 12px; padding: 24px 32px; max-width: 500px; width: 90%; box-shadow: 0 0 25px rgba(255,68,68,0.3); text-align: center;">
+        <div style="background: rgba(20, 20, 30, 0.95); border: 2px solid #ff4444; border-radius: 12px; padding: 24px 32px; max-width: 600px; width: 92%; box-shadow: 0 0 25px rgba(255,68,68,0.3); text-align: center;">
           <h2 style="color: #ff4444; font-size: 28px; margin-top: 0; text-shadow: 0 0 10px rgba(255,68,68,0.5);">SEI CADUTO!</h2>
-          <p style="font-size: 18px; color: #aaa; margin-bottom: 16px;">Punteggio Finale: <b style="color: #fff;">${score}</b> | Uccisioni: <b style="color: #fff;">${kills}</b></p>
+          
+          <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 15px; color: #ddd;">
+            <div>Punti: <b style="color: #4CAF50;">${stats.score}</b></div>
+            <div>Ondata: <b style="color: #ffd54f;">${stats.waveReached}</b></div>
+            <div>Kill: <b style="color: #ff9800;">${stats.kills}</b></div>
+            <div>Tempo: <b style="color: #2196F3;">${formattedTime}</b></div>
+          </div>
           
           <div style="margin-bottom: 20px; display: flex; justify-content: center; gap: 8px; align-items: center;">
             <label style="font-size: 14px; color: #ccc;">Nome Giocatore:</label>
@@ -558,27 +636,34 @@ export class HUD {
             <button id="save-name-btn" style="background: #2196F3; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">Salva</button>
           </div>
 
-          <h3 style="color: #ffd54f; margin-bottom: 12px; font-size: 20px;">🏆 CLASSIFICA GIOCATORI (DOCKER PERSISTENT)</h3>
+          <h3 style="color: #ffd54f; margin-bottom: 12px; font-size: 18px;">🏆 CLASSIFICA E STATISTICHE GIOCATORI (DOCKER PERSISTENT)</h3>
           <div style="max-height: 220px; overflow-y: auto; background: #0a0a10; border-radius: 6px; border: 1px solid #333; margin-bottom: 20px;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
               <thead>
                 <tr style="border-bottom: 1px solid #444; color: #ffd54f; background: #151522;">
-                  <th style="padding: 8px;">#</th>
-                  <th style="padding: 8px;">Nome</th>
-                  <th style="padding: 8px;">Punti</th>
-                  <th style="padding: 8px;">Kill</th>
+                  <th style="padding: 6px 8px;">#</th>
+                  <th style="padding: 6px 8px;">Nome</th>
+                  <th style="padding: 6px 8px;">Punti</th>
+                  <th style="padding: 6px 8px;">Ondata</th>
+                  <th style="padding: 6px 8px;">Kill</th>
+                  <th style="padding: 6px 8px;">Tempo</th>
                 </tr>
               </thead>
               <tbody>
-                ${scoresList.length === 0 ? '<tr><td colspan="4" style="padding: 12px; text-align: center; color: #777;">Nessun punteggio ancora registrato.</td></tr>' : ''}
-                ${scoresList.map((entry, idx) => `
-                  <tr style="border-bottom: 1px solid #222; ${entry.name === this.playerName && entry.score === score ? 'background: rgba(33, 150, 243, 0.25); font-weight: bold;' : ''}">
-                    <td style="padding: 8px; color: #aaa;">${idx + 1}</td>
-                    <td style="padding: 8px;">${entry.name}</td>
-                    <td style="padding: 8px; color: #4CAF50;">${entry.score}</td>
-                    <td style="padding: 8px; color: #ff9800;">${entry.kills || 0}</td>
-                  </tr>
-                `).join('')}
+                ${scoresList.length === 0 ? '<tr><td colspan="6" style="padding: 12px; text-align: center; color: #777;">Nessun punteggio ancora registrato.</td></tr>' : ''}
+                ${scoresList.map((entry, idx) => {
+                  const t = entry.survivalTimeSec ? `${Math.floor(entry.survivalTimeSec / 60)}m ${entry.survivalTimeSec % 60}s` : '-';
+                  return `
+                    <tr style="border-bottom: 1px solid #222; ${entry.name === this.playerName && entry.score === stats.score ? 'background: rgba(33, 150, 243, 0.25); font-weight: bold;' : ''}">
+                      <td style="padding: 6px 8px; color: #aaa;">${idx + 1}</td>
+                      <td style="padding: 6px 8px;">${entry.name}</td>
+                      <td style="padding: 6px 8px; color: #4CAF50;">${entry.score}</td>
+                      <td style="padding: 6px 8px; color: #ffd54f;">W${entry.waveReached || 1}</td>
+                      <td style="padding: 6px 8px; color: #ff9800;">${entry.kills || 0}</td>
+                      <td style="padding: 6px 8px; color: #888;">${t}</td>
+                    </tr>
+                  `;
+                }).join('')}
               </tbody>
             </table>
           </div>
@@ -602,7 +687,7 @@ export class HUD {
             const res = await fetch('/api/scores', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: newName, score, kills })
+              body: JSON.stringify({ ...payload, name: newName })
             });
             if (res.ok) scoresList = await res.json();
           } catch (e) {}

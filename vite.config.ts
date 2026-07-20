@@ -60,6 +60,10 @@ function scoresApiPlugin() {
                   name: (parsed.name || 'Giocatore').trim().substring(0, 20) || 'Giocatore',
                   score: Number(parsed.score) || 0,
                   kills: Number(parsed.kills) || 0,
+                  survivalTimeSec: Number(parsed.survivalTimeSec) || 0,
+                  waveReached: Number(parsed.waveReached) || 1,
+                  accuracyPct: Number(parsed.accuracyPct) || 0,
+                  favoriteWeapon: String(parsed.favoriteWeapon || 'Rifle').substring(0, 15),
                   date: new Date().toISOString()
                 };
                 scores.push(entry);

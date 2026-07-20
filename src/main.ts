@@ -31,6 +31,7 @@ import { chooseMonsterVariant } from './world/monsterVariant';
 import { SoundManager } from './utils/sound';
 import { ParticlePool } from './combat/particles';
 import { CloudManager } from './world/clouds';
+import { WaveManager } from './game/waveManager';
 
 const container = document.getElementById('canvas-container');
 if (!container) throw new Error('No container');
@@ -400,6 +401,7 @@ monsterSpawnPoints.forEach((spawnPoint, index) => {
       hud.incrementCombo();
       hud.incrementKills();
       hud.triggerEnemyDeathAlert();
+      waveManager.notifyEnemyKilled();
     },
     onFootstep: (pos: THREE.Vector3) => {
       const count = 3 + Math.floor(Math.random() * 3);
@@ -506,6 +508,27 @@ let gameTime = 0;
 let damageCooldown = 0;
 let wasAlive = true;
 let interactWasPressed = false;
+let survivalTime = 0;
+
+const waveManager = new WaveManager();
+
+waveManager.onWaveStart((config) => {
+  hud.showWaveBanner(
+    `ONDATA ${config.waveNumber}`,
+    config.hasBoss ? '⚠️ ONDATA BOSS IN ARRIVO!' : `Preparati: ${config.totalEnemies} Mostri!`
+  );
+});
+
+waveManager.onWaveClear((waveNum, bonusScore) => {
+  hud.addScore(bonusScore);
+  soundManager.playCollect();
+  hud.showWaveBanner(
+    `ONDATA ${waveNum} COMPLETATA!`,
+    `Bonus +${bonusScore} Punti! Prossima ondata in 6s...`
+  );
+  player.hp = Math.min(player.maxHp, player.hp + 25);
+  updateHpDisplay();
+});
 
 function animate(): void {
   if (isGameHalted || !renderer) return;
@@ -523,11 +546,25 @@ function animate(): void {
     updateHpDisplay();
     hud.hideLeaderboardOverlay();
   } else if (!isAlive && wasAlive) {
-    hud.showLeaderboardOverlay(hud.getScore(), hud.getKills(), () => {
+    hud.showLeaderboardOverlay({
+      score: hud.getScore(),
+      kills: hud.getKills(),
+      survivalTimeSec: survivalTime,
+      waveReached: waveManager.getWaveNumber(),
+      accuracyPct: 75,
+      favoriteWeapon: weapons[activeWeaponIndex]?.name || 'Rifle'
+    }, () => {
+      survivalTime = 0;
       player.respawn(heightMap);
     });
   }
   wasAlive = isAlive;
+
+  if (isAlive) {
+    survivalTime += delta;
+    waveManager.update(delta);
+    hud.updateWaveInfo(waveManager.getWaveNumber(), waveManager.getEnemiesRemaining(), waveManager.hasBoss);
+  }
 
   // Update entities
   for (const npc of npcs) npc.update(delta, heightMap);
@@ -580,6 +617,7 @@ function animate(): void {
             hud.incrementCombo();
             hud.incrementKills();
             hud.triggerEnemyDeathAlert();
+            waveManager.notifyEnemyKilled();
           },
           onFootstep: (pos: THREE.Vector3) => {
             const count = 3 + Math.floor(Math.random() * 3);

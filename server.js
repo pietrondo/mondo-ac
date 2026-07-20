@@ -40,6 +40,10 @@ function saveScore(newScore) {
       name: (newScore.name || 'Giocatore').trim().substring(0, 20) || 'Giocatore',
       score: Number(newScore.score) || 0,
       kills: Number(newScore.kills) || 0,
+      survivalTimeSec: Number(newScore.survivalTimeSec) || 0,
+      waveReached: Number(newScore.waveReached) || 1,
+      accuracyPct: Number(newScore.accuracyPct) || 0,
+      favoriteWeapon: String(newScore.favoriteWeapon || 'Rifle').substring(0, 15),
       date: new Date().toISOString()
     };
     scores.push(entry);
