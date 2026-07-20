@@ -116,6 +116,20 @@ export class PerformanceProfiler {
     return 'Standard WebGL GPU';
   }
 
+  private hitchLogs: Array<{
+    time: string;
+    fps: number;
+    frameMs: number;
+    drawCalls: number;
+    triangles: number;
+    geometries: number;
+    monsters: number;
+    particles: number;
+    heapMB: number;
+  }> = [];
+
+  private lastHitchRecordTime = 0;
+
   update(renderer: THREE.WebGLRenderer, monstersCount: number, particlesCount: number): void {
     const now = performance.now();
     const deltaMs = now - this.lastTime;
@@ -133,6 +147,26 @@ export class PerformanceProfiler {
     }
 
     const mem = (performance as any).memory;
+    const heapMB = mem ? Math.round(mem.usedJSHeapSize / 1048576) : 0;
+
+    // Detect frame hitch (frame time > 28ms = < 35 FPS)
+    if (deltaMs > 28 && now - this.lastHitchRecordTime > 2000) {
+      this.lastHitchRecordTime = now;
+      const hitchFps = Math.round(1000 / deltaMs);
+      const timeStr = new Date().toLocaleTimeString();
+      this.hitchLogs.push({
+        time: timeStr,
+        fps: hitchFps,
+        frameMs: Math.round(deltaMs * 10) / 10,
+        drawCalls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+        geometries: renderer.info.memory.geometries,
+        monsters: monstersCount,
+        particles: particlesCount,
+        heapMB
+      });
+      if (this.hitchLogs.length > 10) this.hitchLogs.shift();
+    }
 
     this.latestStats = {
       fps: this.currentFps,
@@ -145,7 +179,7 @@ export class PerformanceProfiler {
       textures: renderer.info.memory.textures,
       entitiesCount: monstersCount,
       particlesCount: particlesCount,
-      jsHeapUsedMB: mem ? Math.round(mem.usedJSHeapSize / 1048576) : 0,
+      jsHeapUsedMB: heapMB,
       jsHeapTotalMB: mem ? Math.round(mem.totalJSHeapSize / 1048576) : 0,
       gpuRenderer: this.getGpuInfo(renderer),
     };
@@ -158,6 +192,12 @@ export class PerformanceProfiler {
   private renderContent(): void {
     const content = this.overlay?.querySelector('#profiler-stats-content');
     if (content) {
+      const hitchesHtml = this.hitchLogs.length === 0
+        ? '<div style="color:#00E676; font-size:11px;">Nessun calo improviso registrato finora.</div>'
+        : this.hitchLogs.slice(-4).map(h =>
+            `<div style="font-size:11px; color:#FF5252;">[${h.time}] ${h.fps} FPS (${h.frameMs}ms) | Calls: ${h.drawCalls} | Triangles: ${h.triangles} | Geoms: ${h.geometries} | Monsters: ${h.monsters} | Heap: ${h.heapMB}MB</div>`
+          ).join('');
+
       content.innerHTML = `
         <div style="line-height: 1.8;">
           <div>⚡ <b>FPS:</b> <span style="color:${this.latestStats.fps < 30 ? '#FF1744' : '#00E676'}">${this.latestStats.fps} FPS</span> (${this.latestStats.frameTimeMs} ms/frame)</div>
@@ -170,12 +210,20 @@ export class PerformanceProfiler {
           <div>💾 <b>Memoria JS Heap:</b> ${this.latestStats.jsHeapUsedMB > 0 ? `${this.latestStats.jsHeapUsedMB} MB / ${this.latestStats.jsHeapTotalMB} MB` : 'N/A'}</div>
           <div>👾 <b>Nemici Attivi:</b> ${this.latestStats.entitiesCount}</div>
           <div>✨ <b>Particelle Meteo/Combattimento:</b> ${this.latestStats.particlesCount}</div>
+          <div style="margin-top:12px; border-top: 1px dashed rgba(0,229,255,0.4); padding-top: 8px;">
+            <b style="color:#FFD700;">⏱️ STORICO CALI E SCATTI (&lt; 35 FPS):</b>
+            ${hitchesHtml}
+          </div>
         </div>
       `;
     }
   }
 
   private generateLogText(): string {
+    const hitchText = this.hitchLogs.length === 0
+      ? 'No frame hitches detected'
+      : this.hitchLogs.map(h => `  [${h.time}] ${h.fps} FPS (${h.frameMs}ms) | Calls: ${h.drawCalls} | Triangles: ${h.triangles} | Geoms: ${h.geometries} | Monsters: ${h.monsters} | Heap: ${h.heapMB}MB`).join('\n');
+
     return `=== MONDO 3D PERFORMANCE LOG ===
 Data/Ora: ${new Date().toISOString()}
 Screen Resolution: ${window.innerWidth}x${window.innerHeight} (DPR: ${window.devicePixelRatio})
@@ -190,6 +238,9 @@ VRAM Textures: ${this.latestStats.textures}
 JS Heap Memory: ${this.latestStats.jsHeapUsedMB > 0 ? `${this.latestStats.jsHeapUsedMB}MB / ${this.latestStats.jsHeapTotalMB}MB` : 'N/A'}
 Monsters: ${this.latestStats.entitiesCount}
 Particles: ${this.latestStats.particlesCount}
+
+--- HISTORICAL FRAME HITCHES (< 35 FPS) ---
+${hitchText}
 ================================`;
   }
 }
