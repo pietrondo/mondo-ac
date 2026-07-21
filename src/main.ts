@@ -1096,6 +1096,7 @@ function animate(): void {
       }
       if (nearestVehicle) {
         player.activeVehicle = nearestVehicle;
+        player.chaseCameraYaw = nearestVehicle.yaw;
       } else {
         // Check near NPC for Dialogue & Lore interaction
         let nearestNPC: NPC | null = null;

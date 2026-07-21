@@ -20,6 +20,7 @@ export class Player {
   private readonly gravity = 24;
   cameraHeight = 2.4; // Eye level height
   yaw = 0;
+  chaseCameraYaw = 0;
   private pitch = 0.3;
 
   // HP and death
@@ -181,7 +182,7 @@ export class Player {
     }
 
     if (this.activeVehicle) {
-      // Direct mouse aiming for vehicles (smooth, responsive, zero camera spin conflict)
+      // Direct mouse aiming for vehicles
       this.activeVehicle.yaw += this.input.state.mouseX;
       this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
       this.input.resetMouse();
@@ -191,19 +192,25 @@ export class Player {
       this.mesh.rotation.y = this.activeVehicle.yaw;
       this.velocity.set(0, 0, 0);
 
-      // 3rd-person chase camera locked behind vehicle yaw
+      // Smooth chase camera angular lag behind vehicle yaw
+      let diff = this.activeVehicle.yaw - this.chaseCameraYaw;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      this.chaseCameraYaw += diff * Math.min(1.0, delta * 3.8);
+
+      // 3rd-person chase camera positioned using chaseCameraYaw so vehicle nose visibly turns on screen
       const distBehind = 6.0;
       const heightAbove = 2.8;
 
-      const camX = this.mesh.position.x - Math.sin(this.activeVehicle.yaw) * Math.cos(this.pitch) * distBehind;
+      const camX = this.mesh.position.x - Math.sin(this.chaseCameraYaw) * Math.cos(this.pitch) * distBehind;
       const camY = this.mesh.position.y + heightAbove + Math.sin(this.pitch) * distBehind;
-      const camZ = this.mesh.position.z + Math.cos(this.activeVehicle.yaw) * Math.cos(this.pitch) * distBehind;
+      const camZ = this.mesh.position.z + Math.cos(this.chaseCameraYaw) * Math.cos(this.pitch) * distBehind;
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(
-        this.mesh.position.x + Math.sin(this.activeVehicle.yaw) * Math.cos(this.pitch) * 50,
-        this.mesh.position.y + heightAbove + Math.sin(this.pitch) * 50,
-        this.mesh.position.z - Math.cos(this.activeVehicle.yaw) * Math.cos(this.pitch) * 50
+        this.mesh.position.x,
+        this.mesh.position.y + heightAbove * 0.7,
+        this.mesh.position.z
       );
 
       if (this.shakeIntensity > 0) {
