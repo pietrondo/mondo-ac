@@ -12,6 +12,7 @@ export interface NPCOptions {
   name?: string;
   role?: string;
   dialogueTreeId?: string;
+  isStationary?: boolean;
 }
 
 export class NPC {
@@ -20,6 +21,7 @@ export class NPC {
   role: string;
   dialogueTreeId: string;
   isTalking = false;
+  isStationary = false;
 
   private targetPos = new THREE.Vector3();
   private speed = 2;
@@ -33,6 +35,7 @@ export class NPC {
     this.name = options?.name || 'Villico';
     this.role = options?.role || 'Abitante';
     this.dialogueTreeId = options?.dialogueTreeId || 'elder_eldrin';
+    this.isStationary = options?.isStationary || false;
 
     // Color theme according to role
     let bodyColor = 0x4CAF50;
@@ -100,7 +103,9 @@ export class NPC {
     });
 
     this.mesh.position.copy(position);
-    this.pickNewTarget();
+    if (!this.isStationary) {
+      this.pickNewTarget();
+    }
   }
 
   talkToPlayer(playerPos: THREE.Vector3): void {
@@ -113,6 +118,7 @@ export class NPC {
   }
 
   private pickNewTarget(): void {
+    if (this.isStationary) return;
     if (this.village && this.village.buildings.length > 0) {
       const targetBuilding = this.village.buildings[Math.floor(Math.random() * this.village.buildings.length)];
       const offset = new THREE.Vector3(
@@ -134,7 +140,7 @@ export class NPC {
   }
 
   update(delta: number, heightMap: HeightMap): void {
-    if (this.isTalking) return;
+    if (this.isTalking || this.isStationary) return;
 
     if (this.waitTime > 0) {
       this.waitTime -= delta;

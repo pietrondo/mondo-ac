@@ -536,7 +536,8 @@ spawnNpcPos.y = heightMap.getInterpolated(hxSpawn, hzSpawn);
 const spawnGuideNpc = new NPC(spawnNpcPos, undefined, {
   name: 'Anziano Eldrin',
   role: 'Guida del Santuario',
-  dialogueTreeId: 'elder_eldrin'
+  dialogueTreeId: 'elder_eldrin',
+  isStationary: true
 });
 spawnGuideNpc.mesh.lookAt(0, spawnNpcPos.y + 1, 0);
 npcs.push(spawnGuideNpc);
@@ -1095,6 +1096,7 @@ function animate(): void {
       }
       if (nearestVehicle) {
         player.activeVehicle = nearestVehicle;
+        (player as any).cameraOrbitYaw = 0;
       } else {
         // Check near NPC for Dialogue & Lore interaction
         let nearestNPC: NPC | null = null;

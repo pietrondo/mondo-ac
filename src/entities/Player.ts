@@ -187,8 +187,12 @@ export class Player {
       this.mesh.rotation.y = this.activeVehicle.yaw;
       this.velocity.set(0, 0, 0);
 
-      // Mouse orbits camera around the vehicle
-      this.cameraOrbitYaw += this.input.state.mouseX;
+      // Mouse orbits camera around the vehicle; auto-centers behind vehicle when driving
+      if (Math.abs(this.input.state.mouseX) > 0.0001) {
+        this.cameraOrbitYaw += this.input.state.mouseX;
+      } else {
+        this.cameraOrbitYaw *= Math.pow(0.005, delta);
+      }
       this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
       this.input.resetMouse();
 
