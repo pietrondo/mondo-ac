@@ -183,7 +183,8 @@ export class Player {
     }
 
     if (this.activeVehicle) {
-      this.activeVehicle.update(delta, this.input, heightMap);
+      const activeCameraYaw = this.vehicleCameraYaw + this.cameraOrbitYaw;
+      this.activeVehicle.update(delta, this.input, heightMap, activeCameraYaw);
       this.mesh.position.copy(this.activeVehicle.mesh.position);
       this.mesh.rotation.y = this.activeVehicle.yaw;
       this.velocity.set(0, 0, 0);

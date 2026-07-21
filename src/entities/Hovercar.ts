@@ -181,7 +181,7 @@ export class Hovercar extends Vehicle {
     this.mesh.position.copy(position);
   }
 
-  update(delta: number, input: InputManager, heightMap: HeightMap): void {
+  update(delta: number, input: InputManager, heightMap: HeightMap, cameraYaw?: number): void {
     this.hoverTime += delta;
 
     // 1. Steering & Throttle using Vehicle base helper
@@ -192,7 +192,7 @@ export class Hovercar extends Vehicle {
       turnSpeed: 4.5,
       baseMaxSpeed: 28,
       boostMultiplier: 1.45,
-    });
+    }, cameraYaw);
 
     this.mesh.rotation.y = this.yaw;
 

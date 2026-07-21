@@ -57,22 +57,38 @@ export abstract class Vehicle {
   protected updateSteeringAndThrottle(
     delta: number,
     input: InputManager,
-    config: VehicleControlConfig
+    config: VehicleControlConfig,
+    cameraYaw?: number
   ): { turnInput: number } {
     this.isBoosting = input.state.run;
     const effectiveMaxSpeed = this.isBoosting ? config.baseMaxSpeed * config.boostMultiplier : config.baseMaxSpeed;
     this.maxSpeed = effectiveMaxSpeed;
 
-    // Steering (A turns left, D turns right)
     let turnInput = 0;
-    if (input.state.left) {
-      this.yaw -= config.turnSpeed * delta;
-      turnInput = -1;
+
+    if (cameraYaw !== undefined && (input.state.forward || input.state.backward)) {
+      // Camera-relative steering when W or S is pressed
+      let offset = 0;
+      if (input.state.left) { offset -= Math.PI / 4; turnInput = -1; }
+      if (input.state.right) { offset += Math.PI / 4; turnInput = 1; }
+      const targetYaw = cameraYaw + (input.state.backward && !input.state.forward ? Math.PI : 0) + offset;
+
+      let diff = targetYaw - this.yaw;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      this.yaw += diff * Math.min(1.0, delta * 7.5);
+    } else {
+      // Tank steering when stationary or without camera reference
+      if (input.state.left) {
+        this.yaw -= config.turnSpeed * delta;
+        turnInput = -1;
+      }
+      if (input.state.right) {
+        this.yaw += config.turnSpeed * delta;
+        turnInput = 1;
+      }
     }
-    if (input.state.right) {
-      this.yaw += config.turnSpeed * delta;
-      turnInput = 1;
-    }
+
     this.yaw = (this.yaw + Math.PI * 2) % (Math.PI * 2);
 
     // Throttle & Responsive Braking
@@ -100,5 +116,5 @@ export abstract class Vehicle {
     return { turnInput };
   }
 
-  abstract update(delta: number, input: InputManager, heightMap: HeightMap): void;
+  abstract update(delta: number, input: InputManager, heightMap: HeightMap, cameraYaw?: number): void;
 }
