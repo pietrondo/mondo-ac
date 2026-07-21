@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { HeightMap } from '../world/heightmap';
-import { WORLD_SCALE } from '../config';
+import { WORLD_SCALE, WORLD_SIZE } from '../config';
 
 export interface VillageContext {
   center: THREE.Vector3;
@@ -185,9 +185,9 @@ export class NPC {
       this.mesh.position.z = newZ;
     }
 
-    // Update height
-    const hx = (this.mesh.position.x / WORLD_SCALE) + 128;
-    const hz = (this.mesh.position.z / WORLD_SCALE) + 128;
+    // Update height from terrain heightmap
+    const hx = (this.mesh.position.x / WORLD_SCALE) + WORLD_SIZE / 2;
+    const hz = (this.mesh.position.z / WORLD_SCALE) + WORLD_SIZE / 2;
     this.mesh.position.y = heightMap.getInterpolated(hx, hz);
 
     // Face direction

@@ -472,17 +472,21 @@ export class HUD {
     this.waveElement = document.createElement('div');
     this.waveElement.style.cssText = `
       position: fixed;
-      top: 20px;
+      top: 55px;
       left: 50%;
       transform: translateX(-50%);
       color: #ffd54f;
       font-family: system-ui, sans-serif;
-      font-size: 20px;
+      font-size: 16px;
       font-weight: bold;
       text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
       z-index: 100;
       pointer-events: none;
       user-select: none;
+      background: rgba(15, 23, 42, 0.7);
+      padding: 4px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 213, 79, 0.4);
     `;
     this.waveElement.textContent = 'ONDATA 1 | Nemici: 0';
     document.body.appendChild(this.waveElement);
@@ -512,7 +516,7 @@ export class HUD {
     this.bossBarContainer = document.createElement('div');
     this.bossBarContainer.style.cssText = `
       position: fixed;
-      top: 55px;
+      top: 92px;
       left: 50%;
       transform: translateX(-50%);
       width: 450px;

@@ -25,6 +25,7 @@ import { ShotTracer } from './combat/shotTracer';
 import { EnemyProjectileSystem } from './combat/EnemyProjectile';
 import { applyPowerUp, createPowerUpRuntime, tickPowerUpRuntime } from './game/powerUpEffects';
 import { HUD } from './ui/hud';
+import { InventoryUI } from './ui/inventoryUI';
 import { PerformanceProfiler } from './ui/profiler';
 import { DebugOverlay } from './ui/debug';
 import { SEED, WORLD_SIZE, WORLD_SCALE } from './config';
@@ -149,6 +150,7 @@ let powerUpRuntime: any;
 let weapons: Weapon[];
 let activeWeaponIndex = 0;
 let hud: HUD;
+let inventoryUI: InventoryUI;
 let debug: DebugOverlay;
 let lastTime = 0;
 let updateHpDisplay: () => void = () => {};
@@ -237,6 +239,14 @@ async function initGame(): Promise<void> {
   cloudManager = new CloudManager(scene);
   damageNumber = new DamageNumber();
   hitMarker = new HitMarker();
+  inventoryUI = new InventoryUI();
+  inventoryUI.setOnUseConsumable((itemId) => {
+    if (itemId === 'potion') {
+      player.hp = Math.min(player.maxHp, player.hp + 50);
+      updateHpDisplay();
+      soundManager.playCollect();
+    }
+  });
   powerUpRuntime = createPowerUpRuntime(player.speed, 25);
   // Initialize weapons list (rifle, shotgun, flamethrower, melee knife)
   weapons = [
@@ -1581,6 +1591,9 @@ if (startBtn) {
 
 // Toggle Minimap Expansion with Key M and Skill Tree with Key U
 window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyI') {
+    inventoryUI.toggle();
+  }
   if (e.code === 'KeyM') {
     hud.toggleMinimapExpanded();
   }
