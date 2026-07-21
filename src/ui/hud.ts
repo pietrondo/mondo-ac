@@ -38,12 +38,19 @@ export class HUD {
   private controlsElement: HTMLDivElement;
 
   private coinsElement: HTMLDivElement;
+  private questElement: HTMLDivElement;
 
   private score = 0;
   private coins = 50; // Starting money
   private kills = 0;
   private combo = 0;
   private isControlsCollapsed = localStorage.getItem('mondo_controls_collapsed') === 'true';
+
+  setQuestText(text: string): void {
+    if (this.questElement) {
+      this.questElement.textContent = text;
+    }
+  }
 
   addCoins(amount: number): void {
     this.coins += amount;
@@ -125,6 +132,28 @@ export class HUD {
     `;
     this.coinsElement.textContent = '💰 MONETE: $50';
     document.body.appendChild(this.coinsElement);
+
+    this.questElement = document.createElement('div');
+    this.questElement.style.cssText = `
+      position: fixed;
+      top: 82px;
+      left: 20px;
+      color: #E2E8F0;
+      background: rgba(15, 23, 42, 0.75);
+      border-left: 3px solid #38BDF8;
+      border-radius: 0 6px 6px 0;
+      padding: 6px 12px;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+      z-index: 100;
+      pointer-events: none;
+      user-select: none;
+      max-width: 380px;
+    `;
+    this.questElement.textContent = '📜 Nessuna missione attiva';
+    document.body.appendChild(this.questElement);
 
     this.ammoElement = document.createElement('div');
     this.ammoElement.style.cssText = `

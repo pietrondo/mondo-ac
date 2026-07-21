@@ -17,11 +17,18 @@ export class DialogueUI {
   private isTyping: boolean = false;
   private getPlayerCoins: () => number;
   private onCloseCallback?: () => void;
+  private onOpenShop?: () => void;
 
-  constructor(dialogueManager: DialogueManager, getPlayerCoins: () => number, onCloseCallback?: () => void) {
+  constructor(
+    dialogueManager: DialogueManager,
+    getPlayerCoins: () => number,
+    onCloseCallback?: () => void,
+    onOpenShop?: () => void
+  ) {
     this.dialogueManager = dialogueManager;
     this.getPlayerCoins = getPlayerCoins;
     this.onCloseCallback = onCloseCallback;
+    this.onOpenShop = onOpenShop;
 
     // Create Main Dialogue Box Container
     this.container = document.createElement('div');
@@ -276,6 +283,14 @@ export class DialogueUI {
 
     const coins = this.getPlayerCoins();
     const res = this.dialogueManager.selectOption(index, coins);
+
+    if (res.action === 'open_shop') {
+      this.closeDialogue();
+      if (this.onOpenShop) {
+        this.onOpenShop();
+      }
+      return;
+    }
 
     if (res.closed || !res.nextNode) {
       this.closeDialogue();

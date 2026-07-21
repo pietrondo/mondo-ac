@@ -42,6 +42,7 @@ import { generateDungeon, DungeonResult } from './world/dungeonGenerator';
 import { BossMonster } from './entities/BossMonster';
 import { DialogueManager } from './dialogue/DialogueManager';
 import { DialogueUI } from './dialogue/DialogueUI';
+import { QuestManager } from './quest/questManager';
 
 async function setLoadingProgress(percent: number, message: string): Promise<void> {
   const fill = document.getElementById('loading-bar-fill');
@@ -426,6 +427,21 @@ dialogueUI = new DialogueUI(
   }
 );
 
+const questManager = new QuestManager();
+questManager.setHUD(hud);
+questManager.setOnWeaponReward((type) => {
+  const existing = weapons.find(w => w.type === type);
+  if (existing) {
+    existing.reserveAmmo = existing.maxReserveAmmo;
+  } else {
+    weapons.push(new Weapon(type, {
+      onShot: (hit) => handleWeaponShot(hit),
+      onReload: () => soundManager.playReload(),
+    }));
+  }
+  hud.showWaveBanner('🎁 RICOMPENSA QUEST!', `Nuova Arma Sbloccata: ${type.toUpperCase()}`);
+});
+
 const initialWeapon = weapons[activeWeaponIndex];
 hud.setWeaponState(initialWeapon.magazineAmmo, initialWeapon.reserveAmmo, initialWeapon.isReloading, initialWeapon.name);
 debug = new DebugOverlay(heightMap, biomeMap);
@@ -595,6 +611,10 @@ function spawnMonsterAtPosition(pos: THREE.Vector3, index: number, difficulty = 
       hud.incrementKills();
       hud.triggerEnemyDeathAlert();
       waveManager.notifyEnemyKilled();
+      questManager.notifyMonsterKilled();
+      if (monster.variant === 'titan' || monster.variant === 'annihilator' || monster.variant === 'golem') {
+        questManager.notifyBossKilled();
+      }
     },
     onFootstep: (p: THREE.Vector3) => {
       const count = 3 + Math.floor(Math.random() * 3);
