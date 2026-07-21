@@ -344,11 +344,13 @@ export function placeFeatures(
             watchtower.position.set(worldX, elevation, worldZ);
             structures.add(watchtower);
 
-            const watchtowerCollider = (watchtower as any).collider;
-            if (watchtowerCollider) {
-              const worldBox = watchtowerCollider.box.clone();
-              worldBox.translate(watchtower.position);
-              structureColliders.push({ box: worldBox, type: watchtowerCollider.type });
+            const watchtowerColliders = (watchtower as any).colliders || [(watchtower as any).collider];
+            for (const c of watchtowerColliders) {
+              if (c) {
+                const worldBox = c.box.clone();
+                worldBox.translate(watchtower.position);
+                structureColliders.push({ box: worldBox, type: c.type });
+              }
             }
             poiPositions.push({ position: new THREE.Vector3(worldX, elevation, worldZ), type: 'watchtower' });
           }

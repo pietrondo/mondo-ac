@@ -1757,16 +1757,23 @@ export function createWatchtower(): THREE.Group {
   const darkWood = new THREE.MeshStandardMaterial({ color: 0x3E2723, flatShading: true });
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63, flatShading: true });
   const stoneMat = new THREE.MeshStandardMaterial({ color: 0x455A64, flatShading: true });
+  const torchMat = new THREE.MeshBasicMaterial({ color: 0xFF9800 });
 
   const height = 11;
   const baseSize = 4;
 
-  // Stone base legs
+  const colliders: { box: THREE.Box3; type: 'solid' | 'trigger' }[] = [];
+
+  // 4 Corner Wooden Legs with individual colliders
   for (const dx of [-1.6, 1.6]) {
     for (const dz of [-1.6, 1.6]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.8, height, 0.8), woodMat);
       leg.position.set(dx, height / 2, dz);
       group.add(leg);
+
+      const legBox = new THREE.Box3();
+      legBox.setFromCenterAndSize(new THREE.Vector3(dx, height / 2, dz), new THREE.Vector3(0.9, height, 0.9));
+      colliders.push({ box: legBox, type: 'solid' });
     }
   }
 
@@ -1780,18 +1787,61 @@ export function createWatchtower(): THREE.Group {
     group.add(brace2);
   }
 
+  // 3D Wooden Ladder (on South side z = 1.6)
+  const ladderRail1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, height + 0.5, 0.08), darkWood);
+  ladderRail1.position.set(-0.35, (height + 0.5) / 2, 1.6);
+  group.add(ladderRail1);
+
+  const ladderRail2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, height + 0.5, 0.08), darkWood);
+  ladderRail2.position.set(0.35, (height + 0.5) / 2, 1.6);
+  group.add(ladderRail2);
+
+  for (let rungY = 0.5; rungY <= height + 0.2; rungY += 0.6) {
+    const rung = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.06), woodMat);
+    rung.position.set(0, rungY, 1.6);
+    group.add(rung);
+  }
+
+  // Ladder trigger zone for climbing
+  const ladderTriggerBox = new THREE.Box3();
+  ladderTriggerBox.setFromCenterAndSize(new THREE.Vector3(0, height / 2, 1.6), new THREE.Vector3(1.2, height + 2, 1.2));
+  colliders.push({ box: ladderTriggerBox, type: 'trigger' });
+
   // Guard Platform at top
   const platform = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.4, 5.2), woodMat);
   platform.position.y = height;
   group.add(platform);
 
-  // Railing
+  // Top platform floor collider (allows standing on top!)
+  const platformBox = new THREE.Box3();
+  platformBox.setFromCenterAndSize(new THREE.Vector3(0, height, 0), new THREE.Vector3(5.2, 0.4, 5.2));
+  colliders.push({ box: platformBox, type: 'solid' });
+
+  // Railing with trapdoor cutout for ladder
   const railingNorth = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.0, 0.2), darkWood);
   railingNorth.position.set(0, height + 0.7, -2.5);
   group.add(railingNorth);
-  const railingSouth = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.0, 0.2), darkWood);
-  railingSouth.position.set(0, height + 0.7, 2.5);
-  group.add(railingSouth);
+
+  const railingEast = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.0, 5.2), darkWood);
+  railingEast.position.set(2.5, height + 0.7, 0);
+  group.add(railingEast);
+
+  const railingWest = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.0, 5.2), darkWood);
+  railingWest.position.set(-2.5, height + 0.7, 0);
+  group.add(railingWest);
+
+  // Glowing torches at 4 corners of platform
+  for (const tx of [-2.3, 2.3]) {
+    for (const tz of [-2.3, 2.3]) {
+      const torchHolder = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.6, 6), darkWood);
+      torchHolder.position.set(tx, height + 0.5, tz);
+      group.add(torchHolder);
+
+      const torchFlame = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 6), torchMat);
+      torchFlame.position.set(tx, height + 0.8, tz);
+      group.add(torchFlame);
+    }
+  }
 
   // Canopy Roof
   const roof = new THREE.Mesh(new THREE.ConeGeometry(4.2, 2.5, 4), roofMat);
@@ -1804,9 +1854,8 @@ export function createWatchtower(): THREE.Group {
   foundation.position.y = -2;
   group.add(foundation);
 
-  const box = new THREE.Box3();
-  box.setFromCenterAndSize(new THREE.Vector3(0, height / 2, 0), new THREE.Vector3(baseSize + 0.5, height + 3, baseSize + 0.5));
-  (group as any).collider = { box, type: 'solid' };
+  (group as any).colliders = colliders;
+  (group as any).collider = colliders[0]; // fallback backward compatibility
 
   return group;
 }

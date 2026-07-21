@@ -248,15 +248,14 @@ export class Player {
       this.velocity.x *= 0.8;
       this.velocity.z *= 0.8;
     }
-
     // Apply velocity
     this.mesh.position.x += this.velocity.x * delta;
     this.mesh.position.z += this.velocity.z * delta;
 
-    // Collision resolution with structures (AABB)
-    for (const collider of this.structureColliders) {
-      if (collider.type !== 'solid') continue;
+    // Platform floor standing & ladder climbing collision resolution
+    let platformFloorY = -Infinity;
 
+    for (const collider of this.structureColliders) {
       Player.tempMinVec.set(
         this.mesh.position.x - this.playerRadius,
         this.mesh.position.y,
@@ -269,21 +268,41 @@ export class Player {
       );
       Player.tempPlayerBox.set(Player.tempMinVec, Player.tempMaxVec);
 
+      if (collider.type === 'trigger') {
+        // Ladder trigger zone: climbing upward on Space / W
+        if (Player.tempPlayerBox.intersectsBox(collider.box)) {
+          if (this.input.state.jump || this.input.state.forward) {
+            this.velocity.y = 8.5; // Climb up ladder smoothly
+            this.grounded = false;
+          }
+        }
+        continue;
+      }
+
       if (Player.tempPlayerBox.intersectsBox(collider.box)) {
-        const overlapX1 = Player.tempPlayerBox.max.x - collider.box.min.x;
-        const overlapX2 = collider.box.max.x - Player.tempPlayerBox.min.x;
-        const pushX = overlapX1 < overlapX2 ? -overlapX1 : overlapX2;
+        const feetY = this.mesh.position.y;
+        const platformTop = collider.box.max.y;
 
-        const overlapZ1 = Player.tempPlayerBox.max.z - collider.box.min.z;
-        const overlapZ2 = collider.box.max.z - Player.tempPlayerBox.min.z;
-        const pushZ = overlapZ1 < overlapZ2 ? -overlapZ1 : overlapZ2;
-
-        if (Math.abs(pushX) < Math.abs(pushZ)) {
-          this.mesh.position.x += pushX;
-          this.velocity.x = 0;
+        // If player is landing/standing on top of a floor/platform surface
+        if (feetY >= platformTop - 0.75 && feetY <= platformTop + 0.5 && this.velocity.y <= 0) {
+          platformFloorY = Math.max(platformFloorY, platformTop);
         } else {
-          this.mesh.position.z += pushZ;
-          this.velocity.z = 0;
+          // Lateral wall pushing
+          const overlapX1 = Player.tempPlayerBox.max.x - collider.box.min.x;
+          const overlapX2 = collider.box.max.x - Player.tempPlayerBox.min.x;
+          const pushX = overlapX1 < overlapX2 ? -overlapX1 : overlapX2;
+
+          const overlapZ1 = Player.tempPlayerBox.max.z - collider.box.min.z;
+          const overlapZ2 = collider.box.max.z - Player.tempPlayerBox.min.z;
+          const pushZ = overlapZ1 < overlapZ2 ? -overlapZ1 : overlapZ2;
+
+          if (Math.abs(pushX) < Math.abs(pushZ)) {
+            this.mesh.position.x += pushX;
+            this.velocity.x = 0;
+          } else {
+            this.mesh.position.z += pushZ;
+            this.velocity.z = 0;
+          }
         }
       }
     }
@@ -294,11 +313,10 @@ export class Player {
       const dz = this.mesh.position.z - collider.position.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
       const minDist = this.playerRadius + collider.radius;
-      if (dist < minDist && dist > 0.001) {
-        const pushX = (dx / dist) * minDist;
-        const pushZ = (dz / dist) * minDist;
-        this.mesh.position.x = collider.position.x + pushX;
-        this.mesh.position.z = collider.position.z + pushZ;
+      if (dist < minDist && dist > 0.0001) {
+        const overlap = minDist - dist;
+        this.mesh.position.x += (dx / dist) * overlap;
+        this.mesh.position.z += (dz / dist) * overlap;
       }
     }
 
@@ -313,7 +331,8 @@ export class Player {
     const hx = (this.mesh.position.x / WORLD_SCALE) + (WORLD_SIZE / 2);
     const hz = (this.mesh.position.z / WORLD_SCALE) + (WORLD_SIZE / 2);
     const terrainHeight = heightMap.getInterpolated(hx, hz);
-    const targetFloor = this.isSubterranean ? this.dungeonFloorY : terrainHeight;
+    const baseFloor = this.isSubterranean ? this.dungeonFloorY : terrainHeight;
+    const targetFloor = Math.max(baseFloor, platformFloorY);
     const jumpPressed = this.input.state.jump;
     if (this.grounded && jumpPressed && !this.jumpWasPressed) {
       this.velocity.y = this.jumpVelocity;
