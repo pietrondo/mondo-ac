@@ -1024,19 +1024,35 @@ export class HUD {
     for (const poi of pois) {
       const relX = (poi.x - playerPos.x) * scale;
       const relZ = (poi.z - playerPos.z) * scale;
-      if (Math.abs(relX) < this.minimapSize / 2 && Math.abs(relZ) < this.minimapSize / 2) {
-        this.minimapCtx.fillStyle = '#ffd54f';
-        if (poi.type === 'village') this.minimapCtx.fillStyle = '#4CAF50';
-        else if (poi.type === 'castle') this.minimapCtx.fillStyle = '#9C27B0';
-        else if (poi.type === 'temple') this.minimapCtx.fillStyle = '#2196F3';
-        else if (poi.type === 'windmill') this.minimapCtx.fillStyle = '#FF9800';
-        else if (poi.type === 'watchtower') this.minimapCtx.fillStyle = '#E91E63';
-        else if (poi.type === 'blacksmith') this.minimapCtx.fillStyle = '#FF5722';
-        else if (poi.type === 'dungeon_entrance') this.minimapCtx.fillStyle = '#AB47BC';
-        
+      const maxOffset = (this.minimapSize / 2) - 8;
+      const isInside = Math.abs(relX) <= maxOffset && Math.abs(relZ) <= maxOffset;
+
+      let poiColor = '#ffd54f';
+      if (poi.type === 'village') poiColor = '#4CAF50';
+      else if (poi.type === 'castle') poiColor = '#9C27B0';
+      else if (poi.type === 'temple') poiColor = '#2196F3';
+      else if (poi.type === 'windmill') poiColor = '#FF9800';
+      else if (poi.type === 'watchtower') poiColor = '#E91E63';
+      else if (poi.type === 'blacksmith') poiColor = '#FF5722';
+      else if (poi.type === 'dungeon_entrance') poiColor = '#AB47BC';
+
+      if (isInside) {
+        this.minimapCtx.fillStyle = poiColor;
         this.minimapCtx.beginPath();
         this.minimapCtx.arc(relX, relZ, 4, 0, Math.PI * 2);
         this.minimapCtx.fill();
+      } else {
+        // Draw offscreen POI indicator on minimap edge
+        const angle = Math.atan2(relZ, relX);
+        const edgeX = Math.cos(angle) * maxOffset;
+        const edgeY = Math.sin(angle) * maxOffset;
+
+        this.minimapCtx.save();
+        this.minimapCtx.fillStyle = poiColor;
+        this.minimapCtx.beginPath();
+        this.minimapCtx.arc(edgeX, edgeY, poi.type === 'village' || poi.type === 'castle' ? 4 : 3, 0, Math.PI * 2);
+        this.minimapCtx.fill();
+        this.minimapCtx.restore();
       }
     }
 
