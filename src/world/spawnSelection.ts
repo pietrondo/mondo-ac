@@ -81,12 +81,12 @@ export function selectMonsterSpawns(
   candidates: THREE.Vector3[],
   anchor: THREE.Vector3,
   limit: number,
-  maxDistance = 240
+  maxDistance = 240,
+  minDistance = 20
 ): THREE.Vector3[] {
-  const safetyRadius = 20;
   const filtered = candidates.filter((pos) => {
     const dist = pos.distanceTo(anchor);
-    return dist >= safetyRadius && dist <= maxDistance;
+    return dist >= minDistance && dist <= maxDistance;
   });
 
   const sorted = filtered.sort(
@@ -100,7 +100,7 @@ export function selectMonsterSpawns(
   }
 
   const fallbackCount = Math.max(4, Math.min(limit, 6));
-  const radius = 28;
+  const radius = Math.max(minDistance + 8, 28);
   const fallback: THREE.Vector3[] = [];
 
   for (let i = 0; i < fallbackCount; i++) {
@@ -121,12 +121,12 @@ export function selectMonsterSpawnPoints(
   candidates: MonsterSpawnPoint[],
   anchor: THREE.Vector3,
   limit: number,
-  maxDistance = 240
+  maxDistance = 240,
+  minDistance = 20
 ): MonsterSpawnPoint[] {
-  const safetyRadius = 20;
   const filtered = candidates.filter((sp) => {
     const dist = sp.position.distanceTo(anchor);
-    return dist >= safetyRadius && dist <= maxDistance;
+    return dist >= minDistance && dist <= maxDistance;
   });
 
   const sorted = filtered.sort(

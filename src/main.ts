@@ -527,10 +527,25 @@ for (const pos of features.npcSpawns.slice(0, 10)) {
   npcPresetIdx++;
 }
 
+// Dedicated Spawn Sanctuary Lore Guide NPC
+const spawnNpcPos = new THREE.Vector3(0, 0, 4.5);
+const hxSpawn = (spawnNpcPos.x / WORLD_SCALE) + WORLD_SIZE / 2;
+const hzSpawn = (spawnNpcPos.z / WORLD_SCALE) + WORLD_SIZE / 2;
+spawnNpcPos.y = heightMap.getInterpolated(hxSpawn, hzSpawn);
+
+const spawnGuideNpc = new NPC(spawnNpcPos, undefined, {
+  name: 'Anziano Eldrin',
+  role: 'Guida del Santuario',
+  dialogueTreeId: 'elder_eldrin'
+});
+npcs.push(spawnGuideNpc);
+scene.add(spawnGuideNpc.mesh);
+
 const monsters: Monster[] = [];
 const monsterSpawnData = new Map<Monster, { position: THREE.Vector3; variantIndex: number; biome: BiomeType; difficulty: number }>();
 const enemyProjectileSystem = new EnemyProjectileSystem(scene);
-const monsterSpawnPoints = selectMonsterSpawnPoints(features.monsterSpawns, player.mesh.position, 8, 60);
+// Enforce safe 70m radius around spawn point with no enemies; scatter enemies 70m - 200m away
+const monsterSpawnPoints = selectMonsterSpawnPoints(features.monsterSpawns, player.mesh.position, 8, 200, 70);
 monsterSpawnPoints.forEach((spawnPoint, index) => {
   const monsterPosition = spawnPoint.position.clone();
   const hx = (monsterPosition.x / WORLD_SCALE) + WORLD_SIZE / 2;
