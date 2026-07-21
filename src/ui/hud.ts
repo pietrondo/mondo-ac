@@ -39,6 +39,8 @@ export class HUD {
 
   private coinsElement: HTMLDivElement;
   private questElement: HTMLDivElement;
+  private compassElement: HTMLDivElement;
+  private skillsBarElement: HTMLDivElement;
 
   private score = 0;
   private coins = 50; // Starting money
@@ -50,6 +52,27 @@ export class HUD {
     if (this.questElement) {
       this.questElement.textContent = text;
     }
+  }
+
+  updateCompass(yawRad: number, nearestPoiName?: string, nearestPoiDist?: number): void {
+    if (!this.compassElement) return;
+
+    let deg = Math.round(((-yawRad * 180 / Math.PI) % 360 + 360) % 360);
+    let cardinal = 'N';
+    if (deg >= 22.5 && deg < 67.5) cardinal = 'NE';
+    else if (deg >= 67.5 && deg < 112.5) cardinal = 'E';
+    else if (deg >= 112.5 && deg < 157.5) cardinal = 'SE';
+    else if (deg >= 157.5 && deg < 202.5) cardinal = 'S';
+    else if (deg >= 202.5 && deg < 247.5) cardinal = 'SW';
+    else if (deg >= 247.5 && deg < 292.5) cardinal = 'W';
+    else if (deg >= 292.5 && deg < 337.5) cardinal = 'NW';
+
+    let poiStr = '';
+    if (nearestPoiName && nearestPoiDist !== undefined) {
+      poiStr = ` <span style="color: #fbbf24; border-left: 1px solid #334155; padding-left: 10px;">📍 ${nearestPoiName} (${Math.round(nearestPoiDist)}m)</span>`;
+    }
+
+    this.compassElement.innerHTML = `🧭 ${cardinal} ${deg}°${poiStr}`;
   }
 
   addCoins(amount: number): void {
@@ -154,6 +177,58 @@ export class HUD {
     `;
     this.questElement.textContent = '📜 Nessuna missione attiva';
     document.body.appendChild(this.questElement);
+
+    this.compassElement = document.createElement('div');
+    this.compassElement.style.cssText = `
+      position: fixed;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid #38bdf8;
+      border-radius: 20px;
+      padding: 6px 18px;
+      color: #f8fafc;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 100;
+      pointer-events: none;
+      user-select: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    `;
+    this.compassElement.textContent = '🧭 N 0°';
+    document.body.appendChild(this.compassElement);
+
+    this.skillsBarElement = document.createElement('div');
+    this.skillsBarElement.style.cssText = `
+      position: fixed;
+      bottom: 35px;
+      right: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+      pointer-events: none;
+      user-select: none;
+    `;
+    this.skillsBarElement.innerHTML = `
+      <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid #38bdf8; border-radius: 10px; padding: 6px 12px; text-align: center; color: #f8fafc; font-family: sans-serif; font-size: 12px; font-weight: bold;">
+        <div>⚡ DASH [Q]</div>
+        <div id="skill-dash-cd" style="color: #4ade80; margin-top: 2px;">PRONTO</div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid #38bdf8; border-radius: 10px; padding: 6px 12px; text-align: center; color: #f8fafc; font-family: sans-serif; font-size: 12px; font-weight: bold;">
+        <div>🛡️ SCUDO [E]</div>
+        <div id="skill-shield-cd" style="color: #4ade80; margin-top: 2px;">PRONTO</div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid #38bdf8; border-radius: 10px; padding: 6px 12px; text-align: center; color: #f8fafc; font-family: sans-serif; font-size: 12px; font-weight: bold;">
+        <div>💣 GRANATA [F]</div>
+        <div id="skill-grenade-cd" style="color: #4ade80; margin-top: 2px;">PRONTO</div>
+      </div>
+    `;
+    document.body.appendChild(this.skillsBarElement);
 
     this.ammoElement = document.createElement('div');
     this.ammoElement.style.cssText = `
@@ -574,12 +649,21 @@ export class HUD {
   }
 
   updateSkillCooldowns(dashCd: number, grenadeCd: number, shieldCd: number): void {
-    const cdDash = document.getElementById('cd-dash');
-    const cdGrenade = document.getElementById('cd-grenade');
-    const cdShield = document.getElementById('cd-shield');
-    if (cdDash) cdDash.textContent = dashCd > 0 ? `${dashCd.toFixed(1)}s` : 'PRONTO';
-    if (cdGrenade) cdGrenade.textContent = grenadeCd > 0 ? `${grenadeCd.toFixed(1)}s` : 'PRONTO';
-    if (cdShield) cdShield.textContent = shieldCd > 0 ? `${shieldCd.toFixed(1)}s` : 'PRONTO';
+    const cdDash = document.getElementById('cd-dash') || document.getElementById('skill-dash-cd');
+    const cdGrenade = document.getElementById('cd-grenade') || document.getElementById('skill-grenade-cd');
+    const cdShield = document.getElementById('cd-shield') || document.getElementById('skill-shield-cd');
+    if (cdDash) {
+      cdDash.textContent = dashCd > 0 ? `${dashCd.toFixed(1)}s` : 'PRONTO';
+      cdDash.style.color = dashCd > 0 ? '#f87171' : '#4ade80';
+    }
+    if (cdGrenade) {
+      cdGrenade.textContent = grenadeCd > 0 ? `${grenadeCd.toFixed(1)}s` : 'PRONTO';
+      cdGrenade.style.color = grenadeCd > 0 ? '#f87171' : '#4ade80';
+    }
+    if (cdShield) {
+      cdShield.textContent = shieldCd > 0 ? `${shieldCd.toFixed(1)}s` : 'PRONTO';
+      cdShield.style.color = shieldCd > 0 ? '#f87171' : '#4ade80';
+    }
   }
 
   showBossHealthBar(name: string, hp: number, maxHp: number, phase?: number): void {

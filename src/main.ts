@@ -1200,6 +1200,27 @@ function animate(): void {
     nextTargets
   );
 
+  // Update Top-Bar 3D Compass & POI distances
+  let nearestPoiName = '';
+  let nearestPoiDist = Infinity;
+  for (const poi of features.poiPositions) {
+    const d = Math.hypot(poi.position.x - player.mesh.position.x, poi.position.z - player.mesh.position.z);
+    if (d < nearestPoiDist) {
+      nearestPoiDist = d;
+      let label = poi.type.toUpperCase();
+      if (poi.type === 'village') label = 'Villaggio';
+      else if (poi.type === 'castle') label = 'Castello';
+      else if (poi.type === 'dungeon_entrance') label = 'Portale Dungeon';
+      else if (poi.type === 'watchtower') label = 'Torre';
+      else if (poi.type === 'blacksmith') label = 'Fabbro';
+      else if (poi.type === 'well') label = 'Pozzo';
+      nearestPoiName = label;
+    }
+  }
+
+  hud.updateCompass(currentYaw, nearestPoiName, nearestPoiDist);
+  hud.updateSkillCooldowns(skillSystem.dashCooldown, skillSystem.grenadeCooldown, skillSystem.shieldCooldown);
+
   // Update tumbleweeds
   if (decorations.tumbleweedManager) {
     decorations.tumbleweedManager.update(delta, heightMap);
