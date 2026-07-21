@@ -54,7 +54,7 @@ describe('HUD weapon feedback', () => {
     const hud = new HUD();
     hud.setWeaponState(12, 48, true);
 
-    expect(body.appendChild).toHaveBeenCalledTimes(19);
+    expect(body.appendChild).toHaveBeenCalledTimes(20);
     expect(hud.getScore()).toBe(0);
     expect(hud.getVersionText()).toContain('v:');
     expect(hud.getWeaponText()).toBe('Ammo: 12 / 48');

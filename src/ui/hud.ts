@@ -35,6 +35,7 @@ export class HUD {
   private versionElement: HTMLDivElement;
   private waveElement: HTMLDivElement;
   private waveNotificationElement: HTMLDivElement;
+  private controlsElement: HTMLDivElement;
 
   private coinsElement: HTMLDivElement;
 
@@ -42,6 +43,7 @@ export class HUD {
   private coins = 50; // Starting money
   private kills = 0;
   private combo = 0;
+  private isControlsCollapsed = localStorage.getItem('mondo_controls_collapsed') === 'true';
 
   addCoins(amount: number): void {
     this.coins += amount;
@@ -332,6 +334,36 @@ export class HUD {
     `;
     this.versionElement.textContent = `v:${versionStr}`;
     document.body.appendChild(this.versionElement);
+
+    this.controlsElement = document.createElement('div');
+    this.controlsElement.style.cssText = `
+      position: fixed;
+      top: 30px;
+      right: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      user-select: none;
+      transition: all 0.25s ease;
+      min-width: 170px;
+    `;
+    this.renderControlsCard();
+    document.body.appendChild(this.controlsElement);
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'KeyH' && !e.repeat) {
+          this.toggleControls();
+        }
+      });
+    }
 
     this.waveElement = document.createElement('div');
     this.waveElement.style.cssText = `
@@ -1269,6 +1301,46 @@ export class HUD {
     };
 
     render();
+  }
+
+  toggleControls(): void {
+    this.isControlsCollapsed = !this.isControlsCollapsed;
+    localStorage.setItem('mondo_controls_collapsed', String(this.isControlsCollapsed));
+    this.renderControlsCard();
+  }
+
+  private renderControlsCard(): void {
+    if (!this.controlsElement) return;
+    if (this.isControlsCollapsed) {
+      this.controlsElement.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; gap: 10px;" id="toggle-controls-btn">
+          <span style="font-weight: 700; color: #38bdf8; letter-spacing: 0.5px;">🎮 COMANDI</span>
+          <span style="background: rgba(255,255,255,0.12); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #94a3b8;">[H] Mostra</span>
+        </div>
+      `;
+    } else {
+      this.controlsElement.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 6px; gap: 12px;" id="toggle-controls-btn">
+          <span style="font-weight: 700; color: #38bdf8; letter-spacing: 0.5px;">🎮 COMANDI</span>
+          <span style="background: rgba(255,255,255,0.18); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #cbd5e1;">[H] Nascondi</span>
+        </div>
+        <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; color: #cbd5e1; font-size: 12px; line-height: 1.45;">
+          <b style="color: #f1f5f9;">WASD</b><span>Muoviti / Guida</span>
+          <b style="color: #f1f5f9;">SHIFT</b><span>Scatto / Boost</span>
+          <b style="color: #f1f5f9;">SPACE</b><span>Salta / Vola Su</span>
+          <b style="color: #f1f5f9;">MOUSE</b><span>Mira & Sparo</span>
+          <b style="color: #f1f5f9;">E</b><span>Interact / Sali / Parla</span>
+          <b style="color: #f1f5f9;">R</b><span>Ricarica Arma</span>
+          <b style="color: #f1f5f9;">L</b><span>Codex Storie</span>
+          <b style="color: #f1f5f9;">1 - 9</b><span>Selezione Armi</span>
+        </div>
+      `;
+    }
+
+    this.controlsElement.onclick = (e) => {
+      e.stopPropagation();
+      this.toggleControls();
+    };
   }
 
   hideLeaderboardOverlay(): void {

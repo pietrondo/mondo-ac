@@ -63,14 +63,14 @@ export abstract class Vehicle {
     const effectiveMaxSpeed = this.isBoosting ? config.baseMaxSpeed * config.boostMultiplier : config.baseMaxSpeed;
     this.maxSpeed = effectiveMaxSpeed;
 
-    // Steering
+    // Steering (A turns left, D turns right)
     let turnInput = 0;
     if (input.state.left) {
-      this.yaw += config.turnSpeed * delta;
+      this.yaw -= config.turnSpeed * delta;
       turnInput = -1;
     }
     if (input.state.right) {
-      this.yaw -= config.turnSpeed * delta;
+      this.yaw += config.turnSpeed * delta;
       turnInput = 1;
     }
     this.yaw = (this.yaw + Math.PI * 2) % (Math.PI * 2);

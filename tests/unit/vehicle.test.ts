@@ -37,13 +37,13 @@ describe('Hovercar WASD steering & terrain alignment', () => {
 
     input.state.left = true;
     car.update(0.1, input, heightMap);
-    expect(car.yaw).toBeGreaterThan(3.0);
+    expect(car.yaw).toBeLessThan(3.0);
 
     const prevYaw = car.yaw;
     input.state.left = false;
     input.state.right = true;
     car.update(0.2, input, heightMap);
-    expect(car.yaw).toBeLessThan(prevYaw);
+    expect(car.yaw).toBeGreaterThan(prevYaw);
   });
 
   it('accelerates forward on W and decelerates/reverses on S', () => {
