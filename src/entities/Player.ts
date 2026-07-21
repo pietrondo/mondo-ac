@@ -202,7 +202,7 @@ export class Player {
       const distBehind = 6.0;
       const heightAbove = 2.8;
 
-      const camX = this.mesh.position.x - Math.sin(this.chaseCameraYaw) * Math.cos(this.pitch) * distBehind;
+      const camX = this.mesh.position.x + Math.sin(this.chaseCameraYaw) * Math.cos(this.pitch) * distBehind;
       const camY = this.mesh.position.y + heightAbove + Math.sin(this.pitch) * distBehind;
       const camZ = this.mesh.position.z + Math.cos(this.chaseCameraYaw) * Math.cos(this.pitch) * distBehind;
 

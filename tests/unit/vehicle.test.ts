@@ -82,8 +82,8 @@ describe('Hovercar WASD steering & terrain alignment', () => {
       }
     } as HeightMap;
 
-    // Face hovercar along +X direction (yaw = PI/2)
-    car.yaw = Math.PI / 2;
+    // Face hovercar along +X direction (yaw = -PI/2)
+    car.yaw = -Math.PI / 2;
     input.state.forward = true;
 
     // Run update to compute height and pitch

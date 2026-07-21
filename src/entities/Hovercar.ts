@@ -200,8 +200,8 @@ export class Hovercar extends Vehicle {
     const targetBank = turnInput * 0.25;
     this.currentBank += (targetBank - this.currentBank) * Math.min(1.0, delta * 10.0);
 
-    // Move Hovercar
-    const dirX = Math.sin(this.yaw);
+    // Move Hovercar forward in direction of visual mesh nose
+    const dirX = -Math.sin(this.yaw);
     const dirZ = -Math.cos(this.yaw);
     this.velocity.set(dirX * this.speed, 0, dirZ * this.speed);
     this.mesh.position.addScaledVector(this.velocity, delta);

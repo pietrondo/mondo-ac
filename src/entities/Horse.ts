@@ -105,8 +105,8 @@ export class Horse extends Vehicle {
 
     this.mesh.rotation.y = this.yaw;
 
-    // Movement
-    const dirX = Math.sin(this.yaw);
+    // Movement forward in direction of visual mesh nose
+    const dirX = -Math.sin(this.yaw);
     const dirZ = -Math.cos(this.yaw);
     this.velocity.set(dirX * this.speed, 0, dirZ * this.speed);
     this.mesh.position.addScaledVector(this.velocity, delta);

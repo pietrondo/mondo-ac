@@ -44,7 +44,7 @@ export abstract class Vehicle {
   }
 
   protected calculateSlopePitch(pos: THREE.Vector3, yaw: number, heightMap: HeightMap, step = 1.0): number {
-    const fwd = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
+    const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
     const frontPos = pos.clone().addScaledVector(fwd, step);
     const backPos = pos.clone().addScaledVector(fwd, -step);
 

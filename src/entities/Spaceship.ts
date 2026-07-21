@@ -83,7 +83,7 @@ export class Spaceship extends Vehicle {
     const targetPitch = input.state.jump ? 0.4 : (vertVel < 0 ? -0.4 : 0);
     this.pitch += (targetPitch - this.pitch) * 5.0 * delta;
 
-    const dirX = Math.sin(this.yaw);
+    const dirX = -Math.sin(this.yaw);
     const dirZ = -Math.cos(this.yaw);
     this.velocity.set(dirX * this.speed, vertVel, dirZ * this.speed);
     this.mesh.position.addScaledVector(this.velocity, delta);
