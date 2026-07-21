@@ -4,6 +4,7 @@ import { Hovercar } from '../../src/entities/Hovercar';
 import { Spaceship } from '../../src/entities/Spaceship';
 import { Monster } from '../../src/entities/Monster';
 import type { HeightMap } from '../../src/world/heightmap';
+import { WORLD_SCALE, WORLD_SIZE } from '../../src/config';
 
 function createMockInput() {
   return {
@@ -75,8 +76,8 @@ describe('Hovercar WASD steering & terrain alignment', () => {
     // Sloping terrain heightmap: y = x (slope of 1m per meter in X direction)
     const slopingHeightMap = {
       getInterpolated: (hx: number, hz: number) => {
-        // Map back to world X coord: x = (hx - 128) * 8
-        const x_world = (hx - 128) * 8;
+        // Map back to world X coord: x = (hx - WORLD_SIZE / 2) * WORLD_SCALE
+        const x_world = (hx - WORLD_SIZE / 2) * WORLD_SCALE;
         return x_world;
       }
     } as HeightMap;

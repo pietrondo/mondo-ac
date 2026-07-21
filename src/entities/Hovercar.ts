@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { Vehicle } from './Vehicle';
 import { InputManager } from '../controls/input';
 import { HeightMap } from '../world/heightmap';
-import { WORLD_SCALE, WORLD_SIZE } from '../config';
 
 export class Hovercar extends Vehicle {
   private hoverTime = 0;
@@ -185,79 +184,38 @@ export class Hovercar extends Vehicle {
   update(delta: number, input: InputManager, heightMap: HeightMap): void {
     this.hoverTime += delta;
 
-    // 1. Steering (A/D rotates yaw & banks)
-    const turnSpeed = 4.2;
-    let turnInput = 0;
-    if (input.state.left) {
-      this.yaw += turnSpeed * delta;
-      turnInput = -1;
-    }
-    if (input.state.right) {
-      this.yaw -= turnSpeed * delta;
-      turnInput = 1;
-    }
+    // 1. Steering & Throttle using Vehicle base helper
+    const { turnInput } = this.updateSteeringAndThrottle(delta, input, {
+      accel: 60.0,
+      brakeAccel: 120.0,
+      friction: 16.0,
+      turnSpeed: 4.5,
+      baseMaxSpeed: 28,
+      boostMultiplier: 1.45,
+    });
 
-    this.yaw = (this.yaw + Math.PI * 2) % (Math.PI * 2);
     this.mesh.rotation.y = this.yaw;
 
     // Smooth banking roll during turns
     const targetBank = turnInput * 0.25;
     this.currentBank += (targetBank - this.currentBank) * Math.min(1.0, delta * 10.0);
-    this.bodyGroup.rotation.z = -this.currentBank;
 
-    // 2. Acceleration (W/S)
-    const accel = 55.0;
-    const friction = 14.0;
-
-    if (input.state.forward) {
-      this.speed = Math.min(this.maxSpeed, this.speed + accel * delta);
-    } else if (input.state.backward) {
-      this.speed = Math.max(-this.maxSpeed / 2, this.speed - accel * delta);
-    } else {
-      if (this.speed > 0) {
-        this.speed = Math.max(0, this.speed - friction * delta);
-      } else if (this.speed < 0) {
-        this.speed = Math.min(0, this.speed + friction * delta);
-      }
-    }
-
-    // 3. Move Hovercar
+    // Move Hovercar
     const dirX = Math.sin(this.yaw);
     const dirZ = -Math.cos(this.yaw);
     this.velocity.set(dirX * this.speed, 0, dirZ * this.speed);
     this.mesh.position.addScaledVector(this.velocity, delta);
 
-    // Clamp to world bounds
-    const worldHalf = (WORLD_SIZE / 2) * WORLD_SCALE;
-    this.mesh.position.x = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.x));
-    this.mesh.position.z = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.z));
+    this.clampToBounds(this.mesh.position);
 
-    // 4. Align with Heightmap + Floating Animation
-    const hx = (this.mesh.position.x / WORLD_SCALE) + WORLD_SIZE / 2;
-    const hz = (this.mesh.position.z / WORLD_SCALE) + WORLD_SIZE / 2;
-    const terrainHeight = heightMap.getInterpolated(hx, hz);
-
+    // Heightmap + Floating Hover Animation
+    const terrainHeight = this.getTerrainHeight(this.mesh.position, heightMap);
     this.mesh.position.y = terrainHeight;
-    this.bodyGroup.position.y = Math.sin(this.hoverTime * 4.5) * 0.14 + 0.3;
+    this.bodyGroup.position.y = Math.sin(this.hoverTime * 4.5) * 0.14 + (this.isBoosting ? 0.42 : 0.3);
 
-    // Calculate Pitch from slope
-    const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    const step = 1.0;
-    const frontPos = this.mesh.position.clone().addScaledVector(fwd, step);
-    const backPos = this.mesh.position.clone().addScaledVector(fwd, -step);
+    // Pitch from slope
+    this.pitch = this.calculateSlopePitch(this.mesh.position, this.yaw, heightMap, 1.0);
 
-    const hxFront = (frontPos.x / WORLD_SCALE) + WORLD_SIZE / 2;
-    const hzFront = (frontPos.z / WORLD_SCALE) + WORLD_SIZE / 2;
-    const hxBack = (backPos.x / WORLD_SCALE) + WORLD_SIZE / 2;
-    const hzBack = (backPos.z / WORLD_SCALE) + WORLD_SIZE / 2;
-
-    const hFront = heightMap.getInterpolated(hxFront, hzFront);
-    const hBack = heightMap.getInterpolated(hxBack, hzBack);
-
-    this.pitch = Math.atan2(hFront - hBack, 2 * step);
-
-    // Apply rotation (yaw, pitch, bank roll)
-    this.mesh.rotation.y = this.yaw;
     this.mesh.rotation.x = -this.pitch;
     this.mesh.rotation.z = this.currentBank;
   }

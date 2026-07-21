@@ -51,8 +51,8 @@ const BIOME_VARIANT_WEIGHTS: Record<BiomeType, { variant: MonsterVariant; weight
     { variant: 'sentinel', weight: 0.15 },
   ],
   [BiomeType.MOUNTAIN]: [
-    { variant: 'titan', weight: 0.25 },
     { variant: 'golem', weight: 0.25 },
+    { variant: 'titan', weight: 0.25 },
     { variant: 'barbone', weight: 0.2 },
     { variant: 'punk', weight: 0.15 },
     { variant: 'sentinel', weight: 0.15 },

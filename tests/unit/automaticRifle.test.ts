@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { AutomaticRifle } from '../../src/entities/AutomaticRifle';
+import { Weapon } from '../../src/entities/Weapon';
 
-describe('AutomaticRifle', () => {
+describe('Weapon rifle', () => {
   it('fires immediately and then respects its automatic cadence while the trigger is held', () => {
     const onShot = vi.fn();
-    const rifle = new AutomaticRifle({ roundsPerMinute: 600, onShot });
+    const rifle = new Weapon('rifle', { onShot });
 
     rifle.update(0, { fireHeld: true, reloadPressed: false, canFire: true });
     rifle.update(0.09, { fireHeld: true, reloadPressed: false, canFire: true });
@@ -16,7 +16,9 @@ describe('AutomaticRifle', () => {
   });
 
   it('reloads only the missing rounds available in reserve after the reload duration', () => {
-    const rifle = new AutomaticRifle({ magazineAmmo: 24, reserveAmmo: 3, reloadDuration: 1 });
+    const rifle = new Weapon('rifle');
+    rifle.magazineAmmo = 24;
+    rifle.reserveAmmo = 3;
 
     rifle.update(0, { fireHeld: false, reloadPressed: true, canFire: true });
     expect(rifle.isReloading).toBe(true);
@@ -37,7 +39,7 @@ describe('AutomaticRifle', () => {
     camera.lookAt(0, 0, -1);
     camera.updateMatrixWorld();
     const onShot = vi.fn();
-    const rifle = new AutomaticRifle({ onShot });
+    const rifle = new Weapon('rifle', { onShot });
 
     rifle.update(0, { fireHeld: true, reloadPressed: false, canFire: true, camera, targets: [target] });
 

@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { Vehicle } from './Vehicle';
 import { InputManager } from '../controls/input';
 import { HeightMap } from '../world/heightmap';
-import { WORLD_SCALE, WORLD_SIZE } from '../config';
 
 export class Horse extends Vehicle {
   private legs: THREE.Mesh[] = [];
@@ -95,33 +94,31 @@ export class Horse extends Vehicle {
   }
 
   update(delta: number, input: InputManager, heightMap: HeightMap): void {
-    const moveForward = (input.state.forward ? 1 : 0) - (input.state.backward ? 1 : 0);
-    const turn = (input.state.left ? 1 : 0) - (input.state.right ? 1 : 0);
+    this.updateSteeringAndThrottle(delta, input, {
+      accel: 45.0,
+      brakeAccel: 90.0,
+      friction: 18.0,
+      turnSpeed: 4.0,
+      baseMaxSpeed: 18,
+      boostMultiplier: 1.5,
+    });
 
-    // Turning
-    this.yaw += turn * 3.6 * delta;
     this.mesh.rotation.y = this.yaw;
 
-    // Acceleration & Gallop Speed
-    const targetSpeed = moveForward * (input.state.run ? this.maxSpeed : this.maxSpeed * 0.6);
-    this.speed += (targetSpeed - this.speed) * 14 * delta;
+    // Movement
+    const dirX = Math.sin(this.yaw);
+    const dirZ = -Math.cos(this.yaw);
+    this.velocity.set(dirX * this.speed, 0, dirZ * this.speed);
+    this.mesh.position.addScaledVector(this.velocity, delta);
 
-    // Forward Direction
-    const forwardX = Math.sin(this.yaw);
-    const forwardZ = -Math.cos(this.yaw);
+    this.clampToBounds(this.mesh.position);
 
-    this.mesh.position.x += forwardX * this.speed * delta;
-    this.mesh.position.z += forwardZ * this.speed * delta;
-
-    // Heightmap alignment
-    const hx = (this.mesh.position.x / WORLD_SCALE) + WORLD_SIZE / 2;
-    const hz = (this.mesh.position.z / WORLD_SCALE) + WORLD_SIZE / 2;
-    const groundY = heightMap.getInterpolated(hx, hz);
+    const groundY = this.getTerrainHeight(this.mesh.position, heightMap);
 
     // Gallop Animation
     if (Math.abs(this.speed) > 0.5) {
       this.gallopTime += delta * Math.abs(this.speed) * 1.5;
-      const bob = Math.abs(Math.sin(this.gallopTime)) * 0.3;
+      const bob = Math.abs(Math.sin(this.gallopTime)) * (this.isBoosting ? 0.45 : 0.3);
       this.mesh.position.y = groundY + bob;
 
       // Leg swinging
@@ -135,5 +132,8 @@ export class Horse extends Vehicle {
       for (const leg of this.legs) leg.rotation.x = 0;
       this.tail.rotation.z = 0;
     }
+
+    this.pitch = this.calculateSlopePitch(this.mesh.position, this.yaw, heightMap, 0.8);
+    this.mesh.rotation.x = -this.pitch;
   }
 }
