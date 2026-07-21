@@ -1,5 +1,6 @@
 import { HUD } from './hud';
 import { WeaponType } from '../entities/Weapon';
+import { requestPointerLockSafe } from '../controls/pointerLock';
 
 export interface ShopItem {
   id: WeaponType | 'health_potion' | 'max_ammo';
@@ -115,7 +116,7 @@ export class ShopUI {
   hide(): void {
     this.isVisible = false;
     this.element.style.display = 'none';
-    document.body.requestPointerLock();
+    requestPointerLockSafe(document.body);
   }
 
   getIsVisible(): boolean {

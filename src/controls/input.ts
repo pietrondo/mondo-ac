@@ -1,3 +1,5 @@
+import { requestPointerLockSafe } from './pointerLock';
+
 export interface InputState {
   forward: boolean;
   backward: boolean;
@@ -117,7 +119,7 @@ export class InputManager {
 
     document.addEventListener('click', () => {
       if (!this.isPointerLocked) {
-        document.body.requestPointerLock();
+        requestPointerLockSafe(document.body);
       }
     });
 

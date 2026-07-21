@@ -6,6 +6,7 @@ import { createWater, updateWater } from './world/water';
 import { createDecorations } from './world/decorations';
 import { placeFeatures, VillageData } from './world/features';
 import { InputManager } from './controls/input';
+import { requestPointerLockSafe } from './controls/pointerLock';
 import { Player } from './entities/Player';
 import { NPC } from './entities/NPC';
 import { Monster } from './entities/Monster';
@@ -116,6 +117,11 @@ window.onerror = function (message, source, lineno, colno, _error) {
 };
 
 window.onunhandledrejection = function (event) {
+  const reason = String(event.reason || '');
+  if (reason.includes('Pointer lock') || reason.includes('pointer lock') || reason.includes('SecurityError') || reason.includes('exited the lock')) {
+    // Ignore non-fatal browser security restriction when toggling pointer lock
+    return;
+  }
   showSystemError(`Unhandled promise rejection: ${event.reason}`);
 };
 
@@ -1152,8 +1158,33 @@ function animate(): void {
       ...(multiplayer ? multiplayer.getRemoteMeshes() : [])
     ],
   });
+
+  // Continuous Flamethrower Fire Stream while trigger is held
+  if (activeWeapon.type === 'flamethrower' && input.state.attack && input.pointerLocked && player.isAlive() && activeWeapon.magazineAmmo > 0) {
+    const camPos = camera.getWorldPosition(new THREE.Vector3());
+    const camDir = camera.getWorldDirection(new THREE.Vector3());
+
+    for (let f = 0; f < 6; f++) {
+      const dist = 0.5 + Math.random() * 12;
+      const coneRadius = dist * 0.16;
+      const offset = new THREE.Vector3(
+        (Math.random() - 0.5) * coneRadius * 2,
+        (Math.random() - 0.5) * coneRadius * 2,
+        (Math.random() - 0.5) * coneRadius * 2
+      );
+      const fPos = camPos.clone().addScaledVector(camDir, dist).add(offset);
+      const fVel = camDir.clone().multiplyScalar(18 + Math.random() * 8).add(new THREE.Vector3(
+        (Math.random() - 0.5) * 3,
+        (Math.random() - 0.5) * 3,
+        (Math.random() - 0.5) * 3
+      ));
+      particlePool.spawn('flame', fPos, fVel, 0.35 + Math.random() * 0.3);
+    }
+    player.shakeIntensity = Math.max(player.shakeIntensity, 0.15);
+  }
+
   weaponView.update(delta);
-  if (activeWeapon.type === 'rifle' || activeWeapon.type === 'shotgun') {
+  if (activeWeapon.type === 'rifle' || activeWeapon.type === 'shotgun' || activeWeapon.type === 'flamethrower') {
     weaponView.updateAmmo(activeWeapon.magazineAmmo);
   }
 
@@ -1541,7 +1572,7 @@ if (startBtn) {
     registrationOverlay.remove();
     try {
       lastTime = performance.now();
-      document.body.requestPointerLock();
+      requestPointerLockSafe(document.body);
       if (renderer) renderer.domElement.style.pointerEvents = 'auto';
       soundManager.startAmbient();
     } catch (e) {}

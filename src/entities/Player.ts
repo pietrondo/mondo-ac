@@ -3,6 +3,7 @@ import { InputManager } from '../controls/input';
 import { HeightMap } from '../world/heightmap';
 import { WORLD_SCALE, WORLD_SIZE } from '../config';
 import { Vehicle } from './Vehicle';
+import { requestPointerLockSafe } from '../controls/pointerLock';
 
 export class Player {
   mesh: THREE.Group;
@@ -147,7 +148,7 @@ export class Player {
     this.grounded = true;
     this.jumpWasPressed = false;
     this.input.reset();
-    document.body.requestPointerLock();
+    requestPointerLockSafe(document.body);
     // Remove death message
     const msg = document.getElementById('death-message');
     if (msg) msg.remove();
