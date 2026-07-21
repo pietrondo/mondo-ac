@@ -27,10 +27,12 @@ interface TerrainChunk {
 
 export class ChunkManager {
   private activeChunks = new Map<string, TerrainChunk>();
+  private cachedChunks = new Map<string, TerrainChunk>();
   private terrainMaterial: THREE.MeshStandardMaterial;
   private heightMap: HeightMap;
   private biomeMap: BiomeMap;
   private scene: THREE.Scene;
+
   constructor(scene: THREE.Scene, heightMap: HeightMap, biomeMap: BiomeMap) {
     this.scene = scene;
     this.heightMap = heightMap;
@@ -55,34 +57,54 @@ export class ChunkManager {
     const visibleKeys = new Set<string>();
     let createdThisFrame = false;
 
-    // Load active chunks around player (max 1 chunk creation per frame to avoid CPU spike)
+    // Load active chunks around player
     for (let dx = -RENDER_RADIUS; dx <= RENDER_RADIUS; dx++) {
       for (let dz = -RENDER_RADIUS; dz <= RENDER_RADIUS; dz++) {
         const cx = playerChunkX + dx;
         const cz = playerChunkZ + dz;
 
-        // Check bounds
         const maxChunk = Math.floor(WORLD_SIZE / CHUNK_SIZE);
         if (cx < 0 || cz < 0 || cx >= maxChunk || cz >= maxChunk) continue;
 
         const key = `${cx}_${cz}`;
         visibleKeys.add(key);
 
-        if (!this.activeChunks.has(key) && !createdThisFrame) {
-          const chunkMesh = this.buildChunkMesh(cx, cz);
-          this.activeChunks.set(key, { mesh: chunkMesh, key, cx, cz });
-          this.scene.add(chunkMesh);
-          createdThisFrame = true;
+        if (!this.activeChunks.has(key)) {
+          if (this.cachedChunks.has(key)) {
+            // Instant reuse from cache without VRAM allocation
+            const cached = this.cachedChunks.get(key)!;
+            this.cachedChunks.delete(key);
+            cached.mesh.visible = true;
+            this.activeChunks.set(key, cached);
+          } else if (!createdThisFrame) {
+            const chunkMesh = this.buildChunkMesh(cx, cz);
+            this.activeChunks.set(key, { mesh: chunkMesh, key, cx, cz });
+            this.scene.add(chunkMesh);
+            createdThisFrame = true;
+          }
         }
       }
     }
 
-    // Unload distant chunks out of render radius to free VRAM
+    // Hide distant chunks into cache to prevent frame hitches
     for (const [key, chunk] of this.activeChunks.entries()) {
       if (!visibleKeys.has(key)) {
-        this.scene.remove(chunk.mesh);
-        chunk.mesh.geometry.dispose();
+        chunk.mesh.visible = false;
+        this.cachedChunks.set(key, chunk);
         this.activeChunks.delete(key);
+      }
+    }
+
+    // Prune cache if exceeds 36 chunks
+    if (this.cachedChunks.size > 36) {
+      const keysToPrune = Array.from(this.cachedChunks.keys()).slice(0, this.cachedChunks.size - 36);
+      for (const k of keysToPrune) {
+        const chunk = this.cachedChunks.get(k);
+        if (chunk) {
+          this.scene.remove(chunk.mesh);
+          chunk.mesh.geometry.dispose();
+          this.cachedChunks.delete(k);
+        }
       }
     }
   }
@@ -127,6 +149,8 @@ export class ChunkManager {
 
     const mesh = new THREE.Mesh(geometry, this.terrainMaterial);
     mesh.position.set(worldOffsetCenterX, 0, worldOffsetCenterZ);
+    mesh.matrixAutoUpdate = false;
+    mesh.updateMatrix();
     mesh.receiveShadow = true;
     mesh.castShadow = true;
 

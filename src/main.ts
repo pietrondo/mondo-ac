@@ -719,7 +719,9 @@ document.addEventListener('debug-player-speed', ((e: CustomEvent) => {
 const skillSystem = new SkillSystem(scene);
 
 await setLoadingProgress(95, 'Pre-compilazione shader WebGL e VRAM...');
-// Precompile all shaders and upload textures to GPU VRAM to prevent initial stuttering
+// Pre-populate initial chunks so all geometries and shaders are precompiled on startup
+chunkManager.update(player.mesh.position);
+
 if (renderer) {
   renderer.compile(scene, camera);
   renderer.render(scene, camera);
