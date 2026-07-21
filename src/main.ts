@@ -876,7 +876,6 @@ function animate(): void {
   if (!nearPortal && hud.getInteractPromptText().includes('Dungeon')) {
     hud.hideInteractPrompt();
   }
-  interactWasPressed = interactPressed;
 
   // Track wasAlive transition for HP sync and leaderboard overlay on respawn/death
   const isAlive = player.isAlive();
