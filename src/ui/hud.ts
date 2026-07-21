@@ -1002,7 +1002,8 @@ export class HUD {
     playerPos: { x: number; z: number },
     playerYaw: number,
     enemies: { x: number; z: number }[],
-    pois: { x: number; z: number; type: string }[]
+    pois: { x: number; z: number; type: string }[],
+    nextTargets?: { x: number; z: number; type: string }[]
   ): void {
     this.minimapCtx.clearRect(0, 0, this.minimapSize, this.minimapSize);
 
@@ -1031,6 +1032,7 @@ export class HUD {
         else if (poi.type === 'windmill') this.minimapCtx.fillStyle = '#FF9800';
         else if (poi.type === 'watchtower') this.minimapCtx.fillStyle = '#E91E63';
         else if (poi.type === 'blacksmith') this.minimapCtx.fillStyle = '#FF5722';
+        else if (poi.type === 'dungeon_entrance') this.minimapCtx.fillStyle = '#AB47BC';
         
         this.minimapCtx.beginPath();
         this.minimapCtx.arc(relX, relZ, 4, 0, Math.PI * 2);
@@ -1076,7 +1078,44 @@ export class HUD {
       }
     }
 
+    // When 0 enemies are nearby, render directional arrows pointing to nearest POIs / spawn points
+    if (enemies.length === 0 && nextTargets && nextTargets.length > 0) {
+      const maxOffset = (this.minimapSize / 2) - 10;
+      for (const target of nextTargets.slice(0, 3)) {
+        const relX = (target.x - playerPos.x) * scale;
+        const relZ = (target.z - playerPos.z) * scale;
+        const angle = Math.atan2(relZ, relX);
+        const edgeX = Math.cos(angle) * maxOffset;
+        const edgeY = Math.sin(angle) * maxOffset;
+
+        this.minimapCtx.save();
+        this.minimapCtx.translate(edgeX, edgeY);
+        this.minimapCtx.rotate(angle);
+
+        this.minimapCtx.fillStyle = target.type === 'dungeon_entrance' ? '#ab47bc' : '#00e5ff';
+        this.minimapCtx.beginPath();
+        this.minimapCtx.moveTo(7, 0);
+        this.minimapCtx.lineTo(-5, -4);
+        this.minimapCtx.lineTo(-2, 0);
+        this.minimapCtx.lineTo(-5, 4);
+        this.minimapCtx.closePath();
+        this.minimapCtx.fill();
+
+        this.minimapCtx.restore();
+      }
+    }
+
     this.minimapCtx.restore(); // restore map rotation
+
+    // Label when area is clear of enemies
+    if (enemies.length === 0) {
+      this.minimapCtx.save();
+      this.minimapCtx.fillStyle = 'rgba(0, 229, 255, 0.9)';
+      this.minimapCtx.font = 'bold 9px sans-serif';
+      this.minimapCtx.textAlign = 'center';
+      this.minimapCtx.fillText('AREA PULITA', centerX, 14);
+      this.minimapCtx.restore();
+    }
 
     // Draw Player Arrow at Center pointing UP
     this.minimapCtx.fillStyle = '#00ff00';

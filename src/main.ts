@@ -1173,11 +1173,24 @@ function animate(): void {
 
   const poiPositions = features.poiPositions.map((p) => ({ x: p.position.x, z: p.position.z, type: p.type }));
   const currentYaw = player.activeVehicle ? player.activeVehicle.yaw : ((player as any).yaw || 0);
+
+  const nextTargets = aliveEnemies.length === 0
+    ? [
+        ...features.poiPositions.map((p) => ({ x: p.position.x, z: p.position.z, type: p.type })),
+        ...features.monsterSpawns.map((p) => ({ x: p.position.x, z: p.position.z, type: 'spawn' }))
+      ].sort((a, b) => {
+        const distA = Math.hypot(a.x - player.mesh.position.x, a.z - player.mesh.position.z);
+        const distB = Math.hypot(b.x - player.mesh.position.x, b.z - player.mesh.position.z);
+        return distA - distB;
+      })
+    : [];
+
   hud.updateMinimap(
     { x: player.mesh.position.x, z: player.mesh.position.z },
     currentYaw,
     aliveEnemies,
-    poiPositions
+    poiPositions,
+    nextTargets
   );
 
   // Update tumbleweeds
