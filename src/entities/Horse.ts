@@ -93,7 +93,7 @@ export class Horse extends Vehicle {
     this.mesh.position.copy(position);
   }
 
-  update(delta: number, input: InputManager, heightMap: HeightMap, cameraYaw?: number): void {
+  update(delta: number, input: InputManager, heightMap: HeightMap): void {
     this.updateSteeringAndThrottle(delta, input, {
       accel: 45.0,
       brakeAccel: 90.0,
@@ -101,7 +101,7 @@ export class Horse extends Vehicle {
       turnSpeed: 4.0,
       baseMaxSpeed: 18,
       boostMultiplier: 1.5,
-    }, cameraYaw);
+    });
 
     this.mesh.rotation.y = this.yaw;
 

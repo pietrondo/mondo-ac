@@ -57,7 +57,7 @@ export class Spaceship extends Vehicle {
     this.mesh.position.copy(position);
   }
 
-  update(delta: number, input: InputManager, heightMap: HeightMap, cameraYaw?: number): void {
+  update(delta: number, input: InputManager, heightMap: HeightMap): void {
     const { turnInput } = this.updateSteeringAndThrottle(delta, input, {
       accel: 50.0,
       brakeAccel: 100.0,
@@ -65,7 +65,7 @@ export class Spaceship extends Vehicle {
       turnSpeed: 4.0,
       baseMaxSpeed: 38,
       boostMultiplier: 1.4,
-    }, cameraYaw);
+    });
 
     // Roll banking (tilt left on A, right on D)
     const targetRoll = -turnInput * 0.5;

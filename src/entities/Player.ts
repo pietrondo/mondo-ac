@@ -20,8 +20,6 @@ export class Player {
   private readonly gravity = 24;
   cameraHeight = 2.4; // Eye level height
   yaw = 0;
-  private cameraOrbitYaw = 0;
-  vehicleCameraYaw = 0;
   private pitch = 0.3;
 
   // HP and death
@@ -183,41 +181,29 @@ export class Player {
     }
 
     if (this.activeVehicle) {
-      const activeCameraYaw = this.vehicleCameraYaw + this.cameraOrbitYaw;
-      this.activeVehicle.update(delta, this.input, heightMap, activeCameraYaw);
+      // Direct mouse aiming for vehicles (smooth, responsive, zero camera spin conflict)
+      this.activeVehicle.yaw += this.input.state.mouseX;
+      this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
+      this.input.resetMouse();
+
+      this.activeVehicle.update(delta, this.input, heightMap);
       this.mesh.position.copy(this.activeVehicle.mesh.position);
       this.mesh.rotation.y = this.activeVehicle.yaw;
       this.velocity.set(0, 0, 0);
 
-      // Smooth camera yaw lag behind vehicle yaw
-      let diff = this.activeVehicle.yaw - this.vehicleCameraYaw;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      this.vehicleCameraYaw += diff * Math.min(1.0, delta * 4.5);
-
-      // Mouse orbits camera around the vehicle
-      if (Math.abs(this.input.state.mouseX) > 0.0001) {
-        this.cameraOrbitYaw += this.input.state.mouseX;
-      } else {
-        this.cameraOrbitYaw *= Math.pow(0.005, delta);
-      }
-      this.pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, this.pitch - this.input.state.mouseY));
-      this.input.resetMouse();
-
-      // 3rd-person chase camera for vehicles & mounts (behind and above)
+      // 3rd-person chase camera locked behind vehicle yaw
       const distBehind = 6.0;
       const heightAbove = 2.8;
-      const effectiveYaw = this.vehicleCameraYaw + this.cameraOrbitYaw;
 
-      const camX = this.mesh.position.x - Math.sin(effectiveYaw) * Math.cos(this.pitch) * distBehind;
+      const camX = this.mesh.position.x - Math.sin(this.activeVehicle.yaw) * Math.cos(this.pitch) * distBehind;
       const camY = this.mesh.position.y + heightAbove + Math.sin(this.pitch) * distBehind;
-      const camZ = this.mesh.position.z + Math.cos(effectiveYaw) * Math.cos(this.pitch) * distBehind;
+      const camZ = this.mesh.position.z + Math.cos(this.activeVehicle.yaw) * Math.cos(this.pitch) * distBehind;
 
       this.camera.position.set(camX, camY, camZ);
       this.camera.lookAt(
-        this.mesh.position.x,
-        this.mesh.position.y + heightAbove * 0.8,
-        this.mesh.position.z
+        this.mesh.position.x + Math.sin(this.activeVehicle.yaw) * Math.cos(this.pitch) * 50,
+        this.mesh.position.y + heightAbove + Math.sin(this.pitch) * 50,
+        this.mesh.position.z - Math.cos(this.activeVehicle.yaw) * Math.cos(this.pitch) * 50
       );
 
       if (this.shakeIntensity > 0) {
