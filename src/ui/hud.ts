@@ -442,13 +442,41 @@ export class HUD {
       border: 1px solid rgba(255,255,255,0.2);
       z-index: 100;
     `;
-    this.timeWeatherElement.textContent = '☀️ 12:00';
-    document.body.appendChild(this.timeWeatherElement);
+    // Dungeon Status UI
+    this.dungeonStatusElement = document.createElement('div');
+    this.dungeonStatusElement.style.cssText = `
+      position: fixed;
+      top: 55px;
+      left: 20px;
+      color: #b388ff;
+      background: rgba(15, 10, 25, 0.85);
+      border: 1.5px solid #b388ff;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-family: system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: bold;
+      z-index: 100;
+      display: none;
+      box-shadow: 0 0 12px rgba(179, 136, 255, 0.4);
+    `;
+    this.dungeonStatusElement.textContent = '🏰 DUNGEON SUBTERRANEO';
+    document.body.appendChild(this.dungeonStatusElement);
   }
 
   private bossBarContainer: HTMLDivElement;
   private skillBarElement: HTMLDivElement;
   private timeWeatherElement: HTMLDivElement;
+  private dungeonStatusElement: HTMLDivElement;
+
+  setDungeonStatus(visible: boolean, name: string = 'Cripta Subterranea', monstersRemaining: number = 0): void {
+    if (visible) {
+      this.dungeonStatusElement.textContent = `🏰 ${name.toUpperCase()} | Nemici: ${monstersRemaining}`;
+      this.dungeonStatusElement.style.display = 'block';
+    } else {
+      this.dungeonStatusElement.style.display = 'none';
+    }
+  }
 
   updateSkillCooldowns(dashCd: number, grenadeCd: number, shieldCd: number): void {
     const cdDash = document.getElementById('cd-dash');
@@ -459,11 +487,12 @@ export class HUD {
     if (cdShield) cdShield.textContent = shieldCd > 0 ? `${shieldCd.toFixed(1)}s` : 'PRONTO';
   }
 
-  showBossHealthBar(name: string, hp: number, maxHp: number): void {
+  showBossHealthBar(name: string, hp: number, maxHp: number, phase?: number): void {
     this.bossBarContainer.style.display = 'block';
     const nameEl = document.getElementById('boss-name');
     const fillEl = document.getElementById('boss-hp-fill');
-    if (nameEl) nameEl.textContent = `👑 ${name}`;
+    const phaseText = phase ? ` (FASE ${phase})` : '';
+    if (nameEl) nameEl.textContent = `👑 ${name}${phaseText}`;
     if (fillEl) fillEl.style.width = `${Math.max(0, (hp / maxHp) * 100)}%`;
   }
 
@@ -896,6 +925,10 @@ export class HUD {
     document.getElementById('close-shop-btn')?.addEventListener('click', () => {
       overlay.remove();
     });
+  }
+
+  getWeaponText(): string {
+    return this.ammoElement.textContent ?? '';
   }
 
   getReloadText(): string {

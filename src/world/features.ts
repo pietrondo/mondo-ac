@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HeightMap } from './heightmap';
 import { BiomeMap, BiomeType } from './biomeMap';
-import { createHouse, createCastle, createRuin, createPyramid, createLighthouse, createTavern, createTemple, createWarehouse, createLibrary, createBunker, createWell, createMarketStall, createLantern, createFarmField, createPath, createCart, createTreeStump, createHayBale, createWindmill, createWatchtower, createBlacksmith } from './structures';
+import { createHouse, createCastle, createRuin, createPyramid, createLighthouse, createTavern, createTemple, createWarehouse, createLibrary, createBunker, createWell, createMarketStall, createLantern, createFarmField, createPath, createCart, createTreeStump, createHayBale, createWindmill, createWatchtower, createBlacksmith, createDungeonEntrancePortal } from './structures';
 import { WORLD_SIZE, WORLD_SCALE, rng } from '../config';
 import { getSpawnConfigForBiome, MonsterSpawnPoint, calculateDifficultyMultiplier } from './spawnSelection';
 
@@ -428,6 +428,22 @@ export function placeFeatures(
             }
 
             poiPositions.push({ position: new THREE.Vector3(worldX, elevation, worldZ), type: 'bunker' });
+          }
+
+          if (rng.next() < 0.015) {
+            const portal = createDungeonEntrancePortal();
+            const portalPos = new THREE.Vector3(worldX, elevation, worldZ);
+            portal.position.copy(portalPos);
+            structures.add(portal);
+
+            const portalCollider = (portal as any).collider;
+            if (portalCollider) {
+              const worldBox = portalCollider.box.clone();
+              worldBox.translate(portal.position);
+              structureColliders.push({ box: worldBox, type: portalCollider.type });
+            }
+
+            poiPositions.push({ position: portalPos.clone(), type: 'dungeon_entrance' });
           }
           break;
         }

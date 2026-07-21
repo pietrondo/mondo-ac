@@ -38,6 +38,8 @@ import { SkillSystem } from './game/skills';
 import { MultiplayerManager } from './net/multiplayer';
 import { ZoneManager } from './world/zones';
 import { ChunkManager } from './world/chunkManager';
+import { generateDungeon, DungeonResult } from './world/dungeonGenerator';
+import { BossMonster } from './entities/BossMonster';
 
 async function setLoadingProgress(percent: number, message: string): Promise<void> {
   const fill = document.getElementById('loading-bar-fill');
@@ -588,6 +590,14 @@ await setLoadingProgress(100, 'Mondo caricato!');
 const loadingOverlay = document.getElementById('loading-overlay');
 if (loadingOverlay) loadingOverlay.style.display = 'none';
 
+// Dungeon system state
+let isInDungeon = false;
+let activeDungeon: DungeonResult | null = null;
+let dungeonBoss: BossMonster | null = null;
+let dungeonMonsters: Monster[] = [];
+const surfacePosBeforeDungeon = new THREE.Vector3();
+let savedOverworldFog: THREE.Fog | THREE.FogExp2 | null = null;
+
 // Game loop
 lastTime = performance.now();
 let gameTime = 0;
@@ -653,13 +663,137 @@ function animate(): void {
     multiplayer.update(delta, player.mesh.position, player.yaw, player.hp, weapons[activeWeaponIndex].name);
   }
 
-  // Update Region Zone detection & Dynamic VRAM Terrain Chunk Streaming
+  // Update Region Zone detection & Dynamic VRAM Terrain Chunk Streaming (paused inside dungeons)
   if (zoneManager) {
     zoneManager.update(player.mesh.position, hud);
   }
-  if (chunkManager) {
+  if (chunkManager && !isInDungeon) {
     chunkManager.update(player.mesh.position);
   }
+
+  // Dungeon Portal Interactions & Updates
+  let nearPortal = false;
+  const interactPressed = input.state.interact;
+
+  if (!isInDungeon) {
+    const entrances = features.poiPositions.filter(p => p.type === 'dungeon_entrance');
+    for (const entrance of entrances) {
+      if (player.mesh.position.distanceTo(entrance.position) < 3.5) {
+        nearPortal = true;
+        hud.showInteractPrompt('Premi [E] per entrare nel Dungeon Subterraneo');
+        if (interactPressed && !interactWasPressed) {
+          surfacePosBeforeDungeon.copy(player.mesh.position);
+          savedOverworldFog = scene.fog;
+
+          activeDungeon = generateDungeon(12345 + Math.floor(Math.random() * 8888), -150);
+          scene.add(activeDungeon.group);
+          player.setColliders([...features.structureColliders, ...activeDungeon.colliders], decorations.colliders);
+
+          player.teleportTo(activeDungeon.entrancePos);
+          player.isSubterranean = true;
+          player.dungeonFloorY = activeDungeon.floorY;
+
+          scene.fog = new THREE.FogExp2(0x0a0814, 0.025);
+
+          dungeonBoss = new BossMonster(activeDungeon.bossSpawnPos, {
+            name: 'Titano Oscuro',
+            maxHp: 800,
+            onDeath: () => {
+              hud.addScore(1000);
+              hud.addCoins(500);
+              soundManager.playCollect();
+              hud.showWaveBanner('🏆 BOSS SCONFITTO!', 'Hai liberato il dungeon! +1000 PTS & +$500');
+            }
+          });
+          scene.add(dungeonBoss.mesh);
+
+          dungeonMonsters = [];
+          for (const mPos of activeDungeon.monsterSpawns) {
+            const m = new Monster(mPos, {
+              variant: chooseMonsterVariant(mPos),
+              onAttack: () => soundManager.playPositionalAttack(m.mesh),
+              onDeath: () => {
+                hud.addScore(40);
+                hud.incrementKills();
+                hud.incrementCombo();
+              }
+            });
+            m.mesh.userData.damageable = m;
+            m.setProjectileSystem(enemyProjectileSystem);
+            dungeonMonsters.push(m);
+            scene.add(m.mesh);
+          }
+
+          isInDungeon = true;
+          hud.showWaveBanner('🏰 DUNGEON SUBTERRANEO', 'Sconfiggi il Boss Titano per fuggire!');
+        }
+        break;
+      }
+    }
+  } else if (activeDungeon) {
+    const distToExit = player.mesh.position.distanceTo(activeDungeon.exitPortalPos);
+    if (distToExit < 3.5) {
+      nearPortal = true;
+      hud.showInteractPrompt('Premi [E] per uscire dal Dungeon');
+      if (interactPressed && !interactWasPressed) {
+        player.teleportTo(surfacePosBeforeDungeon);
+        player.isSubterranean = false;
+        player.setColliders(features.structureColliders, decorations.colliders);
+        scene.fog = savedOverworldFog;
+
+        scene.remove(activeDungeon.group);
+        if (dungeonBoss) scene.remove(dungeonBoss.mesh);
+        for (const m of dungeonMonsters) scene.remove(m.mesh);
+
+        activeDungeon = null;
+        dungeonBoss = null;
+        dungeonMonsters = [];
+        isInDungeon = false;
+        hud.setDungeonStatus(false);
+        hud.hideBossHealthBar();
+      }
+    }
+
+    if (isInDungeon) {
+      if (dungeonBoss && dungeonBoss.isAlive()) {
+        dungeonBoss.update(delta, player.mesh.position, true);
+        hud.showBossHealthBar(dungeonBoss.name, dungeonBoss.getHp(), dungeonBoss.maxHp, dungeonBoss.getPhase());
+
+        if (damageCooldown <= 0 && player.isAlive() && dungeonBoss.mesh.position.distanceTo(player.mesh.position) < 3.8) {
+          if (!skillSystem.isShieldActive) {
+            player.takeDamage(15 * dungeonBoss.getPhase());
+            damageCooldown = 1.0;
+            updateHpDisplay();
+            soundManager.playHurt();
+          }
+        }
+      } else {
+        hud.hideBossHealthBar();
+      }
+
+      for (const m of dungeonMonsters) {
+        if (m.isAlive()) {
+          m.update(delta, heightMap, player.mesh.position, camera, dungeonMonsters);
+          if (damageCooldown <= 0 && player.isAlive() && m.mesh.position.distanceTo(player.mesh.position) < 2.0) {
+            if (!skillSystem.isShieldActive) {
+              player.takeDamage(10);
+              damageCooldown = 1.0;
+              updateHpDisplay();
+              soundManager.playHurt();
+            }
+          }
+        }
+      }
+
+      const aliveDungeonCount = dungeonMonsters.filter(m => m.isAlive()).length + (dungeonBoss?.isAlive() ? 1 : 0);
+      hud.setDungeonStatus(true, 'Cripta Subterranea', aliveDungeonCount);
+    }
+  }
+
+  if (!nearPortal && hud.getInteractPromptText().includes('Dungeon')) {
+    hud.hideInteractPrompt();
+  }
+  interactWasPressed = interactPressed;
 
   // Track wasAlive transition for HP sync and leaderboard overlay on respawn/death
   const isAlive = player.isAlive();
@@ -836,7 +970,6 @@ function animate(): void {
   tickPowerUpRuntime(delta, powerUpRuntime, player);
 
   // Vehicle Boarding / Exiting Logic
-  const interactPressed = input.state.interact;
   if (interactPressed && !interactWasPressed) {
     if (player.activeVehicle) {
       const vehicle = player.activeVehicle;

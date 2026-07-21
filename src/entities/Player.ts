@@ -27,8 +27,16 @@ export class Player {
   hp = 100;
   maxHp = 100;
   isInvulnerable = false;
+  isSubterranean = false;
+  dungeonFloorY = -150;
   private alive = true;
   private respawnPosition = new THREE.Vector3();
+
+  teleportTo(pos: THREE.Vector3): void {
+    this.mesh.position.copy(pos);
+    this.velocity.set(0, 0, 0);
+    this.grounded = true;
+  }
 
   // Collision
   private structureColliders: { box: THREE.Box3; type: 'solid' | 'trigger' }[] = [];
@@ -289,14 +297,17 @@ export class Player {
     }
 
     // Clamp to world bounds
-    const worldHalf = (WORLD_SIZE / 2) * WORLD_SCALE;
-    this.mesh.position.x = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.x));
-    this.mesh.position.z = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.z));
+    if (!this.isSubterranean) {
+      const worldHalf = (WORLD_SIZE / 2) * WORLD_SCALE;
+      this.mesh.position.x = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.x));
+      this.mesh.position.z = Math.max(-worldHalf, Math.min(worldHalf, this.mesh.position.z));
+    }
 
     // Grounded jump and gravity
     const hx = (this.mesh.position.x / WORLD_SCALE) + (WORLD_SIZE / 2);
     const hz = (this.mesh.position.z / WORLD_SCALE) + (WORLD_SIZE / 2);
     const terrainHeight = heightMap.getInterpolated(hx, hz);
+    const targetFloor = this.isSubterranean ? this.dungeonFloorY : terrainHeight;
     const jumpPressed = this.input.state.jump;
     if (this.grounded && jumpPressed && !this.jumpWasPressed) {
       this.velocity.y = this.jumpVelocity;
@@ -306,8 +317,8 @@ export class Player {
     this.velocity.y -= this.gravity * delta;
     this.mesh.position.y += this.velocity.y * delta;
 
-    if (this.mesh.position.y <= terrainHeight) {
-      this.mesh.position.y = terrainHeight;
+    if (this.mesh.position.y <= targetFloor) {
+      this.mesh.position.y = targetFloor;
       this.velocity.y = 0;
       this.grounded = true;
     }

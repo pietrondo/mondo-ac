@@ -1867,3 +1867,76 @@ export function createBlacksmith(): THREE.Group {
   return group;
 }
 
+export function createDungeonEntrancePortal(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'dungeon_entrance_portal';
+
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x333344, flatShading: true, roughness: 0.8 });
+  const portalMat = new THREE.MeshBasicMaterial({ color: 0x8800ff, transparent: true, opacity: 0.75 });
+
+  // Arch pillars
+  const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4.0, 0.8), stoneMat);
+  leftPillar.position.set(-1.8, 2.0, 0);
+  group.add(leftPillar);
+
+  const rightPillar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 4.0, 0.8), stoneMat);
+  rightPillar.position.set(1.8, 2.0, 0);
+  group.add(rightPillar);
+
+  // Top lintel
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.8, 0.8), stoneMat);
+  lintel.position.set(0, 4.4, 0);
+  group.add(lintel);
+
+  // Glowing void vortex center
+  const swirl = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 3.8), portalMat);
+  swirl.position.set(0, 2.2, 0);
+  group.add(swirl);
+
+  // PointLight
+  const light = new THREE.PointLight(0xaa00ff, 2.5, 12);
+  light.position.set(0, 2.5, 0.5);
+  group.add(light);
+
+  const box = new THREE.Box3();
+  box.setFromCenterAndSize(new THREE.Vector3(0, 2.0, 0), new THREE.Vector3(3.6, 4.0, 2.0));
+  (group as any).collider = { box, type: 'trigger' };
+
+  return group;
+}
+
+export function createDungeonExitPortal(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'dungeon_exit_portal';
+
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x444455, flatShading: true, roughness: 0.7 });
+  const portalMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.8 });
+
+  // Pedestal
+  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.2, 0.6, 8), stoneMat);
+  pedestal.position.y = 0.3;
+  group.add(pedestal);
+
+  // Portal Arch Ring
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.3, 8, 16), stoneMat);
+  ring.position.y = 2.4;
+  group.add(ring);
+
+  // Swirl Plane
+  const swirl = new THREE.Mesh(new THREE.CircleGeometry(1.6, 16), portalMat);
+  swirl.position.y = 2.4;
+  group.add(swirl);
+
+  // PointLight
+  const light = new THREE.PointLight(0x00e5ff, 3.0, 14);
+  light.position.set(0, 2.4, 0.5);
+  group.add(light);
+
+  const box = new THREE.Box3();
+  box.setFromCenterAndSize(new THREE.Vector3(0, 2.0, 0), new THREE.Vector3(3.6, 4.0, 2.0));
+  (group as any).collider = { box, type: 'trigger' };
+
+  return group;
+}
+
+
