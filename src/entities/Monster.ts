@@ -7,6 +7,7 @@ import { PatternState, getPatternForVariant, calculateDirection } from '../comba
 
 export interface MonsterOptions {
   variant?: MonsterVariant;
+  isWaveHorde?: boolean;
   onAttack?: () => void;
   onDeath?: () => void;
   onFootstep?: (position: THREE.Vector3) => void;
@@ -17,6 +18,7 @@ export class Monster {
   readonly variant: MonsterVariant;
   readonly maxHp: number;
   readonly moveSpeed: number;
+  readonly isWaveHorde: boolean;
   private state: 'wander' | 'chase' | 'attack' | 'dying' = 'wander';
   private targetPos = new THREE.Vector3();
   private hp: number;
@@ -59,6 +61,7 @@ export class Monster {
 
   constructor(position: THREE.Vector3, options: MonsterOptions = {}) {
     this.variant = options.variant ?? chooseMonsterVariant(position);
+    this.isWaveHorde = options.isWaveHorde ?? false;
     this.onAttack = options.onAttack;
     this.onDeath = options.onDeath;
     this.onFootstep = options.onFootstep;
@@ -67,6 +70,13 @@ export class Monster {
     this.moveSpeed = profile.speed;
     this.hp = this.maxHp;
     this.mesh = new THREE.Group();
+
+    // Red Horde Aura Light for Wave Monsters
+    if (this.isWaveHorde) {
+      const hordeLight = new THREE.PointLight(0xFF1744, 2.5, 6);
+      hordeLight.position.set(0, profile.bodyHeight + 0.5, 0);
+      this.mesh.add(hordeLight);
+    }
 
     // Muzzle flash light
     this.muzzleFlash = new THREE.PointLight(0xff6600, 0, 8);

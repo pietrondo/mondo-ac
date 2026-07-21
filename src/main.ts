@@ -328,16 +328,18 @@ const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) =
     }
   }
 
-  // Flamethrower continuous flame particle stream
+  // Flamethrower continuous expanding flame stream
   if (activeWeapon.type === 'flamethrower') {
     const camPos = camera.getWorldPosition(new THREE.Vector3());
     const camDir = camera.getWorldDirection(new THREE.Vector3());
-    for (let f = 0; f < 3; f++) {
-      const dist = 1 + Math.random() * 12;
-      const spread = (Math.random() - 0.5) * 0.8;
-      const fPos = camPos.clone().addScaledVector(camDir, dist).add(new THREE.Vector3(spread, spread, spread));
-      const fVel = camDir.clone().multiplyScalar(14 + Math.random() * 6);
-      particlePool.spawn('spark', fPos, fVel, 0.4);
+    for (let f = 0; f < 5; f++) {
+      const dist = 0.8 + Math.random() * 8;
+      const spread = (Math.random() - 0.5) * (0.3 + dist * 0.12);
+      const fPos = camPos.clone().addScaledVector(camDir, dist).add(new THREE.Vector3(spread, (Math.random() - 0.5) * 0.4, spread));
+      const fVel = camDir.clone().multiplyScalar(16 + Math.random() * 8);
+      fVel.x += (Math.random() - 0.5) * 4;
+      fVel.z += (Math.random() - 0.5) * 4;
+      particlePool.spawn('flame', fPos, fVel, 0.4 + Math.random() * 0.3);
     }
   }
 
@@ -385,7 +387,9 @@ const handleWeaponShot = (hit: THREE.Intersection<THREE.Object3D> | undefined) =
     ? hit.point.clone()
     : origin.clone().add(direction.multiplyScalar(activeWeapon.range));
 
-  shotTracer.spawn(origin, end);
+  if (activeWeapon.type !== 'flamethrower' && activeWeapon.type !== 'melee') {
+    shotTracer.spawn(origin, end);
+  }
 };
 scene.add(player.mesh);
 scene.add(camera);
@@ -568,7 +572,7 @@ scene.add(spawnGuideNpc.mesh);
 const monsters: Monster[] = [];
 const enemyProjectileSystem = new EnemyProjectileSystem(scene);
 
-function spawnMonsterAtPosition(pos: THREE.Vector3, index: number, difficulty = 1.0): Monster {
+function spawnMonsterAtPosition(pos: THREE.Vector3, index: number, difficulty = 1.0, isWaveHorde = false): Monster {
   const monsterPosition = pos.clone();
   const hx = (monsterPosition.x / WORLD_SCALE) + WORLD_SIZE / 2;
   const hz = (monsterPosition.z / WORLD_SCALE) + WORLD_SIZE / 2;
@@ -576,6 +580,7 @@ function spawnMonsterAtPosition(pos: THREE.Vector3, index: number, difficulty = 
 
   const monster = new Monster(monsterPosition, {
     variant: chooseMonsterVariant(monsterPosition, index, biomeMap),
+    isWaveHorde,
     onAttack: () => {
       soundManager.playPositionalAttack(monster.mesh);
     },
@@ -610,7 +615,9 @@ function spawnMonsterAtPosition(pos: THREE.Vector3, index: number, difficulty = 
       hud.incrementCombo();
       hud.incrementKills();
       hud.triggerEnemyDeathAlert();
-      waveManager.notifyEnemyKilled();
+      if (monster.isWaveHorde) {
+        waveManager.notifyEnemyKilled();
+      }
       questManager.notifyMonsterKilled();
       if (monster.variant === 'titan' || monster.variant === 'annihilator' || monster.variant === 'golem') {
         questManager.notifyBossKilled();
@@ -753,8 +760,25 @@ const waveManager = new WaveManager();
 waveManager.onWaveStart((config) => {
   hud.showWaveBanner(
     `ONDATA ${config.waveNumber}`,
-    config.hasBoss ? '⚠️ ONDATA BOSS IN ARRIVO!' : `Preparati: ${config.totalEnemies} Mostri!`
+    config.hasBoss ? '⚠️ ONDATA BOSS IN ARRIVO!' : `Assalto Orda: ${config.totalEnemies} Mostri Rossi!`
   );
+  soundManager.playCollect();
+
+  // Spawn config.totalEnemies Wave Horde monsters in a ring around the player (35m-55m)
+  const angleStep = (Math.PI * 2) / Math.max(1, config.totalEnemies);
+  for (let i = 0; i < config.totalEnemies; i++) {
+    const angle = i * angleStep + (Math.random() - 0.5) * 0.3;
+    const dist = 35 + Math.random() * 20;
+    const spawnPos = player.mesh.position.clone().add(new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist));
+
+    // Particle burst on wave spawn
+    for (let p = 0; p < 6; p++) {
+      const vel = new THREE.Vector3((Math.random() - 0.5) * 3, 2 + Math.random() * 3, (Math.random() - 0.5) * 3);
+      particlePool.spawn('dust', spawnPos.clone(), vel, 0.8);
+    }
+
+    spawnMonsterAtPosition(spawnPos, i, config.difficultyMultiplier, true);
+  }
 });
 
 waveManager.onWaveClear((waveNum, bonusScore) => {

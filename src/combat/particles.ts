@@ -4,7 +4,7 @@ import { WORLD_SCALE } from '../config';
 
 export interface Particle {
   mesh: THREE.Mesh;
-  type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust';
+  type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame';
   active: boolean;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
@@ -26,6 +26,7 @@ export class ParticlePool {
   private leafGeo = new THREE.BoxGeometry(0.08, 0.02, 0.08);
   private smokeGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
   private dustGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+  private flameGeo = new THREE.SphereGeometry(0.35, 8, 8);
 
   constructor(scene: THREE.Scene, maxCapacity: number = 300) {
     this.scene = scene;
@@ -37,8 +38,8 @@ export class ParticlePool {
   }
 
   prewarm(): void {
-    const types: Array<'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust'> = [
-      'spark', 'blood', 'shell', 'snow', 'sand', 'leaf', 'smoke', 'dust'
+    const types: Array<'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame'> = [
+      'spark', 'blood', 'shell', 'snow', 'sand', 'leaf', 'smoke', 'dust', 'flame'
     ];
     for (const type of types) {
       for (let i = 0; i < 12; i++) {
@@ -58,7 +59,7 @@ export class ParticlePool {
     }
   }
 
-  private createMesh(type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust'): THREE.Mesh {
+  private createMesh(type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame'): THREE.Mesh {
     let geo: THREE.BufferGeometry;
     let mat: THREE.Material;
 
@@ -113,12 +114,19 @@ export class ParticlePool {
         transparent: true,
         opacity: 0.5,
       });
-    } else {
+    } else if (type === 'dust') {
       geo = this.dustGeo;
       mat = new THREE.MeshBasicMaterial({
         color: 0xC4A484,
         transparent: true,
         opacity: 0.6,
+      });
+    } else {
+      geo = this.flameGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0xff3d00,
+        transparent: true,
+        opacity: 0.85,
       });
     }
 
@@ -129,7 +137,7 @@ export class ParticlePool {
   }
 
   spawn(
-    type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust',
+    type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame',
     position: THREE.Vector3,
     velocity: THREE.Vector3,
     maxLife: number = 1.0
@@ -205,6 +213,9 @@ export class ParticlePool {
           } else if (type === 'dust') {
             p.mesh.geometry = this.dustGeo;
             p.mesh.material = new THREE.MeshBasicMaterial({ color: 0xC4A484, transparent: true, opacity: 0.6 });
+          } else if (type === 'flame') {
+            p.mesh.geometry = this.flameGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0xff3d00, transparent: true, opacity: 0.85 });
           }
         }
       }
@@ -310,8 +321,8 @@ export class ParticlePool {
       const groundY = heightMap.getInterpolated(hx, hz);
 
       if (p.position.y <= groundY) {
-        // Weather particles bypass ground bounces/stopping and just deactivate
-        if (p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust') {
+        // Weather & flame particles bypass ground bounces/stopping and just deactivate
+        if (p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust' || p.type === 'flame') {
           p.active = false;
           p.mesh.visible = false;
           continue;
@@ -345,7 +356,10 @@ export class ParticlePool {
       }
 
       const ratio = Math.max(0, p.life / p.maxLife);
-      if (p.type === 'spark' || p.type === 'blood' || p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust') {
+      if (p.type === 'flame') {
+        const age = 1.0 - ratio;
+        p.mesh.scale.setScalar(0.5 + age * 3.2);
+      } else if (p.type === 'spark' || p.type === 'blood' || p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust') {
         p.mesh.scale.setScalar(ratio);
       }
 
