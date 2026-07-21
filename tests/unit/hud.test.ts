@@ -54,13 +54,14 @@ describe('HUD weapon feedback', () => {
     const hud = new HUD();
     hud.setWeaponState(12, 48, true);
 
-    expect(body.appendChild).toHaveBeenCalledTimes(18);
+    expect(body.appendChild).toHaveBeenCalledTimes(19);
     expect(hud.getScore()).toBe(0);
     expect(hud.getVersionText()).toContain('v:');
     expect(hud.getWeaponText()).toBe('Ammo: 12 / 48');
     expect(hud.getReloadText()).toBe('Reloading...');
     expect(hud.getCrosshairVisible()).toBe(true);
 
+    hud.showLoreNotification('La Genesi', 'History');
     expect(hud.getInteractPromptVisible()).toBe(false);
     hud.showInteractPrompt('Press E to board');
     expect(hud.getInteractPromptVisible()).toBe(true);

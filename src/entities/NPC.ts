@@ -8,21 +8,74 @@ export interface VillageContext {
   buildings: THREE.Vector3[];
 }
 
+export interface NPCOptions {
+  name?: string;
+  role?: string;
+  dialogueTreeId?: string;
+}
+
 export class NPC {
   mesh: THREE.Group;
+  name: string;
+  role: string;
+  dialogueTreeId: string;
+  isTalking = false;
+
   private targetPos = new THREE.Vector3();
   private speed = 2;
   private waitTime = 0;
   private village: VillageContext | null;
 
-  constructor(position: THREE.Vector3, village?: VillageContext) {
+  constructor(position: THREE.Vector3, village?: VillageContext, options?: NPCOptions) {
     this.mesh = new THREE.Group();
     this.village = village || null;
+
+    this.name = options?.name || 'Villico';
+    this.role = options?.role || 'Abitante';
+    this.dialogueTreeId = options?.dialogueTreeId || 'elder_eldrin';
+
+    // Color theme according to role
+    let bodyColor = 0x4CAF50;
+    let headColor = 0xFFCC80;
+    let hatMesh: THREE.Mesh | null = null;
+
+    if (this.dialogueTreeId.includes('merchant')) {
+      bodyColor = 0xFFD700; // Gold
+      headColor = 0xFFE0B2;
+      // Merchant Hat
+      hatMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 0.2, 8),
+        new THREE.MeshStandardMaterial({ color: 0x8D6E63, flatShading: true })
+      );
+      hatMesh.position.y = 2.4;
+    } else if (this.dialogueTreeId.includes('elder')) {
+      bodyColor = 0x3F51B5; // Deep Blue Robes
+      headColor = 0xFFECB3;
+      // White Staff
+      const staff = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.05, 2.2, 6),
+        new THREE.MeshStandardMaterial({ color: 0xFFFFFF, flatShading: true })
+      );
+      staff.position.set(0.6, 1.1, 0.2);
+      this.mesh.add(staff);
+    } else if (this.dialogueTreeId.includes('guard')) {
+      bodyColor = 0x78909C; // Iron/Steel
+      headColor = 0xFFCC80;
+      // Guard Helmet
+      hatMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 0.6, 0.7),
+        new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true })
+      );
+      hatMesh.position.y = 2.15;
+    } else if (this.dialogueTreeId.includes('traveler')) {
+      bodyColor = 0x009688; // Teal Cloak
+      headColor = 0xD7CCC8;
+    }
 
     // Body
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(0.8, 1.4, 0.5),
-      new THREE.MeshStandardMaterial({ color: 0x4CAF50, flatShading: true })
+      new THREE.MeshStandardMaterial({ color: bodyColor, flatShading: true })
     );
     body.position.y = 1;
     this.mesh.add(body);
@@ -30,10 +83,14 @@ export class NPC {
     // Head
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(0.35, 8, 8),
-      new THREE.MeshStandardMaterial({ color: 0xFFCC80, flatShading: true })
+      new THREE.MeshStandardMaterial({ color: headColor, flatShading: true })
     );
     head.position.y = 2;
     this.mesh.add(head);
+
+    if (hatMesh) {
+      this.mesh.add(hatMesh);
+    }
 
     this.mesh.traverse((child) => {
       if (child instanceof THREE.Mesh) {
@@ -44,6 +101,15 @@ export class NPC {
 
     this.mesh.position.copy(position);
     this.pickNewTarget();
+  }
+
+  talkToPlayer(playerPos: THREE.Vector3): void {
+    this.isTalking = true;
+    this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
+  }
+
+  resumeWandering(): void {
+    this.isTalking = false;
   }
 
   private pickNewTarget(): void {
@@ -68,6 +134,8 @@ export class NPC {
   }
 
   update(delta: number, heightMap: HeightMap): void {
+    if (this.isTalking) return;
+
     if (this.waitTime > 0) {
       this.waitTime -= delta;
       return;

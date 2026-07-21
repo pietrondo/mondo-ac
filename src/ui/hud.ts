@@ -462,12 +462,46 @@ export class HUD {
     `;
     this.dungeonStatusElement.textContent = '🏰 DUNGEON SUBTERRANEO';
     document.body.appendChild(this.dungeonStatusElement);
+
+    // Lore Notification UI
+    this.loreNotificationElement = document.createElement('div');
+    this.loreNotificationElement.style.cssText = `
+      position: fixed;
+      bottom: 110px;
+      right: 20px;
+      background: rgba(12, 24, 36, 0.92);
+      border: 1.5px solid #80DEEA;
+      border-radius: 10px;
+      padding: 10px 16px;
+      color: #80DEEA;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      z-index: 120;
+      display: none;
+      box-shadow: 0 0 16px rgba(128, 222, 234, 0.4);
+      user-select: none;
+      pointer-events: none;
+    `;
+    document.body.appendChild(this.loreNotificationElement);
   }
 
   private bossBarContainer: HTMLDivElement;
   private skillBarElement: HTMLDivElement;
   private timeWeatherElement: HTMLDivElement;
   private dungeonStatusElement: HTMLDivElement;
+  private loreNotificationElement: HTMLDivElement;
+
+  showLoreNotification(title: string, category: string = 'Lore'): void {
+    this.loreNotificationElement.innerHTML = `
+      <div style="font-size: 11px; color: #B2EBF2; text-transform: uppercase; letter-spacing: 1px;">📖 NUOVA LORE (${category.toUpperCase()}) [Premi L]</div>
+      <div style="font-size: 15px; color: #FFFFFF; font-weight: 800; margin-top: 2px;">${title}</div>
+    `;
+    this.loreNotificationElement.style.display = 'block';
+    setTimeout(() => {
+      this.loreNotificationElement.style.display = 'none';
+    }, 4500);
+  }
 
   setDungeonStatus(visible: boolean, name: string = 'Cripta Subterranea', monstersRemaining: number = 0): void {
     if (visible) {

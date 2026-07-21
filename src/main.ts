@@ -40,6 +40,8 @@ import { ZoneManager } from './world/zones';
 import { ChunkManager } from './world/chunkManager';
 import { generateDungeon, DungeonResult } from './world/dungeonGenerator';
 import { BossMonster } from './entities/BossMonster';
+import { DialogueManager } from './dialogue/DialogueManager';
+import { DialogueUI } from './dialogue/DialogueUI';
 
 async function setLoadingProgress(percent: number, message: string): Promise<void> {
   const fill = document.getElementById('loading-bar-fill');
@@ -146,6 +148,8 @@ let updateHpDisplay: () => void = () => {};
 let multiplayer: MultiplayerManager;
 let zoneManager: ZoneManager;
 let chunkManager: ChunkManager;
+let dialogueManager: DialogueManager;
+let dialogueUI: DialogueUI;
 
 async function initGame(): Promise<void> {
   await setLoadingProgress(15, 'Inizializzazione motore 3D e WebGL...');
@@ -245,7 +249,41 @@ async function initGame(): Promise<void> {
       onShot: (hit) => handleWeaponShot(hit),
     }),
   ];
-let activeWeaponIndex = 0;
+function openShopFromNPC(): void {
+  try { document.exitPointerLock(); } catch (_) {}
+  hud.openShopMenu((item) => {
+    if (item === 'health') {
+      player.hp = Math.min(player.maxHp, player.hp + 50);
+      updateHpDisplay();
+      return true;
+    } else if (item === 'ammo') {
+      const w = weapons[activeWeaponIndex];
+      w.reserveAmmo = w.maxReserveAmmo;
+      hud.setWeaponState(w.magazineAmmo, w.reserveAmmo, w.isReloading, w.name);
+      return true;
+    } else if (item === 'shield') {
+      (player as any).hp = Math.min(player.maxHp + 25, player.hp + 25);
+      updateHpDisplay();
+      return true;
+    } else if (item === 'damage') {
+      powerUpRuntime.shotDamage = Math.round(powerUpRuntime.shotDamage * 1.25);
+      return true;
+    } else if (item === 'grenadelauncher' || item === 'plasma' || item === 'sniper' || item === 'sword' || item === 'spear' || item === 'bow' || item === 'staff' || item === 'rock') {
+      const existing = weapons.find(w => w.type === item);
+      if (existing) {
+        existing.reserveAmmo = existing.maxReserveAmmo;
+      } else {
+        weapons.push(new Weapon(item, {
+          onShot: (hit) => handleWeaponShot(hit),
+          onReload: () => soundManager.playReload(),
+        }));
+      }
+      hud.showWaveBanner('⚔️ ARMA ACQUISTATA!', `Hai ottenuto: ${item.toUpperCase()}`);
+      return true;
+    }
+    return false;
+  });
+}
 
 function findDamageableAncestor(object?: THREE.Object3D): any {
   let current: THREE.Object3D | null | undefined = object;
@@ -353,6 +391,41 @@ scene.add(camera);
 
 // HUD & Debug
 hud = new HUD();
+
+dialogueManager = new DialogueManager();
+dialogueManager.onReward = (reward) => {
+  if (reward.coins) {
+    hud.addCoins(reward.coins);
+  }
+  if (reward.health) {
+    player.hp = Math.min(player.maxHp, player.hp + reward.health);
+    updateHpDisplay();
+  }
+  if (reward.ammo) {
+    const w = weapons[activeWeaponIndex];
+    if (w) {
+      w.reserveAmmo = w.maxReserveAmmo;
+      hud.setWeaponState(w.magazineAmmo, w.reserveAmmo, w.isReloading, w.name);
+    }
+  }
+};
+dialogueManager.onLoreUnlocked = (lore) => {
+  hud.showLoreNotification(lore.title, lore.category);
+};
+dialogueManager.onAction = (action) => {
+  if (action === 'open_shop') {
+    openShopFromNPC();
+  }
+};
+
+dialogueUI = new DialogueUI(
+  dialogueManager,
+  () => hud.getCoins(),
+  () => {
+    npcs.forEach((n) => n.resumeWandering());
+  }
+);
+
 const initialWeapon = weapons[activeWeaponIndex];
 hud.setWeaponState(initialWeapon.magazineAmmo, initialWeapon.reserveAmmo, initialWeapon.isReloading, initialWeapon.name);
 debug = new DebugOverlay(heightMap, biomeMap);
@@ -419,7 +492,15 @@ vehicles.forEach((v) => {
 });
 
 // Spawn entities from features
+const npcPresets = [
+  { name: 'Anziano Eldrin', role: 'Saggio del Villaggio', dialogueTreeId: 'elder_eldrin' },
+  { name: 'Mercante Garrick', role: 'Mercante d\'Armi', dialogueTreeId: 'merchant_garrick' },
+  { name: 'Guardia Varus', role: 'Protettore delle Mura', dialogueTreeId: 'guard_varus' },
+  { name: 'Viaggiatore Kael', role: 'Esploratore delle Rovine', dialogueTreeId: 'traveler_kael' },
+];
+
 const npcs: NPC[] = [];
+let npcPresetIdx = 0;
 for (const pos of features.npcSpawns.slice(0, 10)) {
   // Find closest village for this NPC
   let closestVillage: VillageData | null = null;
@@ -439,9 +520,11 @@ for (const pos of features.npcSpawns.slice(0, 10)) {
     buildings: closestVillage.buildings
   } : undefined;
   
-  const npc = new NPC(pos, villageContext);
+  const preset = npcPresets[npcPresetIdx % npcPresets.length];
+  const npc = new NPC(pos, villageContext, preset);
   npcs.push(npc);
   scene.add(npc.mesh);
+  npcPresetIdx++;
 }
 
 const monsters: Monster[] = [];
@@ -998,43 +1081,21 @@ function animate(): void {
       if (nearestVehicle) {
         player.activeVehicle = nearestVehicle;
       } else {
-        // Check near NPC for Merchant Shop
+        // Check near NPC for Dialogue & Lore interaction
+        let nearestNPC: NPC | null = null;
+        let minDistNPC = 4;
         for (const npc of npcs) {
-          if (player.mesh.position.distanceTo(npc.mesh.position) < 4) {
-            try { document.exitPointerLock(); } catch (_) {}
-            hud.openShopMenu((item) => {
-              if (item === 'health') {
-                player.hp = Math.min(player.maxHp, player.hp + 50);
-                updateHpDisplay();
-                return true;
-              } else if (item === 'ammo') {
-                const w = weapons[activeWeaponIndex];
-                w.reserveAmmo = w.maxReserveAmmo;
-                hud.setWeaponState(w.magazineAmmo, w.reserveAmmo, w.isReloading, w.name);
-                return true;
-              } else if (item === 'shield') {
-                (player as any).hp = Math.min(player.maxHp + 25, player.hp + 25);
-                updateHpDisplay();
-                return true;
-              } else if (item === 'damage') {
-                powerUpRuntime.shotDamage = Math.round(powerUpRuntime.shotDamage * 1.25);
-                return true;
-              } else if (item === 'grenadelauncher' || item === 'plasma' || item === 'sniper' || item === 'sword' || item === 'spear' || item === 'bow' || item === 'staff' || item === 'rock') {
-                const existing = weapons.find(w => w.type === item);
-                if (existing) {
-                  existing.reserveAmmo = existing.maxReserveAmmo;
-                } else {
-                  weapons.push(new Weapon(item, {
-                    onShot: (hit) => handleWeaponShot(hit),
-                    onReload: () => soundManager.playReload(),
-                  }));
-                }
-                hud.showWaveBanner('⚔️ ARMA ACQUISTATA!', `Hai ottenuto: ${item.toUpperCase()}`);
-                return true;
-              }
-              return false;
-            });
-            break;
+          const dist = player.mesh.position.distanceTo(npc.mesh.position);
+          if (dist < minDistNPC) {
+            minDistNPC = dist;
+            nearestNPC = npc;
+          }
+        }
+        if (nearestNPC && !dialogueUI.isOpen()) {
+          nearestNPC.talkToPlayer(player.mesh.position);
+          const node = dialogueManager.startDialogue(nearestNPC.dialogueTreeId, hud.getCoins());
+          if (node) {
+            dialogueUI.showDialogue(node, nearestNPC.name, nearestNPC.role);
           }
         }
       }
@@ -1160,11 +1221,11 @@ function animate(): void {
   // Update ambient audio based on current player biome
   soundManager.updateAmbient(biomeMap.getBiome(px, pz));
 
-  // Update HUD vehicle prompts based on proximity
+  // Update HUD vehicle/NPC prompts based on proximity
   if (player.activeVehicle) {
     const vName = player.activeVehicle instanceof Hovercar ? 'Hovercar' : 'Spaceship';
     hud.showInteractPrompt(`Press E to exit ${vName}`);
-  } else {
+  } else if (!nearPortal) {
     let nearestVehicle: Vehicle | null = null;
     let minDist = 5;
     for (const v of vehicles) {
@@ -1178,7 +1239,20 @@ function animate(): void {
       const vName = nearestVehicle instanceof Hovercar ? 'Hovercar' : 'Spaceship';
       hud.showInteractPrompt(`Press E to board ${vName}`);
     } else {
-      hud.hideInteractPrompt();
+      let nearestNPC: NPC | null = null;
+      let npcDist = 4;
+      for (const npc of npcs) {
+        const dist = player.mesh.position.distanceTo(npc.mesh.position);
+        if (dist < npcDist) {
+          npcDist = dist;
+          nearestNPC = npc;
+        }
+      }
+      if (nearestNPC) {
+        hud.showInteractPrompt(`Premi [E] per parlare con ${nearestNPC.name}`);
+      } else {
+        hud.hideInteractPrompt();
+      }
     }
   }
 
