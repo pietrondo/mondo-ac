@@ -100,7 +100,7 @@ export function selectMonsterSpawns(
   }
 
   const fallbackCount = Math.max(4, Math.min(limit, 6));
-  const radius = Math.max(minDistance + 8, 28);
+  const radius = Math.max(minDistance + 20, 35);
   const fallback: THREE.Vector3[] = [];
 
   for (let i = 0; i < fallbackCount; i++) {
@@ -144,7 +144,7 @@ export function selectMonsterSpawnPoints(
   }
 
   const fallbackCount = Math.max(4, Math.min(limit, 6));
-  const radius = 28;
+  const radius = Math.max(minDistance + 20, 80);
   const fallback: MonsterSpawnPoint[] = [];
 
   for (let i = 0; i < fallbackCount; i++) {

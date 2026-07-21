@@ -528,7 +528,7 @@ for (const pos of features.npcSpawns.slice(0, 10)) {
 }
 
 // Dedicated Spawn Sanctuary Lore Guide NPC
-const spawnNpcPos = new THREE.Vector3(0, 0, 4.5);
+const spawnNpcPos = new THREE.Vector3(0, 0, -4.5);
 const hxSpawn = (spawnNpcPos.x / WORLD_SCALE) + WORLD_SIZE / 2;
 const hzSpawn = (spawnNpcPos.z / WORLD_SCALE) + WORLD_SIZE / 2;
 spawnNpcPos.y = heightMap.getInterpolated(hxSpawn, hzSpawn);
@@ -538,6 +538,7 @@ const spawnGuideNpc = new NPC(spawnNpcPos, undefined, {
   role: 'Guida del Santuario',
   dialogueTreeId: 'elder_eldrin'
 });
+spawnGuideNpc.mesh.lookAt(0, spawnNpcPos.y + 1, 0);
 npcs.push(spawnGuideNpc);
 scene.add(spawnGuideNpc.mesh);
 
