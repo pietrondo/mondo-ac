@@ -497,11 +497,17 @@ const npcPresets = [
   { name: 'Mercante Garrick', role: 'Mercante d\'Armi', dialogueTreeId: 'merchant_garrick' },
   { name: 'Guardia Varus', role: 'Protettore delle Mura', dialogueTreeId: 'guard_varus' },
   { name: 'Viaggiatore Kael', role: 'Esploratore delle Rovine', dialogueTreeId: 'traveler_kael' },
+  { name: 'Fabbro Thorin', role: 'Mastro Armaiolo', dialogueTreeId: 'blacksmith_thorin' },
+  { name: 'Alchimista Lyra', role: 'Speziale delle Pozioni', dialogueTreeId: 'alchemist_lyra' },
+  { name: 'Capitano Roderick', role: 'Comandante del Forte', dialogueTreeId: 'guard_varus' },
+  { name: 'Oste Barnaby', role: 'Gestore della Taverna', dialogueTreeId: 'merchant_garrick' },
+  { name: 'Cartografo Varis', role: 'Mappatore del Mondo', dialogueTreeId: 'traveler_kael' },
+  { name: 'Saggia Selena', role: 'Custode della Biblioteca', dialogueTreeId: 'elder_eldrin' }
 ];
 
 const npcs: NPC[] = [];
 let npcPresetIdx = 0;
-for (const pos of features.npcSpawns.slice(0, 10)) {
+for (const pos of features.npcSpawns.slice(0, 30)) {
   // Find closest village for this NPC
   let closestVillage: VillageData | null = null;
   let minDist = Infinity;
@@ -544,15 +550,14 @@ npcs.push(spawnGuideNpc);
 scene.add(spawnGuideNpc.mesh);
 
 const monsters: Monster[] = [];
-const monsterSpawnData = new Map<Monster, { position: THREE.Vector3; variantIndex: number; biome: BiomeType; difficulty: number }>();
 const enemyProjectileSystem = new EnemyProjectileSystem(scene);
-// Enforce safe 70m radius around spawn point with no enemies; scatter enemies 70m - 200m away
-const monsterSpawnPoints = selectMonsterSpawnPoints(features.monsterSpawns, player.mesh.position, 8, 200, 70);
-monsterSpawnPoints.forEach((spawnPoint, index) => {
-  const monsterPosition = spawnPoint.position.clone();
+
+function spawnMonsterAtPosition(pos: THREE.Vector3, index: number, difficulty = 1.0): Monster {
+  const monsterPosition = pos.clone();
   const hx = (monsterPosition.x / WORLD_SCALE) + WORLD_SIZE / 2;
   const hz = (monsterPosition.z / WORLD_SCALE) + WORLD_SIZE / 2;
   monsterPosition.y = heightMap.getInterpolated(hx, hz);
+
   const monster = new Monster(monsterPosition, {
     variant: chooseMonsterVariant(monsterPosition, index, biomeMap),
     onAttack: () => {
@@ -569,15 +574,29 @@ monsterSpawnPoints.forEach((spawnPoint, index) => {
       else if (monster.variant === 'stalker') scoreValue = 30;
       else if (monster.variant === 'drone') scoreValue = 25;
       else if (monster.variant === 'crawler') scoreValue = 20;
-      
-      const scaledScore = Math.floor(scoreValue * spawnPoint.difficulty);
+
+      // Drop Powerup Collectible on enemy death
+      const dropTypes: Array<'potion' | 'ammo' | 'coin' | 'crystal'> = ['potion', 'ammo', 'coin', 'coin', 'crystal'];
+      const dropType = dropTypes[Math.floor(Math.random() * dropTypes.length)];
+      const dropItem = new Collectible(monster.mesh.position.clone(), dropType);
+      collectibles.push(dropItem);
+      scene.add(dropItem.mesh);
+
+      // Drop Boss Chest on boss death
+      if (monster.variant === 'titan' || monster.variant === 'golem' || monster.variant === 'annihilator') {
+        const chest = new Collectible(monster.mesh.position.clone(), 'boss_chest');
+        collectibles.push(chest);
+        scene.add(chest.mesh);
+      }
+
+      const scaledScore = Math.floor(scoreValue * difficulty);
       hud.addScore(scaledScore);
       hud.incrementCombo();
       hud.incrementKills();
       hud.triggerEnemyDeathAlert();
       waveManager.notifyEnemyKilled();
     },
-    onFootstep: (pos: THREE.Vector3) => {
+    onFootstep: (p: THREE.Vector3) => {
       const count = 3 + Math.floor(Math.random() * 3);
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
@@ -587,27 +606,28 @@ monsterSpawnPoints.forEach((spawnPoint, index) => {
           0.5 + Math.random() * 0.8,
           Math.sin(angle) * speed
         );
-        particlePool.spawn('dust', pos.clone(), vel, 0.6 + Math.random() * 0.4);
+        particlePool.spawn('dust', p.clone(), vel, 0.6 + Math.random() * 0.4);
       }
     }
   });
+
   monster.mesh.userData.damageable = monster;
   monster.setProjectileSystem(enemyProjectileSystem);
   monsters.push(monster);
-  monsterSpawnData.set(monster, { position: spawnPoint.position.clone(), variantIndex: index, biome: spawnPoint.biome, difficulty: spawnPoint.difficulty });
   scene.add(monster.mesh);
+
+  return monster;
+}
+
+// Initial zone population around player spawn (70m to 160m)
+const initialMonsterSpawns = selectMonsterSpawnPoints(features.monsterSpawns, player.mesh.position, 14, 160, 50);
+initialMonsterSpawns.forEach((sp, idx) => {
+  if (sp.position.distanceTo(new THREE.Vector3(0, 0, 0)) > 70) {
+    spawnMonsterAtPosition(sp.position, idx, sp.difficulty);
+  }
 });
 
-interface MonsterRespawn {
-  position: THREE.Vector3;
-  variantIndex: number;
-  timer: number;
-  biome: BiomeType;
-  difficulty: number;
-}
-const monsterRespawns: MonsterRespawn[] = [];
-const deadMonstersQueued = new Set<Monster>();
-const RESPAWN_DELAY = 20;
+
 
 const collectibles: Collectible[] = [];
 for (const pos of features.itemSpawns.slice(0, 15)) {
@@ -949,87 +969,36 @@ function animate(): void {
           soundManager.playHurt();
         }
       }
-    } else if (!deadMonstersQueued.has(monster)) {
-      deadMonstersQueued.add(monster);
-      const spawnData = monsterSpawnData.get(monster);
-      if (spawnData) {
-        monsterRespawns.push({ position: spawnData.position.clone(), variantIndex: spawnData.variantIndex, timer: RESPAWN_DELAY, biome: spawnData.biome, difficulty: spawnData.difficulty });
-      }
+    } else {
       scene.remove(monster.mesh);
     }
   }
   for (let i = monsters.length - 1; i >= 0; i--) {
-    if (!monsters[i].isAlive() && deadMonstersQueued.has(monsters[i])) {
+    const m = monsters[i];
+    if (!m.isAlive()) {
+      scene.remove(m.mesh);
+      monsters.splice(i, 1);
+    } else if (m.mesh.position.distanceTo(player.mesh.position) > 230) {
+      // Recycle distant monster from previous zone
+      scene.remove(m.mesh);
       monsters.splice(i, 1);
     }
   }
 
-  for (let i = monsterRespawns.length - 1; i >= 0; i--) {
-    const respawn = monsterRespawns[i];
-    respawn.timer -= delta;
-    if (respawn.timer <= 0) {
-      const distToPlayer = respawn.position.distanceTo(player.mesh.position);
-      if (distToPlayer > 40) {
-        const monsterPosition = respawn.position.clone();
-        const hx = (monsterPosition.x / WORLD_SCALE) + WORLD_SIZE / 2;
-        const hz = (monsterPosition.z / WORLD_SCALE) + WORLD_SIZE / 2;
-        monsterPosition.y = heightMap.getInterpolated(hx, hz);
-        const monster = new Monster(monsterPosition, {
-          variant: chooseMonsterVariant(monsterPosition, respawn.variantIndex, biomeMap),
-          onAttack: () => { soundManager.playPositionalAttack(monster.mesh); },
-          onDeath: () => {
-            let scoreValue = 20;
-            if (monster.variant === 'titan') scoreValue = 250;
-            else if (monster.variant === 'annihilator') scoreValue = 180;
-            else if (monster.variant === 'golem') scoreValue = 100;
-            else if (monster.variant === 'sentinel') scoreValue = 70;
-            else if (monster.variant === 'brute') scoreValue = 50;
-            else if (monster.variant === 'phantom') scoreValue = 40;
-            else if (monster.variant === 'stalker') scoreValue = 30;
-            else if (monster.variant === 'drone') scoreValue = 25;
-            else if (monster.variant === 'crawler') scoreValue = 20;
-
-            // Drop Powerup Collectible on enemy death
-            const dropTypes: Array<'potion' | 'ammo' | 'coin' | 'crystal'> = ['potion', 'ammo', 'coin', 'coin', 'crystal'];
-            const dropType = dropTypes[Math.floor(Math.random() * dropTypes.length)];
-            const dropItem = new Collectible(monster.mesh.position.clone(), dropType);
-            collectibles.push(dropItem);
-            scene.add(dropItem.mesh);
-
-            // Drop Boss Chest on boss death
-            if (monster.variant === 'titan' || monster.variant === 'golem' || monster.variant === 'annihilator') {
-              const chest = new Collectible(monster.mesh.position.clone(), 'boss_chest');
-              collectibles.push(chest);
-              scene.add(chest.mesh);
-            }
-
-            const scaledScore = Math.floor(scoreValue * respawn.difficulty);
-            hud.addScore(scaledScore);
-            hud.incrementCombo();
-            hud.incrementKills();
-            hud.triggerEnemyDeathAlert();
-            waveManager.notifyEnemyKilled();
-          },
-          onFootstep: (pos: THREE.Vector3) => {
-            const count = 3 + Math.floor(Math.random() * 3);
-            for (let j = 0; j < count; j++) {
-              const angle = Math.random() * Math.PI * 2;
-              const speed = 0.5 + Math.random() * 1.0;
-              const vel = new THREE.Vector3(Math.cos(angle) * speed, 0.5 + Math.random() * 0.8, Math.sin(angle) * speed);
-              particlePool.spawn('dust', pos.clone(), vel, 0.6 + Math.random() * 0.4);
-            }
-          }
-        });
-        monster.mesh.userData.damageable = monster;
-        monster.setProjectileSystem(enemyProjectileSystem);
-        monsters.push(monster);
-        scene.add(monster.mesh);
-        monsterSpawnData.set(monster, { position: respawn.position.clone(), variantIndex: respawn.variantIndex, biome: respawn.biome, difficulty: respawn.difficulty });
-      } else {
-        respawn.timer = 5;
+  // Populate active zone ahead of player if density is below target (14 monsters)
+  if (monsters.length < 14) {
+    const activeZoneCandidates = selectMonsterSpawnPoints(
+      features.monsterSpawns,
+      player.mesh.position,
+      14 - monsters.length,
+      170,
+      45
+    );
+    activeZoneCandidates.forEach((candidate, idx) => {
+      if (candidate.position.distanceTo(new THREE.Vector3(0, 0, 0)) > 70) {
+        spawnMonsterAtPosition(candidate.position, idx, candidate.difficulty);
       }
-      monsterRespawns.splice(i, 1);
-    }
+    });
   }
 
   for (const item of collectibles) item.update(gameTime);

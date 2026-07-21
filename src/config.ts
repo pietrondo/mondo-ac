@@ -1,16 +1,16 @@
 import { RNG } from './utils/rng';
 
 // World config - data-driven per spec
-export const WORLD_SIZE = 384; // cells (massive 3x3k grid)
+export const WORLD_SIZE = 512; // cells (massive 512x512 grid = 4096m x 4096m)
 export const WORLD_SCALE = 8; // meters per cell
 export const WORLD_HEIGHT_MIN = 0;
-export const WORLD_HEIGHT_MAX = 60;
+export const WORLD_HEIGHT_MAX = 85;
 export const SEED = 12345;
 
-// Biome thresholds (in elevation units 0-60)
-export const WATER_LEVEL = 0.15 * 60; // 9 meters
-export const PLAIN_LEVEL = 0.4 * 60;  // 24 meters
-export const MOUNTAIN_LEVEL = 0.7 * 60; // 42 meters
+// Biome thresholds (in elevation units 0-85)
+export const WATER_LEVEL = 12;  // 12 meters (inland lakes & oceans)
+export const PLAIN_LEVEL = 28;  // 28 meters
+export const MOUNTAIN_LEVEL = 48; // 48 meters (snowy alpine peaks)
 
 // FBM params for heightmap
 export const HEIGHTMAP_OCTAVES = 5;
