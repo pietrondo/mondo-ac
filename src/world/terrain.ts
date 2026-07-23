@@ -1,19 +1,8 @@
 import * as THREE from 'three';
 import { HeightMap } from './heightmap';
-import { BiomeMap, BiomeType } from './biomeMap';
+import { BiomeMap } from './biomeMap';
 import { WORLD_SIZE, WORLD_SCALE } from '../config';
-
-function biomeToColor(biome: BiomeType): THREE.Color {
-  switch (biome) {
-    case BiomeType.COAST: return new THREE.Color('#E8DCC4');
-    case BiomeType.PLAINS: return new THREE.Color('#8BC34A');
-    case BiomeType.FOREST: return new THREE.Color('#558B2F');
-    case BiomeType.DESERT: return new THREE.Color('#E6D690');
-    case BiomeType.MOUNTAIN: return new THREE.Color('#9E9E9E');
-    case BiomeType.SNOW: return new THREE.Color('#FAFAFA');
-    default: return new THREE.Color('#888888');
-  }
-}
+import { biomeToColor } from './biomeColor';
 
 export function createTerrainMesh(
   heightMap: HeightMap,

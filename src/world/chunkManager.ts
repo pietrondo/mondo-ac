@@ -1,22 +1,12 @@
 import * as THREE from 'three';
 import { HeightMap } from './heightmap';
-import { BiomeMap, BiomeType } from './biomeMap';
+import { BiomeMap } from './biomeMap';
 import { WORLD_SIZE, WORLD_SCALE } from '../config';
+import { biomeToColor } from './biomeColor';
+import { eventBus } from '../events/EventBus';
 
-export const CHUNK_SIZE = 32; // cells per chunk
-export const RENDER_RADIUS = 2; // active chunks radius around player
-
-function biomeToColor(biome: BiomeType): THREE.Color {
-  switch (biome) {
-    case BiomeType.COAST: return new THREE.Color('#E8DCC4');
-    case BiomeType.PLAINS: return new THREE.Color('#8BC34A');
-    case BiomeType.FOREST: return new THREE.Color('#558B2F');
-    case BiomeType.DESERT: return new THREE.Color('#E6D690');
-    case BiomeType.MOUNTAIN: return new THREE.Color('#9E9E9E');
-    case BiomeType.SNOW: return new THREE.Color('#FAFAFA');
-    default: return new THREE.Color('#888888');
-  }
-}
+export const CHUNK_SIZE = 32;
+export const RENDER_RADIUS = 2;
 
 interface TerrainChunk {
   mesh: THREE.Mesh;
@@ -70,17 +60,17 @@ export class ChunkManager {
         visibleKeys.add(key);
 
         if (!this.activeChunks.has(key)) {
-          if (this.cachedChunks.has(key)) {
-            // Instant reuse from cache without VRAM allocation
-            const cached = this.cachedChunks.get(key)!;
-            this.cachedChunks.delete(key);
+          const cached = this.cachedChunks.get(key);
+          if (cached) {
             cached.mesh.visible = true;
+            this.cachedChunks.delete(key);
             this.activeChunks.set(key, cached);
           } else if (!createdThisFrame) {
             const chunkMesh = this.buildChunkMesh(cx, cz);
             this.activeChunks.set(key, { mesh: chunkMesh, key, cx, cz });
             this.scene.add(chunkMesh);
             createdThisFrame = true;
+            eventBus.emit('chunk.loaded', { cx, cz });
           }
         }
       }
@@ -92,6 +82,7 @@ export class ChunkManager {
         chunk.mesh.visible = false;
         this.cachedChunks.set(key, chunk);
         this.activeChunks.delete(key);
+        eventBus.emit('chunk.unloaded', { cx: chunk.cx, cz: chunk.cz });
       }
     }
 
