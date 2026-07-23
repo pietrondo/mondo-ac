@@ -46,6 +46,7 @@ import { findRandomSpawnPoint } from './world/spawnPoints';
 import { updateWeatherParticles } from './world/weatherParticles';
 import { createRegistrationOverlay } from './ui/registrationOverlay';
 import { detectWebGL, setLoadingProgress, hideLoadingOverlay, showSystemError } from './ui/loading';
+import { disposeObject3D } from './utils/dispose';
 import { generateDungeon, DungeonResult } from './world/dungeonGenerator';
 import { BossMonster } from './entities/BossMonster';
 import { DialogueManager } from './dialogue/DialogueManager';
@@ -857,6 +858,7 @@ function animate(): void {
         player.setColliders(features.structureColliders, decorations.colliders);
         scene.fog = savedOverworldFog;
 
+        disposeObject3D(activeDungeon.group);
         scene.remove(activeDungeon.group);
         if (dungeonBoss) {
           dungeonBoss.dispose();

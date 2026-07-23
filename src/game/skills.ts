@@ -126,6 +126,8 @@ export class SkillSystem {
         const expPos = g.mesh.position.clone();
         if (hitGround) expPos.y = groundY + 0.1;
 
+        g.mesh.geometry.dispose();
+        (g.mesh.material as THREE.Material).dispose();
         this.scene.remove(g.mesh);
         soundManager.playCollect();
         player.shakeIntensity = Math.max(player.shakeIntensity, 1.6); // Explosive camera shake
@@ -190,6 +192,8 @@ export class SkillSystem {
       fx.light.intensity = 15 * (fx.life / 0.35);
 
       if (fx.life <= 0) {
+        fx.ring.geometry.dispose();
+        (fx.ring.material as THREE.Material).dispose();
         this.scene.remove(fx.ring);
         this.scene.remove(fx.light);
         this.explosionFxs.splice(i, 1);
