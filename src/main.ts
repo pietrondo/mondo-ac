@@ -858,8 +858,14 @@ function animate(): void {
         scene.fog = savedOverworldFog;
 
         scene.remove(activeDungeon.group);
-        if (dungeonBoss) scene.remove(dungeonBoss.mesh);
-        for (const m of dungeonMonsters) scene.remove(m.mesh);
+        if (dungeonBoss) {
+          dungeonBoss.dispose();
+          scene.remove(dungeonBoss.mesh);
+        }
+        for (const m of dungeonMonsters) {
+          m.dispose();
+          scene.remove(m.mesh);
+        }
 
         activeDungeon = null;
         dungeonBoss = null;
@@ -966,16 +972,19 @@ function animate(): void {
         }
       }
     } else {
+      monster.dispose();
       scene.remove(monster.mesh);
     }
   }
   for (let i = monsters.length - 1; i >= 0; i--) {
     const m = monsters[i];
     if (!m.isAlive()) {
+      m.dispose();
       scene.remove(m.mesh);
       monsters.splice(i, 1);
     } else if (m.mesh.position.distanceTo(player.mesh.position) > 230) {
       // Recycle distant monster from previous zone
+      m.dispose();
       scene.remove(m.mesh);
       monsters.splice(i, 1);
     }

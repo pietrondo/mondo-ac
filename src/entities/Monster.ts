@@ -5,6 +5,7 @@ import { chooseMonsterVariant, getMonsterVariantProfile, type MonsterVariant } f
 import { EnemyProjectileSystem } from '../combat/EnemyProjectile';
 import { PatternState, getPatternForVariant, calculateDirection } from '../combat/AttackPattern';
 import { Health } from '../components/Health';
+import { disposeObject3D } from '../utils/dispose';
 
 export interface MonsterOptions {
   variant?: MonsterVariant;
@@ -851,5 +852,11 @@ export class Monster {
 
     // Face direction
     this.mesh.lookAt(this.targetPos.x, this.mesh.position.y, this.targetPos.z);
+  }
+
+  dispose(): void {
+    disposeObject3D(this.mesh);
+    this.healthBarFg = null as any;
+    this.healthBarGroup = null as any;
   }
 }

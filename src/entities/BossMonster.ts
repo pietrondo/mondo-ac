@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Health } from '../components/Health';
+import { disposeObject3D } from '../utils/dispose';
 
 export interface BossMonsterOptions {
   name?: string;
@@ -227,5 +228,9 @@ export class BossMonster {
       this.shockwaveCooldown = this.phase === 3 ? 4.0 : 6.0;
       if (this.onAttack) this.onAttack();
     }
+  }
+
+  dispose(): void {
+    disposeObject3D(this.mesh);
   }
 }
