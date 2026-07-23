@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createScene } from './render/scene';
+import { calculateRenderSize } from './render/viewport';
 import { HeightMap } from './world/heightmap';
 import { BiomeMap, BiomeType } from './world/biomeMap';
 import { createWater, updateWater } from './world/water';
@@ -14,7 +15,8 @@ import { Collectible } from './entities/Collectible';
 import { PowerUp } from './entities/PowerUp';
 import { Weapon } from './entities/Weapon';
 import { WeaponView } from './entities/WeaponView';
-import { applyRifleHitDamage } from './combat/rifleHit';
+import { switchWeapon } from './entities/weaponSwitch';
+import { applyRifleHitDamage, findDamageableAncestor } from './combat/rifleHit';
 import { DamageNumber } from './combat/DamageNumber';
 import { HitMarker } from './combat/HitMarker';
 import { Vehicle } from './entities/Vehicle';
@@ -40,19 +42,15 @@ import { SkillSystem } from './game/skills';
 import { MultiplayerManager } from './net/multiplayer';
 import { ZoneManager } from './world/zones';
 import { ChunkManager } from './world/chunkManager';
+import { findRandomSpawnPoint } from './world/spawnPoints';
+import { updateWeatherParticles } from './world/weatherParticles';
+import { createRegistrationOverlay } from './ui/registrationOverlay';
+import { detectWebGL, setLoadingProgress, hideLoadingOverlay, showSystemError } from './ui/loading';
 import { generateDungeon, DungeonResult } from './world/dungeonGenerator';
 import { BossMonster } from './entities/BossMonster';
 import { DialogueManager } from './dialogue/DialogueManager';
 import { DialogueUI } from './dialogue/DialogueUI';
 import { QuestManager } from './quest/questManager';
-
-async function setLoadingProgress(percent: number, message: string): Promise<void> {
-  const fill = document.getElementById('loading-bar-fill');
-  const status = document.getElementById('loading-status');
-  if (fill) fill.style.width = `${percent}%`;
-  if (status) status.textContent = `${message} (${percent}%)`;
-  await new Promise((resolve) => setTimeout(resolve, 40));
-}
 
 const container = document.getElementById('canvas-container');
 if (!container) throw new Error('No container');
@@ -73,36 +71,7 @@ if ('caches' in window) {
   }).catch(() => {});
 }
 
-// WebGL presence check
-function detectWebGL(): boolean {
-  try {
-    const canvas = document.createElement('canvas');
-    return !!(
-      window.WebGLRenderingContext &&
-      (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
-    );
-  } catch (e) {
-    return false;
-  }
-}
-
 let isGameHalted = false;
-
-function showSystemError(message: string): void {
-  isGameHalted = true;
-  try {
-    document.exitPointerLock();
-  } catch (e) {}
-
-  const overlay = document.getElementById('error-overlay');
-  const msgEl = document.getElementById('error-message');
-  if (overlay) {
-    overlay.style.display = 'flex';
-  }
-  if (msgEl) {
-    msgEl.textContent = message;
-  }
-}
 
 const reloadBtn = document.getElementById('error-reload-btn');
 if (reloadBtn) {
@@ -114,20 +83,22 @@ if (reloadBtn) {
 // Global error boundaries
 window.onerror = function (message, source, lineno, colno, _error) {
   showSystemError(`Unhandled exception: ${message} (at ${source}:${lineno}:${colno})`);
+  isGameHalted = true;
   return true;
 };
 
 window.onunhandledrejection = function (event) {
   const reason = String(event.reason || '');
   if (reason.includes('Pointer lock') || reason.includes('pointer lock') || reason.includes('SecurityError') || reason.includes('exited the lock')) {
-    // Ignore non-fatal browser security restriction when toggling pointer lock
     return;
   }
   showSystemError(`Unhandled promise rejection: ${event.reason}`);
+  isGameHalted = true;
 };
 
 if (!detectWebGL()) {
   showSystemError('WebGL non è supportato o è disabilitato nel tuo browser.');
+  isGameHalted = true;
 }
 
 let scene: THREE.Scene;
@@ -242,7 +213,7 @@ async function initGame(): Promise<void> {
   inventoryUI = new InventoryUI();
   inventoryUI.setOnUseConsumable((itemId) => {
     if (itemId === 'potion') {
-      player.hp = Math.min(player.maxHp, player.hp + 50);
+      player.heal(50);
       updateHpDisplay();
       soundManager.playCollect();
     }
@@ -270,7 +241,7 @@ function openShopFromNPC(): void {
   try { document.exitPointerLock(); } catch (_) {}
   hud.openShopMenu((item) => {
     if (item === 'health') {
-      player.hp = Math.min(player.maxHp, player.hp + 50);
+      player.heal(50);
       updateHpDisplay();
       return true;
     } else if (item === 'ammo') {
@@ -279,7 +250,8 @@ function openShopFromNPC(): void {
       hud.setWeaponState(w.magazineAmmo, w.reserveAmmo, w.isReloading, w.name);
       return true;
     } else if (item === 'shield') {
-      (player as any).hp = Math.min(player.maxHp + 25, player.hp + 25);
+      player.upgradeMaxHp(25);
+      player.heal(25);
       updateHpDisplay();
       return true;
     } else if (item === 'damage') {
@@ -300,16 +272,6 @@ function openShopFromNPC(): void {
     }
     return false;
   });
-}
-
-function findDamageableAncestor(object?: THREE.Object3D): any {
-  let current: THREE.Object3D | null | undefined = object;
-  while (current) {
-    const damageable = current.userData.damageable;
-    if (damageable) return damageable;
-    current = current.parent;
-  }
-  return undefined;
 }
 
 let lastShotTime = 0;
@@ -419,7 +381,7 @@ dialogueManager.onReward = (reward) => {
     hud.addCoins(reward.coins);
   }
   if (reward.health) {
-    player.hp = Math.min(player.maxHp, player.hp + reward.health);
+    player.heal(reward.health);
     updateHpDisplay();
   }
   if (reward.ammo) {
@@ -481,23 +443,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Function to find a unique random land spawn point each time
-function findRandomSpawnPoint(): THREE.Vector3 {
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const hx = Math.floor(20 + Math.random() * (WORLD_SIZE - 40));
-    const hz = Math.floor(20 + Math.random() * (WORLD_SIZE - 40));
-    const h = heightMap.get(hx, hz);
-    const biome = biomeMap.getBiome(hx, hz);
-    if (biome !== BiomeType.COAST && h > 14) {
-      const worldX = (hx - WORLD_SIZE / 2) * WORLD_SCALE;
-      const worldZ = (hz - WORLD_SIZE / 2) * WORLD_SCALE;
-      const worldY = heightMap.getInterpolated(hx, hz);
-      return new THREE.Vector3(worldX, worldY, worldZ);
-    }
-  }
-  return new THREE.Vector3(0, heightMap.getInterpolated(WORLD_SIZE / 2, WORLD_SIZE / 2), 0);
-}
-
-const initialSpawn = findRandomSpawnPoint();
+const initialSpawn = findRandomSpawnPoint(heightMap, biomeMap);
 player.mesh.position.copy(initialSpawn);
 player.setRespawnPoint(initialSpawn);
 
@@ -804,7 +750,7 @@ waveManager.onWaveClear((waveNum, bonusScore) => {
     `ONDATA ${waveNum} COMPLETATA!`,
     `Bonus +${bonusScore} Punti! Prossima ondata in 6s...`
   );
-  player.hp = Math.min(player.maxHp, player.hp + 25);
+  player.heal(25);
   updateHpDisplay();
 });
 
@@ -823,19 +769,7 @@ function animate(): void {
   hud.updateEnvironmentUI(dayNight.getFormattedTime(), dayNight.getWeatherIcon());
 
   // Spawn rain/storm particles
-  if (dayNight.weather === 'rain' || dayNight.weather === 'storm') {
-    const rainRate = dayNight.weather === 'storm' ? 80 : 40;
-    const count = Math.floor(delta * rainRate) + (Math.random() < (delta * rainRate) % 1 ? 1 : 0);
-    const pPos = player.mesh.position;
-    for (let r = 0; r < count; r++) {
-      const rx = (Math.random() - 0.5) * 50;
-      const rz = (Math.random() - 0.5) * 50;
-      const ry = 15 + Math.random() * 15;
-      const pos = pPos.clone().add(new THREE.Vector3(rx, ry, rz));
-      const vel = new THREE.Vector3((Math.random() - 0.5) * 0.5, -16 - Math.random() * 6, (Math.random() - 0.5) * 0.5);
-      particlePool.spawn('spark', pos, vel, 0.8);
-    }
-  }
+  updateWeatherParticles(delta, dayNight, particlePool, player.mesh.position);
 
   // Active Skills Update
   skillSystem.update(delta, input, player, camera, monsters, particlePool, damageNumber, hitMarker, soundManager, hud, heightMap);
@@ -991,7 +925,7 @@ function animate(): void {
       favoriteWeapon: weapons[activeWeaponIndex]?.name || 'Rifle'
     }, () => {
       survivalTime = 0;
-      player.setRespawnPoint(findRandomSpawnPoint());
+      player.setRespawnPoint(findRandomSpawnPoint(heightMap, biomeMap));
       player.respawn(heightMap);
     });
   }
@@ -1074,7 +1008,7 @@ function animate(): void {
       hud.addCoins(value * 5); // Add money
       soundManager.playCollect();
       if (item.type === 'potion') {
-        player.hp = Math.min(player.maxHp, player.hp + 25);
+        player.heal(25);
         updateHpDisplay();
       } else if (item.type === 'ammo') {
         const w = weapons[activeWeaponIndex];
@@ -1455,22 +1389,7 @@ animate();
 
 function updateRendererSize(): void {
   if (!renderer) return;
-  const maxW = 1280;
-  const maxH = 720;
-  const aspect = window.innerWidth / window.innerHeight;
-  let renderW = window.innerWidth;
-  let renderH = window.innerHeight;
-
-  if (renderW > maxW || renderH > maxH) {
-    if (renderW / maxW > renderH / maxH) {
-      renderW = maxW;
-      renderH = Math.round(maxW / aspect);
-    } else {
-      renderH = maxH;
-      renderW = Math.round(maxH * aspect);
-    }
-  }
-
+  const { width: renderW, height: renderH } = calculateRenderSize(window.innerWidth, window.innerHeight);
   renderer.setSize(renderW, renderH, false);
   renderer.domElement.style.width = '100vw';
   renderer.domElement.style.height = '100vh';
@@ -1485,109 +1404,32 @@ window.addEventListener('resize', () => {
 });
 
   await setLoadingProgress(100, 'Caricamento completato!');
-  setTimeout(() => {
-    const loading = document.getElementById('loading');
-    if (loading) loading.style.display = 'none';
-  }, 300);
+  hideLoadingOverlay();
 }
 
 initGame();
 
 // Registration & Start Modal Overlay
-const savedName = localStorage.getItem('mondo_player_name') || '';
-const registrationOverlay = document.createElement('div');
-registrationOverlay.style.cssText = `
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(10, 12, 22, 0.92);
-  backdrop-filter: blur(10px);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: system-ui, -apple-system, sans-serif;
-  color: white;
-  pointer-events: auto;
-`;
-registrationOverlay.innerHTML = `
-  <div style="background: rgba(20, 25, 40, 0.95); border: 2px solid #00E5FF; border-radius: 16px; padding: 32px; width: 440px; max-width: 92vw; box-shadow: 0 0 35px rgba(0,229,255,0.4); text-align: center;">
-    <h1 style="color: #00E5FF; font-size: 32px; font-weight: 900; letter-spacing: 3px; margin-bottom: 8px; text-shadow: 0 0 15px rgba(0,229,255,0.6);">MONDO 3D</h1>
-    <p style="color: #B0BEC5; font-size: 14px; margin-bottom: 24px;">Registrati per salvare i tuoi punteggi in classifica e scegliere la tua classe!</p>
-
-    <div style="text-align: left; margin-bottom: 20px;">
-      <label style="display: block; font-size: 13px; font-weight: bold; color: #80DEEA; margin-bottom: 6px;">NOME GIOCATORE:</label>
-      <input id="reg-player-name" type="text" value="${savedName}" placeholder="Inserisci il tuo nome..." maxlength="20" style="width: 100%; background: #0A0D18; border: 1.5px solid #00E5FF; border-radius: 8px; padding: 10px 14px; color: white; font-size: 15px; font-weight: bold; outline: none; box-shadow: inset 0 0 8px rgba(0,0,0,0.8);" />
-    </div>
-
-    <div style="text-align: left; margin-bottom: 24px;">
-      <label style="display: block; font-size: 13px; font-weight: bold; color: #80DEEA; margin-bottom: 8px;">SCEGLI CLASSE / RUOLO:</label>
-      <div style="display: flex; gap: 8px;">
-        <button id="class-warrior" class="class-btn" style="flex: 1; background: rgba(255,23,68,0.2); border: 2px solid #FF1744; border-radius: 8px; padding: 10px 6px; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transition: transform 0.1s;">
-          🛡️ GUERRIERO<br><span style="font-size: 10px; color: #FF8A80; font-weight: normal;">+30 HP Max</span>
-        </button>
-        <button id="class-scout" class="class-btn" style="flex: 1; background: rgba(0,230,118,0.2); border: 2px solid #00E676; border-radius: 8px; padding: 10px 6px; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transition: transform 0.1s;">
-          ⚡ ESPLORATORE<br><span style="font-size: 10px; color: #B9F6CA; font-weight: normal;">+20% Speed</span>
-        </button>
-        <button id="class-engineer" class="class-btn" style="flex: 1; background: rgba(0,229,255,0.2); border: 2px solid #00E5FF; border-radius: 8px; padding: 10px 6px; color: white; font-weight: bold; font-size: 12px; cursor: pointer; transition: transform 0.1s;">
-          🔧 INGEGNERE<br><span style="font-size: 10px; color: #80DEEA; font-weight: normal;">-30% Cooldown</span>
-        </button>
-      </div>
-    </div>
-
-    <button id="start-game-btn" style="width: 100%; background: linear-gradient(90deg, #00E5FF, #76FF03); border: none; border-radius: 10px; padding: 14px; color: #050A14; font-size: 18px; font-weight: 900; letter-spacing: 1px; cursor: pointer; box-shadow: 0 0 20px rgba(0,229,255,0.6); transition: transform 0.1s;">
-      ENTRA NEL MONDO 3D
-    </button>
-  </div>
-`;
-document.body.appendChild(registrationOverlay);
-
-let selectedClass: 'warrior' | 'scout' | 'engineer' = 'scout';
-
-const btnW = document.getElementById('class-warrior');
-const btnS = document.getElementById('class-scout');
-const btnE = document.getElementById('class-engineer');
-
-function selectRole(role: 'warrior' | 'scout' | 'engineer'): void {
-  selectedClass = role;
-  if (btnW) btnW.style.opacity = role === 'warrior' ? '1.0' : '0.4';
-  if (btnS) btnS.style.opacity = role === 'scout' ? '1.0' : '0.4';
-  if (btnE) btnE.style.opacity = role === 'engineer' ? '1.0' : '0.4';
-}
-selectRole('scout');
-
-if (btnW) btnW.addEventListener('click', () => selectRole('warrior'));
-if (btnS) btnS.addEventListener('click', () => selectRole('scout'));
-if (btnE) btnE.addEventListener('click', () => selectRole('engineer'));
-
-const startBtn = document.getElementById('start-game-btn');
-if (startBtn) {
-  startBtn.addEventListener('click', () => {
-    const nameInput = document.getElementById('reg-player-name') as HTMLInputElement;
-    const finalName = nameInput?.value.trim() || 'Giocatore';
+createRegistrationOverlay({
+  onStart: (finalName, selectedClass) => {
     hud.setPlayerName(finalName);
     if (multiplayer) multiplayer.connect(finalName);
 
-    // Apply class passive bonuses
     if (selectedClass === 'warrior') {
-      player.maxHp = 130;
-      player.hp = 130;
+      player.resetToMaxHp(130);
       updateHpDisplay();
     } else if (selectedClass === 'scout') {
       (player as any).speed *= 1.2;
     }
 
-    registrationOverlay.remove();
     try {
       lastTime = performance.now();
       requestPointerLockSafe(document.body);
       if (renderer) renderer.domElement.style.pointerEvents = 'auto';
       soundManager.startAmbient();
     } catch (e) {}
-  });
-}
+  },
+});
 
 // Toggle Minimap Expansion with Key M and Skill Tree with Key U
 window.addEventListener('keydown', (e) => {
@@ -1601,8 +1443,7 @@ window.addEventListener('keydown', (e) => {
     try { document.exitPointerLock(); } catch (_) {}
     hud.toggleUpgradeMenu((type) => {
       if (type === 'hp') {
-        player.maxHp += 25;
-        player.hp += 25;
+        player.upgradeMaxHp(25);
         updateHpDisplay();
         return true;
       } else if (type === 'speed') {
@@ -1621,27 +1462,15 @@ window.addEventListener('keydown', (e) => {
 
 // Weapon switching keyboard controls (Keys 1..0)
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'Digit1') switchWeapon(0);
-  if (e.code === 'Digit2') switchWeapon(1);
-  if (e.code === 'Digit3') switchWeapon(2);
-  if (e.code === 'Digit4') switchWeapon(3);
-  if (e.code === 'Digit5') switchWeapon(4);
-  if (e.code === 'Digit6') switchWeapon(5);
-  if (e.code === 'Digit7') switchWeapon(6);
-  if (e.code === 'Digit8') switchWeapon(7);
-  if (e.code === 'Digit9') switchWeapon(8);
-  if (e.code === 'Digit0') switchWeapon(9);
+  const map: Record<string, number> = {
+    Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
+    Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8, Digit0: 9,
+  };
+  const idx = map[e.code];
+  if (idx === undefined) return;
+  const result = switchWeapon({ weapons, activeIndex: activeWeaponIndex, weaponView, hud }, idx);
+  if (result.switched) activeWeaponIndex = result.newIndex;
 });
-
-function switchWeapon(index: number): void {
-  if (index < 0 || index >= weapons.length || index === activeWeaponIndex) return;
-  if (weapons[activeWeaponIndex].isReloading) return; // Prevent switching while reloading
-
-  activeWeaponIndex = index;
-  const activeWeapon = weapons[activeWeaponIndex];
-  weaponView.setWeapon(activeWeapon.type);
-  hud.setWeaponState(activeWeapon.magazineAmmo, activeWeapon.reserveAmmo, activeWeapon.isReloading, activeWeapon.name);
-}
 
 // Listen for pointer lock rejection
 document.addEventListener('pointerlockerror', () => {

@@ -4,6 +4,7 @@ import { WORLD_SCALE, WORLD_SIZE } from '../config';
 import { chooseMonsterVariant, getMonsterVariantProfile, type MonsterVariant } from '../world/monsterVariant';
 import { EnemyProjectileSystem } from '../combat/EnemyProjectile';
 import { PatternState, getPatternForVariant, calculateDirection } from '../combat/AttackPattern';
+import { Health } from '../components/Health';
 
 export interface MonsterOptions {
   variant?: MonsterVariant;
@@ -19,10 +20,9 @@ export class Monster {
   readonly maxHp: number;
   readonly moveSpeed: number;
   readonly isWaveHorde: boolean;
-  private state: 'wander' | 'chase' | 'attack' | 'dying' = 'wander';
+  private state: 'wander' | 'chase' | 'attack' | 'dying' | 'dead' = 'wander';
   private targetPos = new THREE.Vector3();
-  private hp: number;
-  private alive = true;
+  private health: Health;
   private attackCooldown = 0;
   private readonly attackRange = 25;
   private readonly optimalAttackDistance = 15;
@@ -68,7 +68,8 @@ export class Monster {
     const profile = getMonsterVariantProfile(this.variant);
     this.maxHp = profile.hp;
     this.moveSpeed = profile.speed;
-    this.hp = this.maxHp;
+    this.health = new Health(this.maxHp);
+    this.health.onHealthChange((hp) => this.updateHealthBar(hp));
     this.mesh = new THREE.Group();
 
     // Red Horde Aura Light for Wave Monsters
@@ -409,15 +410,20 @@ export class Monster {
     this.patternState = new PatternState(pattern);
   }
 
-  isAlive(): boolean { return this.alive && this.hp > 0 && this.state !== 'dying'; }
+  get hp(): number {
+    return this.health.hp;
+  }
 
-  takeDamage(amount: number): void {
-    if (!this.alive) return;
-    this.hp -= amount;
-    const hpRatio = Math.max(0, this.hp / this.maxHp);
+  getHp(): number {
+    return this.health.hp;
+  }
+
+  isAlive(): boolean { return this.health.isAlive() && this.state !== 'dying'; }
+
+  private updateHealthBar(hp: number): void {
+    const hpRatio = Math.max(0, hp / this.maxHp);
     this.healthBarFg.scale.x = hpRatio;
 
-    // Shift color from green to yellow to red
     if (hpRatio > 0.6) {
       (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0x00ff00);
     } else if (hpRatio > 0.3) {
@@ -425,6 +431,11 @@ export class Monster {
     } else {
       (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
     }
+  }
+
+  takeDamage(amount: number): void {
+    if (!this.isAlive()) return;
+    this.health.takeDamage(amount);
 
     // Set hit flash timer and cache original materials' emissive values
     this.hitFlashTimer = 0.15;
@@ -452,10 +463,9 @@ export class Monster {
       }
     });
 
-    if (this.hp <= 0) {
+    if (!this.health.isAlive()) {
       this.state = 'dying';
       this.dyingTimer = 0;
-
       if (this.onDeath) {
         this.onDeath();
       }
@@ -615,7 +625,7 @@ export class Monster {
   }
 
   update(delta: number, heightMap: HeightMap, playerPos: THREE.Vector3, camera?: THREE.Camera, allMonsters?: Monster[]): void {
-    if (!this.alive) return;
+    if (!this.isAlive()) return;
 
     // Death animation: shrink, fade, spin, then die
     if (this.state === 'dying') {
@@ -649,7 +659,7 @@ export class Monster {
       
       // Complete death
       if (progress >= 1.0) {
-        this.alive = false;
+        this.state = 'dead';
         this.mesh.visible = false;
         
         // Restore original emissive values
@@ -719,7 +729,7 @@ export class Monster {
     const dzP = this.mesh.position.z - playerPos.z;
     const horizDistToPlayer = Math.sqrt(dxP * dxP + dzP * dzP);
     const distToPlayer = this.mesh.position.distanceTo(playerPos);
-    const hpRatio = this.hp / this.maxHp;
+    const hpRatio = this.health.ratio;
     const isLowHealth = hpRatio < 0.3;
 
     // Retreat behavior when low health

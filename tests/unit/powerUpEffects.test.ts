@@ -9,6 +9,11 @@ describe('power up effects', () => {
       maxHp: 100,
       speed: 5,
       isInvulnerable: false,
+      heal: (amount: number) => {
+        const healed = Math.min(amount, player.maxHp - player.hp);
+        player.hp += healed;
+        return healed;
+      },
     };
     const rifle = {
       reserveAmmo: 12,
@@ -28,6 +33,7 @@ describe('power up effects', () => {
       maxHp: 100,
       speed: 5,
       isInvulnerable: false,
+      heal: () => 0,
     };
     const rifle = {
       reserveAmmo: 12,
@@ -52,6 +58,7 @@ describe('power up effects', () => {
       maxHp: 100,
       speed: 5,
       isInvulnerable: false,
+      heal: () => 0,
     };
     const rifle = {
       reserveAmmo: 12,
@@ -79,6 +86,7 @@ describe('power up effects', () => {
       maxHp: 100,
       speed: 5,
       isInvulnerable: false,
+      heal: () => 0,
     };
     const rifle = {
       reserveAmmo: 12,

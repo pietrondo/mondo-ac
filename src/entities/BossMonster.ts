@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Health } from '../components/Health';
 
 export interface BossMonsterOptions {
   name?: string;
@@ -14,10 +15,9 @@ export class BossMonster {
   mesh: THREE.Group;
   readonly name: string;
   readonly maxHp: number;
-  private hp: number;
+  private health: Health;
   phase: 1 | 2 | 3 = 1;
   private moveSpeed: number;
-  private alive = true;
 
   private attackCooldown = 0;
   private shockwaveCooldown = 0;
@@ -37,7 +37,7 @@ export class BossMonster {
   constructor(position: THREE.Vector3, options: BossMonsterOptions = {}) {
     this.name = options.name ?? 'Boss Titano';
     this.maxHp = options.maxHp ?? 600;
-    this.hp = this.maxHp;
+    this.health = new Health(this.maxHp);
     this.moveSpeed = options.moveSpeed ?? 4.5;
     this.onAttack = options.onAttack;
     this.onPhaseChange = options.onPhaseChange;
@@ -129,11 +129,11 @@ export class BossMonster {
   }
 
   isAlive(): boolean {
-    return this.alive;
+    return this.health.isAlive();
   }
 
   getHp(): number {
-    return this.hp;
+    return this.health.hp;
   }
 
   getPhase(): number {
@@ -141,9 +141,9 @@ export class BossMonster {
   }
 
   takeDamage(amount: number): void {
-    if (!this.alive) return;
+    if (!this.health.isAlive()) return;
 
-    this.hp = Math.max(0, this.hp - amount);
+    this.health.takeDamage(amount);
 
     // Hit flash visual feedback
     this.hitFlashTimer = 0.12;
@@ -151,33 +151,32 @@ export class BossMonster {
     this.eyeMat.emissiveIntensity = 4.0;
 
     // Check phase transitions
-    if (this.hp <= this.maxHp * 0.25 && this.phase < 3) {
+    if (this.health.ratio <= 0.25 && this.phase < 3) {
       this.phase = 3;
       this.moveSpeed *= 1.2;
-      this.hornMat.emissive.setHex(0xaa00ff); // Purple frenzied glow
+      this.hornMat.emissive.setHex(0xaa00ff);
       this.hornMat.emissiveIntensity = 3.0;
       if (this.onPhaseChange) this.onPhaseChange(3);
-    } else if (this.hp <= this.maxHp * 0.6 && this.phase < 2) {
+    } else if (this.health.ratio <= 0.6 && this.phase < 2) {
       this.phase = 2;
       this.moveSpeed *= 1.3;
-      this.hornMat.emissive.setHex(0xff0000); // Red enraged glow
+      this.hornMat.emissive.setHex(0xff0000);
       this.hornMat.emissiveIntensity = 2.0;
       if (this.onPhaseChange) this.onPhaseChange(2);
     }
 
-    if (this.hp <= 0) {
+    if (!this.health.isAlive()) {
       this.die();
     }
   }
 
   private die(): void {
-    this.alive = false;
     this.mesh.visible = false;
     if (this.onDeath) this.onDeath();
   }
 
   update(delta: number, playerPos: THREE.Vector3, _isSubterranean: boolean = true): void {
-    if (!this.alive) return;
+    if (!this.health.isAlive()) return;
 
     // Update hit flash decay
     if (this.hitFlashTimer > 0) {
