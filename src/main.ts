@@ -175,6 +175,30 @@ async function initGame(): Promise<void> {
   }
 
   const profiler = new PerformanceProfiler();
+  profiler.setContextProvider(() => ({
+    sceneChildren: scene.children.length,
+    disposeCalls: getDisposeStats().disposeCalls,
+    geometriesDisposed: getDisposeStats().geometriesDisposed,
+    materialsDisposed: getDisposeStats().materialsDisposed,
+    texturesDisposed: getDisposeStats().texturesDisposed,
+    sharedSkipped: getDisposeStats().sharedGeometriesSkipped + getDisposeStats().sharedMaterialsSkipped,
+    playerX: player.mesh.position.x,
+    playerY: player.mesh.position.y,
+    playerZ: player.mesh.position.z,
+    isInDungeon,
+    activeVehicle: player.activeVehicle ? (player.activeVehicle.constructor.name) : null,
+    activeBoss: dungeonBoss?.name ?? null,
+    wave: waveManager.getWaveNumber(),
+    weather: dayNight.weather,
+    timeOfDay: dayNight.getFormattedTime().startsWith('0') ? 0 : parseFloat(dayNight.getFormattedTime()),
+    npcCount: npcs.length,
+    collectibleCount: collectibles.length,
+    powerUpCount: powerUps.length,
+    activeChunks: chunkManager ? (chunkManager as any).activeChunks?.size ?? 0 : 0,
+    cachedChunks: chunkManager ? (chunkManager as any).cachedChunks?.size ?? 0 : 0,
+    activeGrenades: skillSystem ? (skillSystem as any).activeGrenades?.length ?? 0 : 0,
+    activeProjectiles: enemyProjectileSystem ? (enemyProjectileSystem as any).projectiles?.length ?? 0 : 0,
+  }));
 
   // Configure shadow camera layers
   const sun = scene.children.find(child => child instanceof THREE.DirectionalLight) as THREE.DirectionalLight;

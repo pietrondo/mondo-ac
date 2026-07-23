@@ -1,5 +1,44 @@
 import * as THREE from 'three';
 
+export interface ProfilerContextSnapshot {
+  sceneChildren: number;
+  disposeCalls: number;
+  geometriesDisposed: number;
+  materialsDisposed: number;
+  texturesDisposed: number;
+  sharedSkipped: number;
+  playerX: number;
+  playerY: number;
+  playerZ: number;
+  isInDungeon: boolean;
+  activeVehicle: string | null;
+  activeBoss: string | null;
+  wave: number;
+  weather: string;
+  timeOfDay: number;
+  npcCount: number;
+  collectibleCount: number;
+  powerUpCount: number;
+  activeChunks: number;
+  cachedChunks: number;
+  activeGrenades: number;
+  activeProjectiles: number;
+}
+
+interface HitchLog {
+  time: string;
+  fps: number;
+  frameMs: number;
+  drawCalls: number;
+  triangles: number;
+  geometries: number;
+  monsters: number;
+  particles: number;
+  heapMB: number;
+  context: ProfilerContextSnapshot | null;
+  lastFrames: number[];
+}
+
 export class PerformanceProfiler {
   private overlay: HTMLDivElement | null = null;
   private isVisible = false;
@@ -8,6 +47,7 @@ export class PerformanceProfiler {
   private frameCount = 0;
   private currentFps = 60;
   private currentFrameTime = 16.6;
+  private lastFrameTimes: number[] = [];
 
   private latestStats = {
     fps: 60,
@@ -23,6 +63,7 @@ export class PerformanceProfiler {
     jsHeapUsedMB: 0,
     jsHeapTotalMB: 0,
     gpuRenderer: 'Standard WebGL GPU',
+    context: null as ProfilerContextSnapshot | null,
   };
 
   constructor() {
@@ -43,8 +84,10 @@ export class PerformanceProfiler {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 550px;
-      max-width: 90vw;
+      width: 620px;
+      max-width: 92vw;
+      max-height: 90vh;
+      overflow-y: auto;
       background: rgba(10, 15, 25, 0.95);
       border: 2px solid #00E5FF;
       box-shadow: 0 0 25px rgba(0, 229, 255, 0.4);
@@ -58,7 +101,7 @@ export class PerformanceProfiler {
       user-select: text;
     `;
     this.overlay.innerHTML = `
-      <div style="display:flex; justify-between; align-items:center; border-bottom: 1px solid #00E5FF; padding-bottom: 10px; margin-bottom: 15px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #00E5FF; padding-bottom: 10px; margin-bottom: 15px;">
         <span style="font-weight:bold; font-size:16px; color:#00E5FF;">📊 DIAGNOSTICA PRESTAZIONI (TASTO L)</span>
         <button id="close-profiler-btn" style="background:#FF1744; border:none; color:white; padding:4px 10px; border-radius:4px; cursor:pointer;">X</button>
       </div>
@@ -79,7 +122,12 @@ export class PerformanceProfiler {
       copyBtn.addEventListener('click', () => {
         const text = this.generateLogText();
         navigator.clipboard.writeText(text).then(() => {
-          alert('Log prestazionale copiato negli appunti! Invialo per la diagnosi.');
+          (copyBtn as HTMLButtonElement).textContent = '✅ COPIATO!';
+          setTimeout(() => {
+            (copyBtn as HTMLButtonElement).textContent = '📋 COPIA LOG NEGLI APPUNTI';
+          }, 2000);
+        }).catch(() => {
+          alert('Copia fallita. Riprova o seleziona manualmente.');
         });
       });
     }
@@ -116,19 +164,15 @@ export class PerformanceProfiler {
     return 'Standard WebGL GPU';
   }
 
-  private hitchLogs: Array<{
-    time: string;
-    fps: number;
-    frameMs: number;
-    drawCalls: number;
-    triangles: number;
-    geometries: number;
-    monsters: number;
-    particles: number;
-    heapMB: number;
-  }> = [];
+  private hitchLogs: HitchLog[] = [];
 
   private lastHitchRecordTime = 0;
+
+  private contextProvider: (() => ProfilerContextSnapshot | null) | null = null;
+
+  setContextProvider(provider: () => ProfilerContextSnapshot | null): void {
+    this.contextProvider = provider;
+  }
 
   update(renderer: THREE.WebGLRenderer, monstersCount: number, particlesCount: number): void {
     const now = performance.now();
@@ -139,6 +183,9 @@ export class PerformanceProfiler {
     this.frameTimeBuffer.push(deltaMs);
     if (this.frameTimeBuffer.length > 60) this.frameTimeBuffer.shift();
 
+    this.lastFrameTimes.push(deltaMs);
+    if (this.lastFrameTimes.length > 10) this.lastFrameTimes.shift();
+
     if (this.frameCount >= 15) {
       const avgMs = this.frameTimeBuffer.reduce((a, b) => a + b, 0) / this.frameTimeBuffer.length;
       this.currentFrameTime = Math.round(avgMs * 10) / 10;
@@ -148,6 +195,8 @@ export class PerformanceProfiler {
 
     const mem = (performance as any).memory;
     const heapMB = mem ? Math.round(mem.usedJSHeapSize / 1048576) : 0;
+
+    const context = this.contextProvider?.() ?? null;
 
     // Detect frame hitch (frame time > 28ms = < 35 FPS)
     if (deltaMs > 28 && now - this.lastHitchRecordTime > 2000) {
@@ -163,7 +212,9 @@ export class PerformanceProfiler {
         geometries: renderer.info.memory.geometries,
         monsters: monstersCount,
         particles: particlesCount,
-        heapMB
+        heapMB,
+        context: context ? { ...context } : null,
+        lastFrames: [...this.lastFrameTimes],
       });
       if (this.hitchLogs.length > 10) this.hitchLogs.shift();
     }
@@ -182,6 +233,7 @@ export class PerformanceProfiler {
       jsHeapUsedMB: heapMB,
       jsHeapTotalMB: mem ? Math.round(mem.totalJSHeapSize / 1048576) : 0,
       gpuRenderer: this.getGpuInfo(renderer),
+      context,
     };
 
     if (this.isVisible) {
@@ -193,10 +245,30 @@ export class PerformanceProfiler {
     const content = this.overlay?.querySelector('#profiler-stats-content');
     if (content) {
       const hitchesHtml = this.hitchLogs.length === 0
-        ? '<div style="color:#00E676; font-size:11px;">Nessun calo improviso registrato finora.</div>'
-        : this.hitchLogs.slice(-4).map(h =>
-            `<div style="font-size:11px; color:#FF5252;">[${h.time}] ${h.fps} FPS (${h.frameMs}ms) | Calls: ${h.drawCalls} | Triangles: ${h.triangles} | Geoms: ${h.geometries} | Monsters: ${h.monsters} | Heap: ${h.heapMB}MB</div>`
-          ).join('');
+        ? '<div style="color:#00E676; font-size:11px;">Nessun calo improvviso registrato finora.</div>'
+        : this.hitchLogs.slice(-4).map(h => {
+            const frames = h.lastFrames.map(f => f.toFixed(0)).join(', ');
+            const ctx = h.context;
+            const ctxLine = ctx
+              ? `<div style="font-size:10px; color:#FFD700;">pos ${ctx.playerX.toFixed(0)},${ctx.playerZ.toFixed(0)} | dungeon=${ctx.isInDungeon} | wave=${ctx.wave} | ${ctx.weather} | ${ctx.timeOfDay.toFixed(1)}h | chunks=${ctx.activeChunks}+${ctx.cachedChunks} | npc=${ctx.npcCount} col=${ctx.collectibleCount} pu=${ctx.powerUpCount} | veh=${ctx.activeVehicle ?? 'none'} | boss=${ctx.activeBoss ?? 'none'} | proj=${ctx.activeProjectiles} gre=${ctx.activeGrenades}</div>`
+              : '';
+            return `<div style="font-size:11px; color:#FF5252; margin-bottom:2px;">
+              <div>[${h.time}] <b>${h.fps} FPS</b> (${h.frameMs}ms) | Calls: ${h.drawCalls} | Geoms: ${h.geometries} | Heap: ${h.heapMB}MB</div>
+              <div style="font-size:10px; color:#FFB74D;">frames ms: ${frames}</div>
+              ${ctxLine}
+            </div>`;
+          }).join('');
+
+      const ctx = this.latestStats.context;
+      const liveCtxHtml = ctx ? `
+        <div style="margin-top:10px; padding-top:8px; border-top: 1px dashed rgba(0,229,255,0.4); font-size:11px; color:#80DEEA;">
+          <b>Stato Live:</b> pos=(${ctx.playerX.toFixed(0)},${ctx.playerZ.toFixed(0)})
+          | ${ctx.isInDungeon ? '🏰 DUNGEON' : '🌍 OVERWORLD'}
+          | wave=${ctx.wave} ${ctx.activeBoss ? `| 🐉 ${ctx.activeBoss}` : ''}
+          | ${ctx.weather} ${ctx.timeOfDay.toFixed(1)}h
+          | npc=${ctx.npcCount} col=${ctx.collectibleCount} pu=${ctx.powerUpCount}
+          | chunks=${ctx.activeChunks}+${ctx.cachedChunks}
+        </div>` : '';
 
       content.innerHTML = `
         <div style="line-height: 1.8;">
@@ -210,6 +282,7 @@ export class PerformanceProfiler {
           <div>💾 <b>Memoria JS Heap:</b> ${this.latestStats.jsHeapUsedMB > 0 ? `${this.latestStats.jsHeapUsedMB} MB / ${this.latestStats.jsHeapTotalMB} MB` : 'N/A'}</div>
           <div>👾 <b>Nemici Attivi:</b> ${this.latestStats.entitiesCount}</div>
           <div>✨ <b>Particelle Meteo/Combattimento:</b> ${this.latestStats.particlesCount}</div>
+          ${liveCtxHtml}
           <div style="margin-top:12px; border-top: 1px dashed rgba(0,229,255,0.4); padding-top: 8px;">
             <b style="color:#FFD700;">⏱️ STORICO CALI E SCATTI (&lt; 35 FPS):</b>
             ${hitchesHtml}
@@ -220,15 +293,42 @@ export class PerformanceProfiler {
   }
 
   private generateLogText(): string {
+    const ctx = this.latestStats.context;
+    const ctxLines = ctx ? [
+      'Player position: ' + `${ctx.playerX.toFixed(1)}, ${ctx.playerY.toFixed(1)}, ${ctx.playerZ.toFixed(1)}`,
+      'Zone: ' + (ctx.isInDungeon ? 'DUNGEON' : 'OVERWORLD'),
+      'Vehicle: ' + (ctx.activeVehicle ?? 'none'),
+      'Active boss: ' + (ctx.activeBoss ?? 'none'),
+      'Wave: ' + ctx.wave,
+      'Weather: ' + ctx.weather + ' | Time of day: ' + ctx.timeOfDay.toFixed(2) + 'h',
+      'NPCs: ' + ctx.npcCount + ' | Collectibles: ' + ctx.collectibleCount + ' | PowerUps: ' + ctx.powerUpCount,
+      'Chunks: ' + ctx.activeChunks + ' active + ' + ctx.cachedChunks + ' cached',
+      'Active projectiles: ' + ctx.activeProjectiles + ' | Active grenades: ' + ctx.activeGrenades,
+      'Scene children: ' + ctx.sceneChildren,
+      'Dispose stats:',
+      '  calls=' + ctx.disposeCalls + ' geo=' + ctx.geometriesDisposed + ' mat=' + ctx.materialsDisposed + ' tex=' + ctx.texturesDisposed + ' shared=' + ctx.sharedSkipped,
+    ] : [];
+
     const hitchText = this.hitchLogs.length === 0
       ? 'No frame hitches detected'
-      : this.hitchLogs.map(h => `  [${h.time}] ${h.fps} FPS (${h.frameMs}ms) | Calls: ${h.drawCalls} | Triangles: ${h.triangles} | Geoms: ${h.geometries} | Monsters: ${h.monsters} | Heap: ${h.heapMB}MB`).join('\n');
+      : this.hitchLogs.map(h => {
+          const frames = h.lastFrames.map(f => f.toFixed(0)).join(', ');
+          const hCtx = h.context;
+          const ctxLine = hCtx
+            ? `  state: pos=(${hCtx.playerX.toFixed(0)},${hCtx.playerZ.toFixed(0)}) ${hCtx.isInDungeon ? 'DUNGEON' : 'OVER'} wave=${hCtx.wave} ${hCtx.weather} | npc=${hCtx.npcCount} col=${hCtx.collectibleCount} pu=${hCtx.powerUpCount} | chunks=${hCtx.activeChunks}+${hCtx.cachedChunks} | veh=${hCtx.activeVehicle ?? '-'} boss=${hCtx.activeBoss ?? '-'} | proj=${hCtx.activeProjectiles} gre=${hCtx.activeGrenades}\n  pre-hitch frames (ms): ${frames}\n  dispose: calls=${hCtx.disposeCalls} geo=${hCtx.geometriesDisposed} mat=${hCtx.materialsDisposed} tex=${hCtx.texturesDisposed} shared=${hCtx.sharedSkipped}\n  scene children: ${hCtx.sceneChildren}`
+            : '';
+          return `  [${h.time}] ${h.fps} FPS (${h.frameMs}ms) | Calls: ${h.drawCalls} | Triangles: ${h.triangles} | Geoms: ${h.geometries} | Monsters: ${h.monsters} | Heap: ${h.heapMB}MB\n${ctxLine}`;
+        }).join('\n\n');
 
     return `=== MONDO 3D PERFORMANCE LOG ===
-Data/Ora: ${new Date().toISOString()}
+Timestamp: ${new Date().toISOString()}
 Screen Resolution: ${window.innerWidth}x${window.innerHeight} (DPR: ${window.devicePixelRatio})
 GPU: ${this.latestStats.gpuRenderer}
-FPS: ${this.latestStats.fps} (${this.latestStats.frameTimeMs} ms)
+User Agent: ${navigator.userAgent}
+URL: ${location.href}
+
+--- CURRENT STATE ---
+FPS: ${this.latestStats.fps} (${this.latestStats.frameTimeMs} ms/frame)
 WebGL Draw Calls: ${this.latestStats.drawCalls}
 WebGL Triangles: ${this.latestStats.triangles}
 WebGL Lines: ${this.latestStats.lines}
@@ -238,6 +338,7 @@ VRAM Textures: ${this.latestStats.textures}
 JS Heap Memory: ${this.latestStats.jsHeapUsedMB > 0 ? `${this.latestStats.jsHeapUsedMB}MB / ${this.latestStats.jsHeapTotalMB}MB` : 'N/A'}
 Monsters: ${this.latestStats.entitiesCount}
 Particles: ${this.latestStats.particlesCount}
+${ctxLines.join('\n')}
 
 --- HISTORICAL FRAME HITCHES (< 35 FPS) ---
 ${hitchText}
