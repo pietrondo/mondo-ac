@@ -1,3 +1,5 @@
+import { POWERUPS } from '../config/powerups';
+
 export type PowerUpKind = 'health' | 'ammo' | 'adrenaline' | 'overclock' | 'shield';
 
 export interface PowerUpRuntime {
@@ -15,6 +17,7 @@ export interface PowerUpRecipient {
   maxHp: number;
   speed: number;
   isInvulnerable: boolean;
+  heal(amount: number): number;
 }
 
 export interface PowerUpAmmoRecipient {
@@ -41,22 +44,22 @@ export function applyPowerUp(
 ): string {
   switch (kind) {
     case 'health':
-      player.hp = Math.min(player.maxHp, player.hp + 30);
+      player.heal(POWERUPS.health.healAmount);
       return 'Health restored';
     case 'ammo':
-      rifle.reserveAmmo += 30;
+      rifle.reserveAmmo += POWERUPS.ammo.ammoAmount;
       return 'Ammo stockpiled';
     case 'adrenaline':
-      runtime.speedBoostRemaining = Math.max(runtime.speedBoostRemaining, 8);
-      runtime.speed = runtime.baseSpeed * 1.6;
+      runtime.speedBoostRemaining = Math.max(runtime.speedBoostRemaining, POWERUPS.adrenaline.duration);
+      runtime.speed = runtime.baseSpeed * POWERUPS.adrenaline.speedMultiplier;
       player.speed = runtime.speed;
       return 'Adrenaline boost';
     case 'overclock':
-      runtime.damageBoostRemaining = Math.max(runtime.damageBoostRemaining, 8);
-      runtime.shotDamage = Math.round(runtime.baseShotDamage * 1.6);
+      runtime.damageBoostRemaining = Math.max(runtime.damageBoostRemaining, POWERUPS.overclock.duration);
+      runtime.shotDamage = Math.round(runtime.baseShotDamage * POWERUPS.overclock.damageMultiplier);
       return 'Weapon overclocked';
     case 'shield':
-      runtime.shieldRemaining = Math.max(runtime.shieldRemaining, 8);
+      runtime.shieldRemaining = Math.max(runtime.shieldRemaining, POWERUPS.shield.duration);
       player.isInvulnerable = true;
       return 'Shield activated';
     default:

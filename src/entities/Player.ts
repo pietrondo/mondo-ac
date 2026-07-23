@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { InputManager } from '../controls/input';
 import { HeightMap } from '../world/heightmap';
 import { WORLD_SCALE, WORLD_SIZE } from '../config';
+import { PLAYER } from '../config/entities';
 import { Vehicle } from './Vehicle';
 import { requestPointerLockSafe } from '../controls/pointerLock';
+import { Health } from '../components/Health';
 
 export class Player {
   mesh: THREE.Group;
@@ -15,22 +17,23 @@ export class Player {
   private velocity = new THREE.Vector3();
   private grounded = true;
   private jumpWasPressed = false;
-  speed = 5;
-  private runSpeed = 10;
-  private readonly jumpVelocity = 8;
-  private readonly gravity = 24;
-  cameraHeight = 2.4; // Eye level height
+  speed = PLAYER.speed;
+  private runSpeed = PLAYER.runSpeed;
+  private readonly jumpVelocity = PLAYER.jumpVelocity;
+  private readonly gravity = PLAYER.gravity;
+  cameraHeight = PLAYER.cameraHeight;
   yaw = 0;
   chaseCameraYaw = 0;
   private pitch = 0.3;
 
   // HP and death
-  hp = 100;
-  maxHp = 100;
-  isInvulnerable = false;
+  private health: Health;
+  get hp(): number { return this.health.hp; }
+  get maxHp(): number { return this.health.maxHp; }
+  get isInvulnerable(): boolean { return this.health.isInvulnerable; }
+  set isInvulnerable(value: boolean) { this.health.isInvulnerable = value; }
   isSubterranean = false;
   dungeonFloorY = -150;
-  private alive = true;
   private respawnPosition = new THREE.Vector3();
 
   teleportTo(pos: THREE.Vector3): void {
@@ -42,7 +45,7 @@ export class Player {
   // Collision
   private structureColliders: { box: THREE.Box3; type: 'solid' | 'trigger' }[] = [];
   private decorationColliders: { position: THREE.Vector3; radius: number; height: number }[] = [];
-  private playerRadius = 0.5; // Player collision radius
+  private playerRadius = PLAYER.playerRadius;
 
   private static readonly tempPlayerBox = new THREE.Box3();
   private static readonly tempMinVec = new THREE.Vector3();
@@ -51,6 +54,8 @@ export class Player {
   constructor(camera: THREE.PerspectiveCamera, input: InputManager) {
     this.camera = camera;
     this.input = input;
+    this.health = new Health(PLAYER.maxHp);
+    this.health.isInvulnerable = false;
 
     // Create player mesh (simple humanoid)
     this.mesh = new THREE.Group();
@@ -97,15 +102,32 @@ export class Player {
   }
 
   isAlive(): boolean {
-    return this.alive;
+    return this.health.isAlive();
+  }
+
+  heal(amount: number): number {
+    return this.health.heal(amount);
+  }
+
+  upgradeMaxHp(bonusHp: number): void {
+    const fresh = new Health(this.health.maxHp + bonusHp);
+    fresh.isInvulnerable = this.health.isInvulnerable;
+    fresh.heal(this.health.maxHp);
+    (this as any).health = fresh;
+  }
+
+  resetToMaxHp(maxHp: number): void {
+    (this as any).health = new Health(maxHp);
+    (this as any).health.heal(maxHp);
   }
 
   takeDamage(amount: number): void {
-    if (!this.alive) return;
-    if (this.isInvulnerable) return;
-    this.hp -= amount;
-    this.shakeIntensity = Math.max(this.shakeIntensity, 1.2);
-    if (this.hp <= 0) {
+    if (!this.isAlive()) return;
+    const dealt = this.health.takeDamage(amount);
+    if (dealt > 0) {
+      this.shakeIntensity = Math.max(this.shakeIntensity, 1.2);
+    }
+    if (!this.isAlive()) {
       this.die();
     }
   }
@@ -113,10 +135,8 @@ export class Player {
   private die(): void {
     const existingMsg = document.getElementById('death-message');
     if (existingMsg) existingMsg.remove();
-    this.alive = false;
     this.mesh.visible = false;
     this.input.reset();
-    // Show death message
     const deathMsg = document.createElement('div');
     deathMsg.id = 'death-message';
     deathMsg.textContent = 'Sei caduto! Premi R per rinascere';
@@ -136,8 +156,7 @@ export class Player {
   }
 
   respawn(heightMap: HeightMap): void {
-    this.alive = true;
-    this.hp = this.maxHp;
+    this.health.reset();
     this.mesh.visible = true;
     this.mesh.position.copy(this.respawnPosition);
     this.mesh.position.y = heightMap.getInterpolated(
@@ -149,7 +168,6 @@ export class Player {
     this.jumpWasPressed = false;
     this.input.reset();
     requestPointerLockSafe(document.body);
-    // Remove death message
     const msg = document.getElementById('death-message');
     if (msg) msg.remove();
   }
@@ -174,7 +192,7 @@ export class Player {
       }
     }
 
-    if (!this.alive) {
+    if (!this.isAlive()) {
       // Check for respawn input
       if (this.input.state.interact || this.input.state.reload) {
         this.respawn(heightMap);

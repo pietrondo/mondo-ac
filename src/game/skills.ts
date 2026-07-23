@@ -9,6 +9,8 @@ import { SoundManager } from '../utils/sound';
 import { HUD } from '../ui/hud';
 import { HeightMap } from '../world/heightmap';
 import { WORLD_SCALE } from '../config';
+import { SKILLS } from '../config/skills';
+import { eventBus } from '../events/EventBus';
 
 interface ActiveGrenade {
   mesh: THREE.Mesh;
@@ -60,24 +62,25 @@ export class SkillSystem {
 
     // Skill 1: Dash (Key Q)
     if (input.state.skillDash && this.dashCooldown <= 0 && player.isAlive()) {
-      this.dashCooldown = 5.0;
+      this.dashCooldown = SKILLS.dash.cooldown;
       this.isDashing = true;
-      this.dashTimer = 0.4;
+      this.dashTimer = SKILLS.dash.duration;
       soundManager.playCollect();
+      eventBus.emit('skill.activated', { skill: 'dash' });
     }
     if (this.isDashing) {
       this.dashTimer -= delta;
       const camDir = camera.getWorldDirection(new THREE.Vector3());
       camDir.y = 0;
       camDir.normalize();
-      player.mesh.position.addScaledVector(camDir, 28 * delta);
+      player.mesh.position.addScaledVector(camDir, SKILLS.dash.speed * delta);
       particlePool.spawn('dust', player.mesh.position.clone(), new THREE.Vector3(0, 1, 0), 0.3);
       if (this.dashTimer <= 0) this.isDashing = false;
     }
 
     // Skill 2: Grenade (Key F)
     if (input.state.skillGrenade && this.grenadeCooldown <= 0 && player.isAlive()) {
-      this.grenadeCooldown = 8.0;
+      this.grenadeCooldown = SKILLS.grenade.cooldown;
       const gGeo = new THREE.SphereGeometry(0.35, 12, 12);
       const gMat = new THREE.MeshStandardMaterial({ color: 0xFF3D00, emissive: 0xFF5722, emissiveIntensity: 2.5 });
       const gMesh = new THREE.Mesh(gGeo, gMat);
@@ -85,17 +88,18 @@ export class SkillSystem {
       gMesh.position.copy(spawnPos);
       this.scene.add(gMesh);
 
-      const dir = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(24);
+      const dir = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(SKILLS.grenade.velocity);
       dir.y += 6;
-      this.activeGrenades.push({ mesh: gMesh, velocity: dir, timer: 3.0 });
+      this.activeGrenades.push({ mesh: gMesh, velocity: dir, timer: SKILLS.grenade.timer });
       soundManager.playShot();
+      eventBus.emit('skill.activated', { skill: 'grenade' });
     }
 
     // Update Grenades
     for (let i = this.activeGrenades.length - 1; i >= 0; i--) {
       const g = this.activeGrenades[i];
       g.timer -= delta;
-      g.velocity.y -= 15.0 * delta; // Realistic gravity
+      g.velocity.y -= SKILLS.grenade.gravity * delta; // Realistic gravity
       g.mesh.position.addScaledVector(g.velocity, delta);
       g.mesh.rotation.x += 10 * delta;
       g.mesh.rotation.z += 8 * delta;
@@ -150,13 +154,13 @@ export class SkillSystem {
           particlePool.spawn(Math.random() < 0.5 ? 'spark' : 'dust', expPos.clone(), vel, 0.5 + Math.random() * 0.5);
         }
 
-        // Deal 120 AOE Damage + Knockback in 12m radius
+        // Deal AOE Damage + Knockback
         let totalHits = 0;
         for (const monster of monsters) {
           if (monster.isAlive()) {
             const dist = monster.mesh.position.distanceTo(expPos);
-            if (dist <= 12) {
-              const damage = Math.round(120 * (1 - dist / 15));
+            if (dist <= SKILLS.grenade.radius) {
+              const damage = Math.round(SKILLS.grenade.damage * (1 - dist / 15));
               monster.takeDamage(damage);
               damageNumber.show(damage, monster.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0)), true, true);
               totalHits++;
@@ -194,18 +198,19 @@ export class SkillSystem {
 
     // Skill 3: Shield (Key C)
     if (input.state.skillShield && this.shieldCooldown <= 0 && player.isAlive()) {
-      this.shieldCooldown = 15.0;
+      this.shieldCooldown = SKILLS.shield.cooldown;
       this.isShieldActive = true;
-      this.shieldTimer = 3.5;
+      this.shieldTimer = SKILLS.shield.duration;
       soundManager.playCollect();
       if (!this.shieldMesh) {
         this.shieldMesh = new THREE.Mesh(
-          new THREE.SphereGeometry(1.4, 16, 16),
+          new THREE.SphereGeometry(SKILLS.shield.radius, 16, 16),
           new THREE.MeshStandardMaterial({ color: 0xB388FF, transparent: true, opacity: 0.4, emissive: 0xB388FF, emissiveIntensity: 1.5 })
         );
         this.scene.add(this.shieldMesh);
       }
       this.shieldMesh.visible = true;
+      eventBus.emit('skill.activated', { skill: 'shield' });
     }
 
     if (this.isShieldActive) {
@@ -217,6 +222,11 @@ export class SkillSystem {
       }
     }
 
+    eventBus.emit('skill.cooldown', {
+      dash: this.dashCooldown,
+      grenade: this.grenadeCooldown,
+      shield: this.shieldCooldown,
+    });
     hud.updateSkillCooldowns(this.dashCooldown, this.grenadeCooldown, this.shieldCooldown);
   }
 }
