@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as THREE from 'three';
-import { disposeObject3D, markSharedMaterial } from '../../src/utils/dispose';
+import { disposeObject3D, markSharedMaterial, markSharedGeometry, getDisposeStats, resetDisposeStats } from '../../src/utils/dispose';
 import { Collectible } from '../../src/entities/Collectible';
 import { PowerUp } from '../../src/entities/PowerUp';
 import { RemotePlayer } from '../../src/net/multiplayer';
@@ -168,5 +168,39 @@ describe('disposeObject3D', () => {
     geoSpies.forEach(s => expect(s).toHaveBeenCalledOnce());
     matSpies.forEach(s => expect(s).toHaveBeenCalledOnce());
     expect(scene.children.length).toBe(0);
+  });
+
+  describe('getDisposeStats', () => {
+    beforeEach(() => resetDisposeStats());
+
+    it('tracks dispose counts', () => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(1), new THREE.MeshBasicMaterial());
+      disposeObject3D(mesh);
+      const stats = getDisposeStats();
+      expect(stats.disposeCalls).toBe(1);
+      expect(stats.geometriesDisposed).toBe(1);
+      expect(stats.materialsDisposed).toBe(1);
+    });
+
+    it('counts shared skips', () => {
+      const sharedGeo = new THREE.BoxGeometry(1);
+      const sharedMat = new THREE.MeshBasicMaterial();
+      markSharedGeometry(sharedGeo);
+      markSharedMaterial(sharedMat);
+      const mesh = new THREE.Mesh(sharedGeo, sharedMat);
+      disposeObject3D(mesh);
+      const stats = getDisposeStats();
+      expect(stats.sharedGeometriesSkipped).toBe(1);
+      expect(stats.sharedMaterialsSkipped).toBe(1);
+      expect(stats.geometriesDisposed).toBe(0);
+      expect(stats.materialsDisposed).toBe(0);
+    });
+
+    it('resetDisposeStats clears counters', () => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(1), new THREE.MeshBasicMaterial());
+      disposeObject3D(mesh);
+      resetDisposeStats();
+      expect(getDisposeStats().disposeCalls).toBe(0);
+    });
   });
 });

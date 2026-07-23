@@ -46,7 +46,7 @@ import { findRandomSpawnPoint } from './world/spawnPoints';
 import { updateWeatherParticles } from './world/weatherParticles';
 import { createRegistrationOverlay } from './ui/registrationOverlay';
 import { detectWebGL, setLoadingProgress, hideLoadingOverlay, showSystemError } from './ui/loading';
-import { disposeObject3D } from './utils/dispose';
+import { disposeObject3D, getDisposeStats } from './utils/dispose';
 import { generateDungeon, DungeonResult } from './world/dungeonGenerator';
 import { BossMonster } from './entities/BossMonster';
 import { DialogueManager } from './dialogue/DialogueManager';
@@ -156,6 +156,22 @@ async function initGame(): Promise<void> {
     renderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through to UI
     container.appendChild(renderer.domElement);
     renderer.compile(scene, camera); // Prewarm and compile all materials/shaders on GPU
+
+    // Debug hook: expose scene/renderer/dispose stats to window for inspection
+    (window as any).__game__ = {
+      scene,
+      renderer,
+      get disposeStats() { return getDisposeStats(); },
+      get stats() {
+        return {
+          geometries: renderer!.info.memory.geometries,
+          textures: renderer!.info.memory.textures,
+          drawCalls: renderer!.info.render.calls,
+          triangles: renderer!.info.render.triangles,
+          sceneChildren: scene.children.length,
+        };
+      },
+    };
   }
 
   const profiler = new PerformanceProfiler();
