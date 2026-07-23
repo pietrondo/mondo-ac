@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { HeightMap } from '../world/heightmap';
 import { WORLD_SCALE, WORLD_SIZE } from '../config';
+import { disposeObject3D } from '../utils/dispose';
 
 export interface VillageContext {
   center: THREE.Vector3;
@@ -192,5 +193,9 @@ export class NPC {
 
     // Face direction
     this.mesh.lookAt(this.targetPos.x, this.mesh.position.y, this.targetPos.z);
+  }
+
+  dispose(): void {
+    disposeObject3D(this.mesh);
   }
 }

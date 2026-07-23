@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import { disposeObject3D, markSharedMaterial } from '../../src/utils/dispose';
+import { Collectible } from '../../src/entities/Collectible';
+import { PowerUp } from '../../src/entities/PowerUp';
 
 describe('disposeObject3D', () => {
   it('disposes geometries on a single mesh', () => {
@@ -43,20 +45,17 @@ describe('disposeObject3D', () => {
     expect(disposedMats).toBe(3);
   });
 
-  it('does not dispose materials marked as shared when keepSharedMaterials is true', () => {
-    const sharedMat = new THREE.MeshBasicMaterial();
-    markSharedMaterial(sharedMat);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1), sharedMat);
-    const matDispose = vi.spyOn(sharedMat, 'dispose');
-    const geoDispose = vi.spyOn(mesh.geometry, 'dispose');
+  it('keepSharedMaterials: true preserves all materials (opt-in safety)', () => {
+    const mat = new THREE.MeshBasicMaterial();
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1), mat);
+    const matDispose = vi.spyOn(mat, 'dispose');
 
     disposeObject3D(mesh, { keepSharedMaterials: true });
 
-    expect(geoDispose).toHaveBeenCalledOnce();
     expect(matDispose).not.toHaveBeenCalled();
   });
 
-  it('disposes materials marked as shared when keepSharedMaterials is false (default)', () => {
+  it('does not dispose materials marked as shared even without the flag', () => {
     const sharedMat = new THREE.MeshBasicMaterial();
     markSharedMaterial(sharedMat);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(1), sharedMat);
@@ -64,7 +63,7 @@ describe('disposeObject3D', () => {
 
     disposeObject3D(mesh);
 
-    expect(matDispose).toHaveBeenCalledOnce();
+    expect(matDispose).not.toHaveBeenCalled();
   });
 
   it('handles multi-material arrays', () => {
@@ -88,5 +87,39 @@ describe('disposeObject3D', () => {
     group.add(mesh);
 
     expect(() => disposeObject3D(group)).not.toThrow();
+  });
+
+  it('Collectible.dispose preserves static shared materials via auto-detection', () => {
+    const c1 = new Collectible(new THREE.Vector3(0, 0, 0), 'coin');
+    const c2 = new Collectible(new THREE.Vector3(5, 0, 0), 'coin');
+    const sharedMat = c1.mesh.material as THREE.Material;
+    const sharedGeo = c1.mesh.geometry;
+    expect(c2.mesh.material).toBe(sharedMat);
+    expect(c2.mesh.geometry).toBe(sharedGeo);
+
+    const matDispose = vi.spyOn(sharedMat, 'dispose');
+    const geoDispose = vi.spyOn(sharedGeo, 'dispose');
+
+    c1.dispose();
+    expect(matDispose).not.toHaveBeenCalled();
+    expect(geoDispose).not.toHaveBeenCalled();
+
+    c2.dispose();
+    expect(matDispose).not.toHaveBeenCalled();
+    expect(geoDispose).not.toHaveBeenCalled();
+  });
+
+  it('PowerUp.dispose preserves static shared geometries and frees inline ones', () => {
+    const p1 = new PowerUp(new THREE.Vector3(0, 0, 0), 'ammo');
+    const p2 = new PowerUp(new THREE.Vector3(5, 0, 0), 'ammo');
+
+    const inlineGeo = p1.mesh.children[1]?.geometry;
+    expect(inlineGeo).toBeDefined();
+
+    const inlineGeoDispose = vi.spyOn(inlineGeo!, 'dispose');
+    p1.dispose();
+    expect(inlineGeoDispose).toHaveBeenCalledOnce();
+
+    p2.dispose();
   });
 });

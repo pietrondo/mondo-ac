@@ -1010,11 +1010,12 @@ function animate(): void {
   for (const powerUp of powerUps) powerUp.update(gameTime);
 
   // Check collectible pickup
-  for (const item of collectibles) {
+  for (let i = collectibles.length - 1; i >= 0; i--) {
+    const item = collectibles[i];
     if (item.isVisible() && player.mesh.position.distanceTo(item.mesh.position) < 2) {
       const value = item.collect();
       hud.addScore(value);
-      hud.addCoins(value * 5); // Add money
+      hud.addCoins(value * 5);
       soundManager.playCollect();
       if (item.type === 'potion') {
         player.heal(25);
@@ -1024,10 +1025,14 @@ function animate(): void {
         w.reserveAmmo = Math.min(w.maxReserveAmmo, w.reserveAmmo + 30);
         hud.setWeaponState(w.magazineAmmo, w.reserveAmmo, w.isReloading, w.name);
       }
+      item.dispose();
+      scene.remove(item.mesh);
+      collectibles.splice(i, 1);
     }
   }
 
-  for (const powerUp of powerUps) {
+  for (let i = powerUps.length - 1; i >= 0; i--) {
+    const powerUp = powerUps[i];
     if (powerUp.isVisible() && player.mesh.position.distanceTo(powerUp.mesh.position) < 2) {
       const kind = powerUp.collect();
       const feedback = applyPowerUp(kind, powerUpRuntime, player, weapons[0]);
@@ -1037,6 +1042,9 @@ function animate(): void {
       hud.setStatus(feedback);
       soundManager.playCollect();
       if (feedback === 'Health restored') updateHpDisplay();
+      powerUp.dispose();
+      scene.remove(powerUp.mesh);
+      powerUps.splice(i, 1);
     }
   }
 

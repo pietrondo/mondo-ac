@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject3D, markSharedMaterial, markSharedGeometry } from '../utils/dispose';
 
 export class Collectible {
   mesh: THREE.Mesh;
@@ -17,6 +18,19 @@ export class Collectible {
   private static readonly matPotion = new THREE.MeshStandardMaterial({ color: 0xE91E63, emissive: 0xE91E63, emissiveIntensity: 0.3, flatShading: true });
   private static readonly matAmmo = new THREE.MeshStandardMaterial({ color: 0x00E5FF, emissive: 0x00E5FF, emissiveIntensity: 0.3, flatShading: true });
   private static readonly matChest = new THREE.MeshStandardMaterial({ color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.6, flatShading: true });
+
+  static {
+    markSharedGeometry(Collectible.geoCoin);
+    markSharedGeometry(Collectible.geoCrystal);
+    markSharedGeometry(Collectible.geoPotion);
+    markSharedGeometry(Collectible.geoAmmo);
+    markSharedGeometry(Collectible.geoChest);
+    markSharedMaterial(Collectible.matCoin);
+    markSharedMaterial(Collectible.matCrystal);
+    markSharedMaterial(Collectible.matPotion);
+    markSharedMaterial(Collectible.matAmmo);
+    markSharedMaterial(Collectible.matChest);
+  }
 
   constructor(position: THREE.Vector3, type: 'coin' | 'crystal' | 'potion' | 'ammo' | 'boss_chest' = 'coin') {
     this.type = type;
@@ -70,5 +84,9 @@ export class Collectible {
 
   isVisible(): boolean {
     return this.mesh.visible;
+  }
+
+  dispose(): void {
+    disposeObject3D(this.mesh);
   }
 }

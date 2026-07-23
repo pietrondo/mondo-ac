@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { InputManager } from '../controls/input';
 import { HeightMap } from '../world/heightmap';
 import { WORLD_SCALE, WORLD_SIZE } from '../config';
+import { disposeObject3D } from '../utils/dispose';
 
 export interface VehicleControlConfig {
   accel: number;
@@ -102,4 +103,8 @@ export abstract class Vehicle {
   }
 
   abstract update(delta: number, input: InputManager, heightMap: HeightMap): void;
+
+  dispose(): void {
+    disposeObject3D(this.mesh);
+  }
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import type { PowerUpKind } from '../game/powerUpEffects';
+import { disposeObject3D, markSharedGeometry } from '../utils/dispose';
 
 const powerUpProfiles: Record<PowerUpKind, { color: number; labelColor: number }> = {
   health: { color: 0xff5252, labelColor: 0xff8a80 },
@@ -22,6 +23,15 @@ export class PowerUp {
   private static readonly geoIcosa = new THREE.IcosahedronGeometry(0.32);
   private static readonly geoTorus = new THREE.TorusGeometry(0.28, 0.1, 8, 14);
   private static readonly geoCross = new THREE.BoxGeometry(0.12, 0.42, 0.12);
+
+  static {
+    markSharedGeometry(PowerUp.geoBoxAmmo);
+    markSharedGeometry(PowerUp.geoBoxHealth);
+    markSharedGeometry(PowerUp.geoOcta);
+    markSharedGeometry(PowerUp.geoIcosa);
+    markSharedGeometry(PowerUp.geoTorus);
+    markSharedGeometry(PowerUp.geoCross);
+  }
 
   constructor(position: THREE.Vector3, kind: PowerUpKind) {
     this.kind = kind;
@@ -134,5 +144,9 @@ export class PowerUp {
 
   isVisible(): boolean {
     return this.mesh.visible;
+  }
+
+  dispose(): void {
+    disposeObject3D(this.mesh);
   }
 }
