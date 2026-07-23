@@ -1,8 +1,37 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { disposeObject3D, markSharedMaterial } from '../../src/utils/dispose';
 import { Collectible } from '../../src/entities/Collectible';
 import { PowerUp } from '../../src/entities/PowerUp';
+import { RemotePlayer } from '../../src/net/multiplayer';
+
+interface MockElement {
+  style: Record<string, string>;
+  textContent: string;
+  remove(): void;
+}
+
+function createMockElement(): MockElement {
+  return {
+    style: {},
+    textContent: '',
+    remove: () => {},
+  };
+}
+
+const elementStash: MockElement[] = [];
+
+beforeEach(() => {
+  elementStash.length = 0;
+  vi.stubGlobal('document', {
+    createElement: () => {
+      const el = createMockElement();
+      elementStash.push(el);
+      return el;
+    },
+    body: { appendChild: () => {} },
+  });
+});
 
 describe('disposeObject3D', () => {
   it('disposes geometries on a single mesh', () => {
@@ -121,5 +150,23 @@ describe('disposeObject3D', () => {
     expect(inlineGeoDispose).toHaveBeenCalledOnce();
 
     p2.dispose();
+  });
+
+  it('RemotePlayer.destroy releases geometries and materials', () => {
+    const scene = new THREE.Scene();
+    const rp = new RemotePlayer('p1', 'Test', scene);
+    expect(scene.children.length).toBe(1);
+
+    const meshes = rp.mesh.children as THREE.Mesh[];
+    const geos = meshes.map(m => m.geometry);
+    const mats = meshes.map(m => m.material as THREE.Material);
+    const geoSpies = geos.map(g => vi.spyOn(g, 'dispose'));
+    const matSpies = mats.map(m => vi.spyOn(m, 'dispose'));
+
+    rp.destroy(scene);
+
+    geoSpies.forEach(s => expect(s).toHaveBeenCalledOnce());
+    matSpies.forEach(s => expect(s).toHaveBeenCalledOnce());
+    expect(scene.children.length).toBe(0);
   });
 });

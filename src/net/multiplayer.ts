@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposeObject3D } from '../utils/dispose';
 
 export interface RemotePlayerData {
   id: string;
@@ -88,6 +89,7 @@ export class RemotePlayer {
   }
 
   destroy(scene: THREE.Scene): void {
+    disposeObject3D(this.mesh);
     scene.remove(this.mesh);
     this.nameTag.remove();
   }
