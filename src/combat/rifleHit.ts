@@ -4,7 +4,7 @@ export interface Damageable {
   takeDamage(amount: number): void;
 }
 
-function findDamageableAncestor(object?: THREE.Object3D): Damageable | undefined {
+export function findDamageableAncestor(object?: THREE.Object3D): Damageable | undefined {
   let current: THREE.Object3D | null | undefined = object;
 
   while (current) {
