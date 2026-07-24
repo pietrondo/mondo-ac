@@ -5,9 +5,80 @@ import { chooseMonsterVariant, getMonsterVariantProfile, type MonsterVariant } f
 import { EnemyProjectileSystem } from '../combat/EnemyProjectile';
 import { PatternState, getPatternForVariant, calculateDirection } from '../combat/AttackPattern';
 import { Health } from '../components/Health';
-import { disposeObject3D } from '../utils/dispose';
+import { disposeObject3D, markSharedGeometry, markSharedMaterial } from '../utils/dispose';
 import { ParticlePool } from '../combat/particles';
 import { createFresnelMaterial } from '../render/materials';
+
+const eyeMatCache = new Map<number, THREE.MeshStandardMaterial>();
+function getOrCreateEyeMaterial(color: number): THREE.MeshStandardMaterial {
+  let mat = eyeMatCache.get(color);
+  if (!mat) {
+    mat = new THREE.MeshStandardMaterial({
+      color: color,
+      emissive: new THREE.Color(color),
+      emissiveIntensity: 2.0,
+    });
+    markSharedMaterial(mat);
+    eyeMatCache.set(color, mat);
+  }
+  return mat;
+}
+
+let propellerMat: THREE.MeshStandardMaterial | null = null;
+function getOrCreatePropellerMaterial(): THREE.MeshStandardMaterial {
+  if (!propellerMat) {
+    propellerMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.7, roughness: 0.3 });
+    markSharedMaterial(propellerMat);
+  }
+  return propellerMat;
+}
+
+let propellerGeo: THREE.BoxGeometry | null = null;
+function getOrCreatePropellerGeometry(): THREE.BoxGeometry {
+  if (!propellerGeo) {
+    propellerGeo = new THREE.BoxGeometry(1.2, 0.02, 0.08);
+    markSharedGeometry(propellerGeo);
+  }
+  return propellerGeo;
+}
+
+let healthBarBgGeo: THREE.PlaneGeometry | null = null;
+function getOrCreateHealthBarBgGeo(): THREE.PlaneGeometry {
+  if (!healthBarBgGeo) {
+    healthBarBgGeo = new THREE.PlaneGeometry(1.2, 0.15);
+    markSharedGeometry(healthBarBgGeo);
+  }
+  return healthBarBgGeo;
+}
+
+let healthBarFgGeo: THREE.BufferGeometry | null = null;
+function getOrCreateHealthBarFgGeo(): THREE.BufferGeometry {
+  if (!healthBarFgGeo) {
+    const geo = new THREE.PlaneGeometry(1.2, 0.15);
+    geo.translate(0.6, 0, 0);
+    markSharedGeometry(geo);
+    healthBarFgGeo = geo;
+  }
+  return healthBarFgGeo;
+}
+
+let healthBarBgMat: THREE.MeshBasicMaterial | null = null;
+function getOrCreateHealthBarBgMat(): THREE.MeshBasicMaterial {
+  if (!healthBarBgMat) {
+    healthBarBgMat = new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.DoubleSide });
+    markSharedMaterial(healthBarBgMat);
+  }
+  return healthBarBgMat;
+}
+
+const SHARED_HEALTHBAR_MAT_GREEN = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+markSharedMaterial(SHARED_HEALTHBAR_MAT_GREEN);
+
+const SHARED_HEALTHBAR_MAT_YELLOW = new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide });
+markSharedMaterial(SHARED_HEALTHBAR_MAT_YELLOW);
+
+const SHARED_HEALTHBAR_MAT_RED = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+markSharedMaterial(SHARED_HEALTHBAR_MAT_RED);
 
 export interface MonsterOptions {
   variant?: MonsterVariant;
@@ -94,17 +165,26 @@ export class Monster {
     this.mesh.add(this.muzzleFlash);
 
     
+    // Geometry and Material Caches for zero-allocation monster spawning
+    const geoCache = new Map<string, THREE.BufferGeometry>();
     const getGeo = (type: string, w: number, h: number, d: number) => {
-      switch (type) {
-        case 'Capsule': return new THREE.CapsuleGeometry(w/2, h/2, 4, 8);
-        case 'Dodecahedron': return new THREE.DodecahedronGeometry(Math.max(w,h,d)/2);
-        case 'Icosahedron': return new THREE.IcosahedronGeometry(Math.max(w,h,d)/2);
-        case 'Cylinder': return new THREE.CylinderGeometry(w/2, w/2, h, 8);
-        case 'Torus': return new THREE.TorusGeometry(Math.max(w,d)/2, h/4, 8, 16);
-        case 'Sphere': return new THREE.SphereGeometry(Math.max(w,h,d)/2, 16, 16);
-        case 'Box':
-        default: return new THREE.BoxGeometry(w, h, d);
+      const key = `${type}_${w.toFixed(2)}_${h.toFixed(2)}_${d.toFixed(2)}`;
+      let geo = geoCache.get(key);
+      if (!geo) {
+        switch (type) {
+          case 'Capsule': geo = new THREE.CapsuleGeometry(w/2, h/2, 4, 8); break;
+          case 'Dodecahedron': geo = new THREE.DodecahedronGeometry(Math.max(w,h,d)/2); break;
+          case 'Icosahedron': geo = new THREE.IcosahedronGeometry(Math.max(w,h,d)/2); break;
+          case 'Cylinder': geo = new THREE.CylinderGeometry(w/2, w/2, h, 8); break;
+          case 'Torus': geo = new THREE.TorusGeometry(Math.max(w,d)/2, h/4, 8, 16); break;
+          case 'Sphere': geo = new THREE.SphereGeometry(Math.max(w,h,d)/2, 16, 16); break;
+          case 'Box':
+          default: geo = new THREE.BoxGeometry(w, h, d); break;
+        }
+        markSharedGeometry(geo);
+        geoCache.set(key, geo);
       }
+      return geo;
     };
 
     const baseMat = createFresnelMaterial({
@@ -125,12 +205,16 @@ export class Monster {
     this.headGroup.add(headMesh);
 
     // Eyes
-    const eyeGeo = new THREE.SphereGeometry(this.variant === 'brute' ? 0.16 : 0.12, 8, 8);
-    const eyeMat = new THREE.MeshStandardMaterial({
-      color: profile.eyeColor,
-      emissive: new THREE.Color(profile.eyeColor),
-      emissiveIntensity: 2.0,
-    });
+    const eyeRadius = this.variant === 'brute' ? 0.16 : 0.12;
+    const eyeGeoKey = `eye_${eyeRadius}`;
+    let eyeGeo = geoCache.get(eyeGeoKey);
+    if (!eyeGeo) {
+      eyeGeo = new THREE.SphereGeometry(eyeRadius, 8, 8);
+      markSharedGeometry(eyeGeo);
+      geoCache.set(eyeGeoKey, eyeGeo);
+    }
+
+    const eyeMat = getOrCreateEyeMaterial(profile.eyeColor);
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
     leftEye.position.set(-0.22, 0.1, 0.25);
     this.headGroup.add(leftEye);
@@ -176,8 +260,9 @@ export class Monster {
     if (this.variant === 'drone') {
       this.propeller = new THREE.Group();
       this.propeller.position.set(0, profile.bodyHeight * 1.1, 0);
-      const bladeMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.7, roughness: 0.3 });
-      const blades = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.02, 0.08), bladeMat);
+      const bladeMat = getOrCreatePropellerMaterial();
+      const bladeGeo = getOrCreatePropellerGeometry();
+      const blades = new THREE.Mesh(bladeGeo, bladeMat);
       this.propeller.add(blades);
       this.mesh.add(this.propeller);
     }
@@ -187,16 +272,14 @@ export class Monster {
     this.healthBarGroup.scale.setScalar(1.0 / profile.scale); // Keep size constant across different monster scales
 
     const hbBg = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.2, 0.15),
-      new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.DoubleSide })
+      getOrCreateHealthBarBgGeo(),
+      getOrCreateHealthBarBgMat()
     );
     this.healthBarGroup.add(hbBg);
 
-    const hbFgGeo = new THREE.PlaneGeometry(1.2, 0.15);
-    hbFgGeo.translate(0.6, 0, 0); // align pivot to the left
     this.healthBarFg = new THREE.Mesh(
-      hbFgGeo,
-      new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide })
+      getOrCreateHealthBarFgGeo(),
+      SHARED_HEALTHBAR_MAT_GREEN
     );
     this.healthBarFg.position.x = -0.6; // shift back so left edge aligns with container center
     this.healthBarGroup.add(this.healthBarFg);
@@ -237,11 +320,11 @@ export class Monster {
     this.healthBarFg.scale.x = hpRatio;
 
     if (hpRatio > 0.6) {
-      (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0x00ff00);
+      this.healthBarFg.material = SHARED_HEALTHBAR_MAT_GREEN;
     } else if (hpRatio > 0.3) {
-      (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0xffff00);
+      this.healthBarFg.material = SHARED_HEALTHBAR_MAT_YELLOW;
     } else {
-      (this.healthBarFg.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+      this.healthBarFg.material = SHARED_HEALTHBAR_MAT_RED;
     }
   }
 

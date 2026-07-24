@@ -1,7 +1,29 @@
 import * as THREE from 'three';
 import { HeightMap } from '../world/heightmap';
 import { WORLD_SCALE, WORLD_SIZE } from '../config';
-import { disposeObject3D } from '../utils/dispose';
+import { disposeObject3D, markSharedGeometry, markSharedMaterial } from '../utils/dispose';
+
+const npcMatCache = new Map<string, THREE.Material>();
+function getOrCreateNPCMaterial(key: string, createFn: () => THREE.Material): THREE.Material {
+  let mat = npcMatCache.get(key);
+  if (!mat) {
+    mat = createFn();
+    markSharedMaterial(mat);
+    npcMatCache.set(key, mat);
+  }
+  return mat;
+}
+
+const npcGeoCache = new Map<string, THREE.BufferGeometry>();
+function getOrCreateNPCGeometry(key: string, createFn: () => THREE.BufferGeometry): THREE.BufferGeometry {
+  let geo = npcGeoCache.get(key);
+  if (!geo) {
+    geo = createFn();
+    markSharedGeometry(geo);
+    npcGeoCache.set(key, geo);
+  }
+  return geo;
+}
 
 export interface VillageContext {
   center: THREE.Vector3;
@@ -55,8 +77,8 @@ export class NPC {
       headColor = 0xFFE0B2;
       // Merchant Hat
       hatMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5, 0.5, 0.2, 8),
-        new THREE.MeshStandardMaterial({ color: 0x8D6E63, flatShading: true })
+        getOrCreateNPCGeometry('merchant_hat', () => new THREE.CylinderGeometry(0.5, 0.5, 0.2, 8)),
+        getOrCreateNPCMaterial('merchant_hat_mat', () => new THREE.MeshStandardMaterial({ color: 0x8D6E63, flatShading: true }))
       );
       hatMesh.position.y = 2.4;
     } else if (this.dialogueTreeId.includes('elder')) {
@@ -64,8 +86,8 @@ export class NPC {
       headColor = 0xFFECB3;
       // White Staff
       const staff = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.05, 0.05, 2.2, 6),
-        new THREE.MeshStandardMaterial({ color: 0xFFFFFF, flatShading: true })
+        getOrCreateNPCGeometry('elder_staff', () => new THREE.CylinderGeometry(0.05, 0.05, 2.2, 6)),
+        getOrCreateNPCMaterial('elder_staff_mat', () => new THREE.MeshStandardMaterial({ color: 0xFFFFFF, flatShading: true }))
       );
       staff.position.set(0.6, 1.1, 0.2);
       this.mesh.add(staff);
@@ -74,8 +96,8 @@ export class NPC {
       headColor = 0xFFCC80;
       // Guard Helmet
       hatMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.7, 0.6, 0.7),
-        new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true })
+        getOrCreateNPCGeometry('guard_helmet', () => new THREE.BoxGeometry(0.7, 0.6, 0.7)),
+        getOrCreateNPCMaterial('guard_helmet_mat', () => new THREE.MeshStandardMaterial({ color: 0x37474F, flatShading: true }))
       );
       hatMesh.position.y = 2.15;
     } else if (this.dialogueTreeId.includes('traveler')) {
@@ -85,8 +107,8 @@ export class NPC {
 
     
     this.bodyMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 1.4, 0.5),
-      new THREE.MeshStandardMaterial({ color: bodyColor, flatShading: true })
+      getOrCreateNPCGeometry('body_box', () => new THREE.BoxGeometry(0.8, 1.4, 0.5)),
+      getOrCreateNPCMaterial(`body_mat_${bodyColor}`, () => new THREE.MeshStandardMaterial({ color: bodyColor, flatShading: true }))
     );
     this.bodyMesh.position.y = 0.7;
     this.mesh.add(this.bodyMesh);
@@ -95,35 +117,51 @@ export class NPC {
     this.headGroup.position.set(0, 1.6, 0);
     
     const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.35, 8, 8),
-      new THREE.MeshStandardMaterial({ color: headColor, flatShading: true })
+      getOrCreateNPCGeometry('head_sphere', () => new THREE.SphereGeometry(0.35, 8, 8)),
+      getOrCreateNPCMaterial(`head_mat_${headColor}`, () => new THREE.MeshStandardMaterial({ color: headColor, flatShading: true }))
     );
+    head.position.y = 0.25;
     this.headGroup.add(head);
 
     if (hatMesh) {
-      hatMesh.position.y = 0.4;
+      hatMesh.position.y -= 1.6; // adjust relative to headGroup
       this.headGroup.add(hatMesh);
     }
     
     this.mesh.add(this.headGroup);
 
+    // Floating 3D status indicators
     this.indicatorGroup = new THREE.Group();
     this.indicatorGroup.position.set(0, 2.8, 0);
     
+    const yellowBasicMat = getOrCreateNPCMaterial('yellow_basic_mat', () => new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+    
     this.exclamation = new THREE.Group();
-    const eLine = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.02, 0.3), new THREE.MeshBasicMaterial({color: 0xffff00}));
+    const eLine = new THREE.Mesh(
+      getOrCreateNPCGeometry('exclamation_line', () => new THREE.CylinderGeometry(0.06, 0.02, 0.3)),
+      yellowBasicMat
+    );
     eLine.position.y = 0.2;
     this.exclamation.add(eLine);
-    const eDot = new THREE.Mesh(new THREE.SphereGeometry(0.06), new THREE.MeshBasicMaterial({color: 0xffff00}));
+    const eDot = new THREE.Mesh(
+      getOrCreateNPCGeometry('indicator_dot', () => new THREE.SphereGeometry(0.06)),
+      yellowBasicMat
+    );
     eDot.position.y = -0.05;
     this.exclamation.add(eDot);
     this.indicatorGroup.add(this.exclamation);
 
     this.question = new THREE.Group();
-    const qArc = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 8, 16, Math.PI * 1.5), new THREE.MeshBasicMaterial({color: 0xffff00}));
+    const qArc = new THREE.Mesh(
+      getOrCreateNPCGeometry('question_arc', () => new THREE.TorusGeometry(0.12, 0.04, 8, 16, Math.PI * 1.5)),
+      yellowBasicMat
+    );
     qArc.position.y = 0.2;
     this.question.add(qArc);
-    const qDot2 = new THREE.Mesh(new THREE.SphereGeometry(0.06), new THREE.MeshBasicMaterial({color: 0xffff00}));
+    const qDot2 = new THREE.Mesh(
+      getOrCreateNPCGeometry('indicator_dot', () => new THREE.SphereGeometry(0.06)),
+      yellowBasicMat
+    );
     qDot2.position.set(0.12, -0.05, 0);
     this.question.add(qDot2);
     this.question.visible = false;

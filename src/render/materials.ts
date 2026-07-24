@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { markSharedMaterial } from '../utils/dispose';
+
+const fresnelMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
 
 export function createTerrainMaterial(): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
@@ -11,18 +14,31 @@ export function createTerrainMaterial(): THREE.MeshStandardMaterial {
 }
 
 export function createFresnelMaterial(params: { color?: number | string, emissive?: number | string, emissiveIntensity?: number, fresnelColor?: number | string, fresnelPower?: number, fresnelIntensity?: number } = {}): THREE.MeshStandardMaterial {
+  const color = params.color !== undefined ? params.color : 0x444444;
+  const emissive = params.emissive !== undefined ? params.emissive : 0x000000;
+  const emissiveIntensity = params.emissiveIntensity !== undefined ? params.emissiveIntensity : 1.0;
+  const fresnelColor = params.fresnelColor !== undefined ? params.fresnelColor : (params.emissive || 0x00ffff);
+  const fresnelPower = params.fresnelPower !== undefined ? params.fresnelPower : 3.0;
+  const fresnelIntensity = params.fresnelIntensity !== undefined ? params.fresnelIntensity : 2.0;
+
+  const cacheKey = `${color}_${emissive}_${emissiveIntensity}_${fresnelColor}_${fresnelPower}_${fresnelIntensity}`;
+  const existing = fresnelMaterialCache.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+
   const material = new THREE.MeshStandardMaterial({
-    color: params.color !== undefined ? params.color : 0x444444,
-    emissive: params.emissive !== undefined ? params.emissive : 0x000000,
-    emissiveIntensity: params.emissiveIntensity !== undefined ? params.emissiveIntensity : 1.0,
+    color: color,
+    emissive: emissive,
+    emissiveIntensity: emissiveIntensity,
     roughness: 0.7,
     metalness: 0.3
   });
 
   const customUniforms = {
-    uFresnelColor: { value: new THREE.Color(params.fresnelColor !== undefined ? params.fresnelColor : (params.emissive || 0x00ffff)) },
-    uFresnelPower: { value: params.fresnelPower !== undefined ? params.fresnelPower : 3.0 },
-    uFresnelIntensity: { value: params.fresnelIntensity !== undefined ? params.fresnelIntensity : 2.0 }
+    uFresnelColor: { value: new THREE.Color(fresnelColor) },
+    uFresnelPower: { value: fresnelPower },
+    uFresnelIntensity: { value: fresnelIntensity }
   };
 
   material.onBeforeCompile = (shader) => {
@@ -65,5 +81,8 @@ export function createFresnelMaterial(params: { color?: number | string, emissiv
       totalEmissiveRadiance += uFresnelColor * fresnelTerm * uFresnelIntensity;`
     );
   };
+
+  markSharedMaterial(material);
+  fresnelMaterialCache.set(cacheKey, material);
   return material;
 }
