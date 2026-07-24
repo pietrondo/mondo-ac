@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Health } from '../components/Health';
 import { disposeObject3D } from '../utils/dispose';
+import { ParticlePool } from '../combat/particles';
 
 export interface BossMonsterOptions {
   name?: string;
@@ -10,6 +11,7 @@ export interface BossMonsterOptions {
   onAttack?: () => void;
   onPhaseChange?: (phase: number) => void;
   onDeath?: () => void;
+  particlePool?: ParticlePool;
 }
 
 export class BossMonster {
@@ -19,6 +21,9 @@ export class BossMonster {
   private health: Health;
   phase: 1 | 2 | 3 = 1;
   private moveSpeed: number;
+  private particlePool?: ParticlePool;
+  private state: 'active' | 'dying' | 'dead' = 'active';
+  private dissolveTimer = 0;
 
   private attackCooldown = 0;
   private shockwaveCooldown = 0;
@@ -43,6 +48,7 @@ export class BossMonster {
     this.onAttack = options.onAttack;
     this.onPhaseChange = options.onPhaseChange;
     this.onDeath = options.onDeath;
+    this.particlePool = options.particlePool;
 
     const scale = options.scale ?? 2.8;
 
@@ -119,6 +125,33 @@ export class BossMonster {
     this.mesh.add(rightArm);
 
     // Store emissive states for flash effect
+        const injectDissolve = (mat: THREE.MeshStandardMaterial) => {
+      mat.transparent = true;
+      mat.onBeforeCompile = (shader: any) => {
+        shader.uniforms.uDissolveThreshold = { value: 0.0 };
+        mat.userData.shader = shader;
+        
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <common>',
+          `#include <common>
+           uniform float uDissolveThreshold;
+           float hash(vec2 p) { return fract(1e4 * sin(17.0 * p.x + p.y * 0.1) * (0.1 + abs(sin(p.y * 13.0 + p.x)))); }
+          `
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <dithering_fragment>',
+          `#include <dithering_fragment>
+           float n = hash(gl_FragCoord.xy * 0.1);
+           if (n < uDissolveThreshold) discard;
+           else if (n < uDissolveThreshold + 0.05) gl_FragColor = vec4(1.0, 0.3, 0.0, 1.0); // burn edge
+          `
+        );
+      };
+    };
+    injectDissolve(this.bodyMat);
+    injectDissolve(this.hornMat);
+    injectDissolve(this.eyeMat);
+
     this.originalEmissiveValues.set(this.hornMat, {
       color: this.hornMat.emissive.clone(),
       intensity: this.hornMat.emissiveIntensity,
@@ -158,12 +191,26 @@ export class BossMonster {
       this.hornMat.emissive.setHex(0xaa00ff);
       this.hornMat.emissiveIntensity = 3.0;
       if (this.onPhaseChange) this.onPhaseChange(3);
+      if (this.particlePool) {
+        for (let i = 0; i < 36; i++) {
+          const angle = (i / 36) * Math.PI * 2;
+          const dir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+          this.particlePool.spawn('flame', this.mesh.position.clone(), dir.multiplyScalar(15), 1.0);
+        }
+      }
     } else if (this.health.ratio <= 0.6 && this.phase < 2) {
       this.phase = 2;
       this.moveSpeed *= 1.3;
       this.hornMat.emissive.setHex(0xff0000);
       this.hornMat.emissiveIntensity = 2.0;
       if (this.onPhaseChange) this.onPhaseChange(2);
+      if (this.particlePool) {
+        for (let i = 0; i < 36; i++) {
+          const angle = (i / 36) * Math.PI * 2;
+          const dir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+          this.particlePool.spawn('spark', this.mesh.position.clone(), dir.multiplyScalar(20), 0.8);
+        }
+      }
     }
 
     if (!this.health.isAlive()) {
@@ -172,12 +219,35 @@ export class BossMonster {
   }
 
   private die(): void {
-    this.mesh.visible = false;
-    if (this.onDeath) this.onDeath();
+    this.state = 'dying';
+    this.dissolveTimer = 0;
   }
 
   update(delta: number, playerPos: THREE.Vector3, _isSubterranean: boolean = true): void {
-    if (!this.health.isAlive()) return;
+    if (!this.health.isAlive() && this.state === 'dead') return;
+    
+    if (this.state === 'dying') {
+      this.dissolveTimer += delta;
+      const progress = Math.min(this.dissolveTimer / 2.0, 1.0);
+      
+      [this.bodyMat, this.hornMat, this.eyeMat].forEach((mat: THREE.MeshStandardMaterial) => {
+        if (mat.userData.shader) {
+          mat.userData.shader.uniforms.uDissolveThreshold.value = progress;
+        }
+      });
+
+      if (this.particlePool && Math.random() < 0.6) {
+        const offset = new THREE.Vector3((Math.random() - 0.5)*4, Math.random()*5, (Math.random() - 0.5)*4);
+        this.particlePool.spawn('boss_dissolve_ember', this.mesh.position.clone().add(offset), new THREE.Vector3(0, 2, 0), 1.5);
+      }
+
+      if (progress >= 1.0) {
+        this.state = 'dead';
+        this.mesh.visible = false;
+        if (this.onDeath) this.onDeath();
+      }
+      return;
+    }
 
     // Update hit flash decay
     if (this.hitFlashTimer > 0) {

@@ -4,7 +4,7 @@ import { WORLD_SCALE } from '../config';
 
 export interface Particle {
   mesh: THREE.Mesh;
-  type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame';
+  type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame' | 'thruster' | 'spectral_trail' | 'charge_dust' | 'boss_dissolve_ember';
   active: boolean;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
@@ -27,6 +27,10 @@ export class ParticlePool {
   private smokeGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
   private dustGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
   private flameGeo = new THREE.SphereGeometry(0.35, 8, 8);
+  private thrusterGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+  private spectralGeo = new THREE.SphereGeometry(0.2, 8, 8);
+  private chargeDustGeo = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+  private bossEmberGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
 
   constructor(scene: THREE.Scene, maxCapacity: number = 300) {
     this.scene = scene;
@@ -38,8 +42,8 @@ export class ParticlePool {
   }
 
   prewarm(): void {
-    const types: Array<'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame'> = [
-      'spark', 'blood', 'shell', 'snow', 'sand', 'leaf', 'smoke', 'dust', 'flame'
+    const types: Array<'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame' | 'thruster' | 'spectral_trail' | 'charge_dust' | 'boss_dissolve_ember'> = [
+      'spark', 'blood', 'shell', 'snow', 'sand', 'leaf', 'smoke', 'dust', 'flame', 'thruster', 'spectral_trail', 'charge_dust', 'boss_dissolve_ember'
     ];
     for (const type of types) {
       for (let i = 0; i < 12; i++) {
@@ -59,7 +63,7 @@ export class ParticlePool {
     }
   }
 
-  private createMesh(type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame'): THREE.Mesh {
+  private createMesh(type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame' | 'thruster' | 'spectral_trail' | 'charge_dust' | 'boss_dissolve_ember'): THREE.Mesh {
     let geo: THREE.BufferGeometry;
     let mat: THREE.Material;
 
@@ -121,6 +125,34 @@ export class ParticlePool {
         transparent: true,
         opacity: 0.6,
       });
+    } else if (type === 'thruster') {
+      geo = this.thrusterGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.9,
+      });
+    } else if (type === 'spectral_trail') {
+      geo = this.spectralGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0x9900ff,
+        transparent: true,
+        opacity: 0.7,
+      });
+    } else if (type === 'charge_dust') {
+      geo = this.chargeDustGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0x8b5a2b,
+        transparent: true,
+        opacity: 0.8,
+      });
+    } else if (type === 'boss_dissolve_ember') {
+      geo = this.bossEmberGeo;
+      mat = new THREE.MeshBasicMaterial({
+        color: 0xff4500, // intense orange/red
+        transparent: true,
+        opacity: 1.0,
+      });
     } else {
       geo = this.flameGeo;
       mat = new THREE.MeshBasicMaterial({
@@ -137,7 +169,7 @@ export class ParticlePool {
   }
 
   spawn(
-    type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame',
+    type: 'spark' | 'blood' | 'shell' | 'snow' | 'sand' | 'leaf' | 'smoke' | 'dust' | 'flame' | 'thruster' | 'spectral_trail' | 'charge_dust' | 'boss_dissolve_ember',
     position: THREE.Vector3,
     velocity: THREE.Vector3,
     maxLife: number = 1.0
@@ -216,6 +248,18 @@ export class ParticlePool {
           } else if (type === 'flame') {
             p.mesh.geometry = this.flameGeo;
             p.mesh.material = new THREE.MeshBasicMaterial({ color: 0xff3d00, transparent: true, opacity: 0.85 });
+          } else if (type === 'thruster') {
+            p.mesh.geometry = this.thrusterGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.9 });
+          } else if (type === 'spectral_trail') {
+            p.mesh.geometry = this.spectralGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0x9900ff, transparent: true, opacity: 0.7 });
+          } else if (type === 'charge_dust') {
+            p.mesh.geometry = this.chargeDustGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0x8b5a2b, transparent: true, opacity: 0.8 });
+          } else if (type === 'boss_dissolve_ember') {
+            p.mesh.geometry = this.bossEmberGeo;
+            p.mesh.material = new THREE.MeshBasicMaterial({ color: 0xff4500, transparent: true, opacity: 1.0 });
           }
         }
       }
@@ -311,6 +355,13 @@ export class ParticlePool {
       } else if (p.type === 'dust') {
         p.velocity.x = Math.sin((p.maxLife - p.life) * 4.0) * 0.3;
         p.velocity.z = Math.cos((p.maxLife - p.life) * 3.0) * 0.3;
+      } else if (p.type === 'spectral_trail') {
+        p.velocity.x += Math.sin((p.maxLife - p.life) * 5.0) * 0.1;
+        p.velocity.z += Math.cos((p.maxLife - p.life) * 5.0) * 0.1;
+      } else if (p.type === 'boss_dissolve_ember') {
+        p.velocity.y += 2.0 * delta; // upward velocity drift
+        p.velocity.x += Math.sin((p.maxLife - p.life) * 8.0) * 0.2;
+        p.velocity.z += Math.cos((p.maxLife - p.life) * 6.0) * 0.2;
       }
 
       p.velocity.y += pGravity * delta;
@@ -322,7 +373,7 @@ export class ParticlePool {
 
       if (p.position.y <= groundY) {
         // Weather & flame particles bypass ground bounces/stopping and just deactivate
-        if (p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust' || p.type === 'flame') {
+        if (p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust' || p.type === 'flame' || p.type === 'spectral_trail' || p.type === 'boss_dissolve_ember' || p.type === 'thruster') {
           p.active = false;
           p.mesh.visible = false;
           continue;
@@ -359,7 +410,7 @@ export class ParticlePool {
       if (p.type === 'flame') {
         const age = 1.0 - ratio;
         p.mesh.scale.setScalar(0.5 + age * 3.2);
-      } else if (p.type === 'spark' || p.type === 'blood' || p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust') {
+      } else if (p.type === 'spark' || p.type === 'blood' || p.type === 'snow' || p.type === 'sand' || p.type === 'leaf' || p.type === 'smoke' || p.type === 'dust' || p.type === 'thruster' || p.type === 'charge_dust' || p.type === 'spectral_trail' || p.type === 'boss_dissolve_ember') {
         p.mesh.scale.setScalar(ratio);
       }
 

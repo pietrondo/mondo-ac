@@ -581,7 +581,7 @@ function spawnMonsterAtPosition(pos: THREE.Vector3, index: number, difficulty = 
   const hz = (monsterPosition.z / WORLD_SCALE) + WORLD_SIZE / 2;
   monsterPosition.y = heightMap.getInterpolated(hx, hz);
 
-  const monster = new Monster(monsterPosition, {
+  const monster = new Monster(monsterPosition, { particlePool,
     variant: chooseMonsterVariant(monsterPosition, index, biomeMap),
     isWaveHorde,
     onAttack: () => {
@@ -852,7 +852,7 @@ function animate(): void {
 
           scene.fog = new THREE.FogExp2(0x0a0814, 0.025);
 
-          dungeonBoss = new BossMonster(activeDungeon.bossSpawnPos, {
+          dungeonBoss = new BossMonster(activeDungeon.bossSpawnPos, { particlePool,
             name: 'Titano Oscuro',
             maxHp: 800,
             onDeath: () => {
@@ -866,7 +866,7 @@ function animate(): void {
 
           dungeonMonsters = [];
           for (const mPos of activeDungeon.monsterSpawns) {
-            const m = new Monster(mPos, {
+            const m = new Monster(mPos, { particlePool,
               variant: chooseMonsterVariant(mPos),
               onAttack: () => soundManager.playPositionalAttack(m.mesh),
               onDeath: () => {
@@ -1001,7 +1001,7 @@ function animate(): void {
 
   // Update entities (night speed boost)
   const nightSpeedFactor = dayNight.getNightSpeedMultiplier();
-  for (const npc of npcs) npc.update(delta, heightMap);
+  for (const npc of npcs) npc.update(delta, heightMap, player.mesh.position);
   for (const monster of monsters) {
     if (monster.isAlive()) {
       monster.update(delta * nightSpeedFactor, heightMap, player.mesh.position, camera, monsters);

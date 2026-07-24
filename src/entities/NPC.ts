@@ -27,6 +27,13 @@ export class NPC {
   private targetPos = new THREE.Vector3();
   private speed = 2;
   private waitTime = 0;
+  private animTime = 0;
+  private bodyMesh: THREE.Mesh;
+  private headGroup: THREE.Group;
+  private indicatorGroup: THREE.Group;
+  private exclamation: THREE.Group;
+  private question: THREE.Group;
+  private targetHeadQuat = new THREE.Quaternion();
   private village: VillageContext | null;
 
   constructor(position: THREE.Vector3, village?: VillageContext, options?: NPCOptions) {
@@ -76,25 +83,53 @@ export class NPC {
       headColor = 0xD7CCC8;
     }
 
-    // Body
-    const body = new THREE.Mesh(
+    
+    this.bodyMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.8, 1.4, 0.5),
       new THREE.MeshStandardMaterial({ color: bodyColor, flatShading: true })
     );
-    body.position.y = 1;
-    this.mesh.add(body);
+    this.bodyMesh.position.y = 0.7;
+    this.mesh.add(this.bodyMesh);
 
-    // Head
+    this.headGroup = new THREE.Group();
+    this.headGroup.position.set(0, 1.6, 0);
+    
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(0.35, 8, 8),
       new THREE.MeshStandardMaterial({ color: headColor, flatShading: true })
     );
-    head.position.y = 2;
-    this.mesh.add(head);
+    this.headGroup.add(head);
 
     if (hatMesh) {
-      this.mesh.add(hatMesh);
+      hatMesh.position.y = 0.4;
+      this.headGroup.add(hatMesh);
     }
+    
+    this.mesh.add(this.headGroup);
+
+    this.indicatorGroup = new THREE.Group();
+    this.indicatorGroup.position.set(0, 2.8, 0);
+    
+    this.exclamation = new THREE.Group();
+    const eLine = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.02, 0.3), new THREE.MeshBasicMaterial({color: 0xffff00}));
+    eLine.position.y = 0.2;
+    this.exclamation.add(eLine);
+    const eDot = new THREE.Mesh(new THREE.SphereGeometry(0.06), new THREE.MeshBasicMaterial({color: 0xffff00}));
+    eDot.position.y = -0.05;
+    this.exclamation.add(eDot);
+    this.indicatorGroup.add(this.exclamation);
+
+    this.question = new THREE.Group();
+    const qArc = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 8, 16, Math.PI * 1.5), new THREE.MeshBasicMaterial({color: 0xffff00}));
+    qArc.position.y = 0.2;
+    this.question.add(qArc);
+    const qDot2 = new THREE.Mesh(new THREE.SphereGeometry(0.06), new THREE.MeshBasicMaterial({color: 0xffff00}));
+    qDot2.position.set(0.12, -0.05, 0);
+    this.question.add(qDot2);
+    this.question.visible = false;
+    this.indicatorGroup.add(this.question);
+    
+    this.mesh.add(this.indicatorGroup);
 
     this.mesh.traverse((child) => {
       if (child instanceof THREE.Mesh) {
@@ -140,7 +175,43 @@ export class NPC {
     }
   }
 
-  update(delta: number, heightMap: HeightMap): void {
+  update(delta: number, heightMap: HeightMap, playerPos?: THREE.Vector3): void {
+    this.animTime += delta;
+    
+    // Breathing animation
+    const breathY = 1.0 + Math.sin(this.animTime * 3.0) * 0.05;
+    const breathXZ = 1.0 - Math.sin(this.animTime * 3.0) * 0.02;
+    this.bodyMesh.scale.set(breathXZ, breathY, breathXZ);
+
+    // Indicator animation
+    this.indicatorGroup.position.y = 2.8 + Math.sin(this.animTime * 4.0) * 0.1;
+    this.indicatorGroup.rotation.y += delta * 2.0;
+
+    // Head orientation tracking
+    if (playerPos) {
+      const dist = this.mesh.position.distanceTo(playerPos);
+      if (dist < 10) {
+        // Track player
+        const targetPoint = playerPos.clone().add(new THREE.Vector3(0, 1.5, 0));
+        const dummy = new THREE.Object3D();
+        dummy.position.copy(this.mesh.position).add(this.headGroup.position);
+        dummy.lookAt(targetPoint);
+        // Correct for mesh base rotation
+        dummy.quaternion.premultiply(this.mesh.quaternion.clone().invert());
+        this.targetHeadQuat.copy(dummy.quaternion);
+        
+        if (this.isTalking) {
+           // Nodding
+           const nod = Math.sin(this.animTime * 8.0) * 0.2;
+           const nodQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), nod);
+           this.targetHeadQuat.multiply(nodQuat);
+        }
+      } else {
+        this.targetHeadQuat.identity();
+      }
+      this.headGroup.quaternion.slerp(this.targetHeadQuat, 5.0 * delta);
+    }
+
     if (this.isTalking || this.isStationary) return;
 
     if (this.waitTime > 0) {

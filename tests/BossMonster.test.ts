@@ -39,7 +39,7 @@ describe('BossMonster', () => {
     boss.takeDamage(500);
     expect(boss.getHp()).toBe(0);
     expect(boss.isAlive()).toBe(false);
-    expect(onDeath).toHaveBeenCalled();
+    boss.update(2.5, new THREE.Vector3()); expect(onDeath).toHaveBeenCalled();
   });
 
   it('pursues player during update tick', () => {

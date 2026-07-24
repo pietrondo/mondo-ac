@@ -170,18 +170,18 @@ describe('Spaceship elevation, pitch, roll & flying controls', () => {
 });
 
 describe('Monster Variant Visuals and Hover updates', () => {
-  it('creates 6 leg cylinders for crawler monsters', () => {
+  it('creates 4 capsule limbs for crawler monsters', () => {
     const crawler = new Monster(new THREE.Vector3(0, 0, 0), { variant: 'crawler' });
     let legCylinders = 0;
     crawler.mesh.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.geometry instanceof THREE.CylinderGeometry) {
+      if (child instanceof THREE.Mesh && child.geometry instanceof THREE.CapsuleGeometry) {
         // Cylinder legs are added with radius 0.08
-        if (child.geometry.parameters.radiusTop === 0.08) {
+        if (child.geometry.parameters.radius === 0.1) {
           legCylinders++;
         }
       }
     });
-    expect(legCylinders).toBe(6);
+    expect(legCylinders).toBe(4);
   });
 
   it('spawns and updates drone monster to hover 3 meters above terrain', () => {

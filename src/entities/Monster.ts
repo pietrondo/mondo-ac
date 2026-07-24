@@ -6,6 +6,8 @@ import { EnemyProjectileSystem } from '../combat/EnemyProjectile';
 import { PatternState, getPatternForVariant, calculateDirection } from '../combat/AttackPattern';
 import { Health } from '../components/Health';
 import { disposeObject3D } from '../utils/dispose';
+import { ParticlePool } from '../combat/particles';
+import { createFresnelMaterial } from '../render/materials';
 
 export interface MonsterOptions {
   variant?: MonsterVariant;
@@ -13,6 +15,7 @@ export interface MonsterOptions {
   onAttack?: () => void;
   onDeath?: () => void;
   onFootstep?: (position: THREE.Vector3) => void;
+  particlePool?: ParticlePool;
 }
 
 export class Monster {
@@ -36,6 +39,10 @@ export class Monster {
   private healthBarFg: THREE.Mesh;
   private propeller?: THREE.Group;
   private body: THREE.Mesh;
+  private headGroup: THREE.Group;
+  private limbGroups: THREE.Group[] = [];
+  private particlePool?: ParticlePool;
+  private trailTimer = 0;
 
   private hitFlashTimer = 0;
   private originalEmissiveValues = new Map<THREE.MeshStandardMaterial, { color: THREE.Color, intensity: number }>();
@@ -66,6 +73,7 @@ export class Monster {
     this.onAttack = options.onAttack;
     this.onDeath = options.onDeath;
     this.onFootstep = options.onFootstep;
+    this.particlePool = options.particlePool;
     const profile = getMonsterVariantProfile(this.variant);
     this.maxHp = profile.hp;
     this.moveSpeed = profile.speed;
@@ -85,14 +93,38 @@ export class Monster {
     this.muzzleFlash.visible = false;
     this.mesh.add(this.muzzleFlash);
 
-    this.body = new THREE.Mesh(
-      new THREE.BoxGeometry(profile.bodyWidth, profile.bodyHeight, profile.bodyDepth),
-      new THREE.MeshStandardMaterial({ color: profile.bodyColor, flatShading: true })
-    );
+    
+    const getGeo = (type: string, w: number, h: number, d: number) => {
+      switch (type) {
+        case 'Capsule': return new THREE.CapsuleGeometry(w/2, h/2, 4, 8);
+        case 'Dodecahedron': return new THREE.DodecahedronGeometry(Math.max(w,h,d)/2);
+        case 'Icosahedron': return new THREE.IcosahedronGeometry(Math.max(w,h,d)/2);
+        case 'Cylinder': return new THREE.CylinderGeometry(w/2, w/2, h, 8);
+        case 'Torus': return new THREE.TorusGeometry(Math.max(w,d)/2, h/4, 8, 16);
+        case 'Sphere': return new THREE.SphereGeometry(Math.max(w,h,d)/2, 16, 16);
+        case 'Box':
+        default: return new THREE.BoxGeometry(w, h, d);
+      }
+    };
+
+    const baseMat = createFresnelMaterial({
+      color: profile.bodyColor,
+      fresnelColor: profile.fresnelColor,
+      fresnelIntensity: profile.fresnelIntensity
+    });
+
+    this.body = new THREE.Mesh(getGeo(profile.torsoType, profile.bodyWidth, profile.bodyHeight, profile.bodyDepth), baseMat);
     this.body.position.y = profile.bodyHeight * 0.55;
     this.mesh.add(this.body);
 
-    // Glowing emissive eyes
+    this.headGroup = new THREE.Group();
+    this.headGroup.position.set(0, profile.bodyHeight * 0.8, 0);
+    this.mesh.add(this.headGroup);
+    
+    const headMesh = new THREE.Mesh(getGeo(profile.headType, profile.bodyWidth * 0.6, profile.bodyHeight * 0.4, profile.bodyDepth * 0.6), baseMat);
+    this.headGroup.add(headMesh);
+
+    // Eyes
     const eyeGeo = new THREE.SphereGeometry(this.variant === 'brute' ? 0.16 : 0.12, 8, 8);
     const eyeMat = new THREE.MeshStandardMaterial({
       color: profile.eyeColor,
@@ -100,170 +132,48 @@ export class Monster {
       emissiveIntensity: 2.0,
     });
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-0.22 * profile.scale, profile.bodyHeight * 0.78, profile.bodyDepth * 0.42);
-    this.mesh.add(leftEye);
+    leftEye.position.set(-0.22, 0.1, 0.25);
+    this.headGroup.add(leftEye);
     const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rightEye.position.set(0.22 * profile.scale, profile.bodyHeight * 0.78, profile.bodyDepth * 0.42);
-    this.mesh.add(rightEye);
+    rightEye.position.set(0.22, 0.1, 0.25);
+    this.headGroup.add(rightEye);
 
-    if (this.variant === 'brute') {
-      const shoulderMat = new THREE.MeshStandardMaterial({ color: 0x8b0000, flatShading: true });
-      const leftShoulder = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.28, 0.3), shoulderMat);
-      leftShoulder.position.set(-0.55, profile.bodyHeight * 0.72, 0.05);
-      this.mesh.add(leftShoulder);
-      const rightShoulder = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.28, 0.3), shoulderMat);
-      rightShoulder.position.set(0.55, profile.bodyHeight * 0.72, 0.05);
-      this.mesh.add(rightShoulder);
-
-      // Spikes added to brute variant
-      const spikeGeo = new THREE.ConeGeometry(0.08, 0.3, 4);
-      const spikeMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, metalness: 0.2 });
-      for (let i = 0; i < 4; i++) {
-        const spike = new THREE.Mesh(spikeGeo, spikeMat);
-        spike.position.set(
-          (i % 2 === 0 ? -0.3 : 0.3),
-          profile.bodyHeight * 0.9,
-          (-0.2 - Math.floor(i / 2) * 0.3)
-        );
-        spike.rotation.x = -Math.PI / 4;
-        spike.rotation.z = i % 2 === 0 ? -Math.PI / 6 : Math.PI / 6;
-        this.mesh.add(spike);
-      }
+    // Limbs
+    for (let i = -1; i <= 1; i += 2) {
+      const limbGroup = new THREE.Group();
+      limbGroup.position.set(i * profile.bodyWidth * 0.6, profile.bodyHeight * 0.5, 0);
+      const limbMesh = new THREE.Mesh(getGeo(profile.limbType, 0.2, profile.bodyHeight * 0.5, 0.2), baseMat);
+      limbMesh.position.y = -profile.bodyHeight * 0.25;
+      limbGroup.add(limbMesh);
+      this.mesh.add(limbGroup);
+      this.limbGroups.push(limbGroup);
+    }
+    for (let i = -1; i <= 1; i += 2) {
+      const limbGroup = new THREE.Group();
+      limbGroup.position.set(i * profile.bodyWidth * 0.4, profile.bodyHeight * 0.2, 0);
+      const limbMesh = new THREE.Mesh(getGeo(profile.limbType, 0.2, profile.bodyHeight * 0.4, 0.2), baseMat);
+      limbMesh.position.y = -profile.bodyHeight * 0.2;
+      limbGroup.add(limbMesh);
+      this.mesh.add(limbGroup);
+      this.limbGroups.push(limbGroup);
     }
 
-    if (this.variant === 'barbone') {
-      const hairMat = new THREE.MeshStandardMaterial({ color: 0x3E2723, roughness: 0.9, flatShading: true });
-
-      // Handlebar Mustache (left & right)
-      const stacheLeft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.2), hairMat);
-      stacheLeft.position.set(-0.25, profile.bodyHeight * 0.65, profile.bodyDepth * 0.45);
-      stacheLeft.rotation.z = -0.2;
-      this.mesh.add(stacheLeft);
-
-      const stacheRight = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.2), hairMat);
-      stacheRight.position.set(0.25, profile.bodyHeight * 0.65, profile.bodyDepth * 0.45);
-      stacheRight.rotation.z = 0.2;
-      this.mesh.add(stacheRight);
-
-      // Long Wizard Beard
-      const beard = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.8, 6), hairMat);
-      beard.rotation.x = Math.PI;
-      beard.position.set(0, profile.bodyHeight * 0.35, profile.bodyDepth * 0.4);
-      this.mesh.add(beard);
-
-      // Long Bushy Hair
-      const hairTop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.2), hairMat);
-      hairTop.position.set(0, profile.bodyHeight * 1.05, 0);
-      this.mesh.add(hairTop);
-    }
-
-    if (this.variant === 'punk') {
-      const mohawkMat = new THREE.MeshStandardMaterial({
-        color: 0xFF007F,
-        emissive: new THREE.Color(0xFF0055),
-        emissiveIntensity: 0.8,
-        flatShading: true
+    // Accents
+    if (profile.accentType !== 'None') {
+      const accentMat = createFresnelMaterial({
+        color: profile.bodyColor,
+        emissive: profile.fresnelColor,
+        emissiveIntensity: 0.5,
+        fresnelColor: profile.fresnelColor,
+        fresnelIntensity: profile.fresnelIntensity * 1.5
       });
-
-      // Spiky Neon Mohawk Hair
-      for (let i = 0; i < 5; i++) {
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.5, 4), mohawkMat);
-        spike.position.set(0, profile.bodyHeight * (0.95 + i * 0.05), profile.bodyDepth * 0.3 - i * 0.15);
-        spike.rotation.x = -0.2 - i * 0.1;
-        this.mesh.add(spike);
-      }
+      const accent = new THREE.Mesh(getGeo(profile.accentType, profile.bodyWidth*1.1, profile.bodyHeight*0.2, profile.bodyDepth*1.1), accentMat);
+      accent.position.y = profile.bodyHeight * 0.5;
+      this.mesh.add(accent);
     }
-
-    if (this.variant === 'stalker') {
-      const crestMat = new THREE.MeshStandardMaterial({ color: 0xc2185b, flatShading: true });
-      for (let i = -1; i <= 1; i++) {
-        const crest = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 5), crestMat);
-        crest.position.set(i * 0.16, profile.bodyHeight * 1.04, -0.05 + Math.abs(i) * 0.04);
-        crest.rotation.x = i * 0.15;
-        this.mesh.add(crest);
-      }
-    }
-
-    if (this.variant === 'golem') {
-      const fistMat = new THREE.MeshStandardMaterial({ color: 0x455A64, flatShading: true });
-      const leftFist = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), fistMat);
-      leftFist.position.set(-0.8 * profile.scale, profile.bodyHeight * 0.45, 0);
-      this.mesh.add(leftFist);
-      const rightFist = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), fistMat);
-      rightFist.position.set(0.8 * profile.scale, profile.bodyHeight * 0.45, 0);
-      this.mesh.add(rightFist);
-
-      // Glowing runes added to golem variant
-      const runeMat = new THREE.MeshStandardMaterial({
-        color: 0x00E5FF,
-        emissive: new THREE.Color(0x00E5FF),
-        emissiveIntensity: 2.0,
-        flatShading: true
-      });
-      const chestRune = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.05), runeMat);
-      chestRune.position.set(0, profile.bodyHeight * 0.6, profile.bodyDepth * 0.51);
-      this.mesh.add(chestRune);
-
-      const chestRuneCross = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.05), runeMat);
-      chestRuneCross.position.set(0, profile.bodyHeight * 0.7, profile.bodyDepth * 0.51);
-      this.mesh.add(chestRuneCross);
-    }
-
-    if (this.variant === 'crawler') {
-      const legMat = new THREE.MeshStandardMaterial({ color: 0x212121, flatShading: true });
-      const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 8);
-      const legPositions = [
-        { pos: [-0.6, 0.2, -0.4], rot: [0, 0, Math.PI / 4] },
-        { pos: [-0.7, 0.2, 0], rot: [0, 0, Math.PI / 3] },
-        { pos: [-0.6, 0.2, 0.4], rot: [0, 0, Math.PI / 4] },
-        { pos: [0.6, 0.2, -0.4], rot: [0, 0, -Math.PI / 4] },
-        { pos: [0.7, 0.2, 0], rot: [0, 0, -Math.PI / 3] },
-        { pos: [0.6, 0.2, 0.4], rot: [0, 0, -Math.PI / 4] }
-      ];
-      for (const legInfo of legPositions) {
-        const leg = new THREE.Mesh(legGeo, legMat);
-        leg.position.set(legInfo.pos[0], legInfo.pos[1], legInfo.pos[2]);
-        leg.rotation.set(legInfo.rot[0], legInfo.rot[1], legInfo.rot[2]);
-        this.mesh.add(leg);
-      }
-
-      // Spider eyes added to crawler variant (6 extra eyes in a front cluster)
-      const spiderEyeGeo = new THREE.SphereGeometry(0.05, 8, 8);
-      const spiderEyeMat = new THREE.MeshStandardMaterial({
-        color: 0xff0000,
-        emissive: new THREE.Color(0xff0000),
-        emissiveIntensity: 2.0,
-      });
-      const spiderEyeCoords = [
-        [-0.15, profile.bodyHeight * 0.55, profile.bodyDepth * 0.51],
-        [0.15, profile.bodyHeight * 0.55, profile.bodyDepth * 0.51],
-        [-0.3, profile.bodyHeight * 0.65, profile.bodyDepth * 0.51],
-        [0.3, profile.bodyHeight * 0.65, profile.bodyDepth * 0.51],
-        [-0.1, profile.bodyHeight * 0.75, profile.bodyDepth * 0.51],
-        [0.1, profile.bodyHeight * 0.75, profile.bodyDepth * 0.51],
-      ];
-      for (const coord of spiderEyeCoords) {
-        const spiderEye = new THREE.Mesh(spiderEyeGeo, spiderEyeMat);
-        spiderEye.position.set(coord[0], coord[1], coord[2]);
-        this.mesh.add(spiderEye);
-      }
-    }
-
+    
+    // Kept some iconic accessories
     if (this.variant === 'drone') {
-      const ringMat = new THREE.MeshStandardMaterial({ color: 0x00bcd4, metalness: 0.9, roughness: 0.1, flatShading: true });
-      const ringGeo = new THREE.TorusGeometry(0.7, 0.1, 8, 24);
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = Math.PI / 2;
-      ring.position.y = profile.bodyHeight * 0.55;
-      this.mesh.add(ring);
-
-      // Spinning propeller shaft and blades
-      const shaftGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8);
-      const shaftMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 });
-      const shaft = new THREE.Mesh(shaftGeo, shaftMat);
-      shaft.position.set(0, profile.bodyHeight * 0.95, 0);
-      this.mesh.add(shaft);
-
       this.propeller = new THREE.Group();
       this.propeller.position.set(0, profile.bodyHeight * 1.1, 0);
       const bladeMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.7, roughness: 0.3 });
@@ -271,106 +181,7 @@ export class Monster {
       this.propeller.add(blades);
       this.mesh.add(this.propeller);
     }
-
-    if (this.variant === 'sentinel') {
-      // Shoulder-mounted cannons
-      const cannonMat = new THREE.MeshStandardMaterial({ color: 0x37474F, metalness: 0.8, roughness: 0.3, flatShading: true });
-      const leftCannon = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.6, 8), cannonMat);
-      leftCannon.position.set(-0.55, profile.bodyHeight * 0.85, 0.3);
-      leftCannon.rotation.x = Math.PI / 4;
-      this.mesh.add(leftCannon);
-      const rightCannon = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.6, 8), cannonMat);
-      rightCannon.position.set(0.55, profile.bodyHeight * 0.85, 0.3);
-      rightCannon.rotation.x = Math.PI / 4;
-      this.mesh.add(rightCannon);
-
-      // Glowing chest core
-      const coreMat = new THREE.MeshStandardMaterial({
-        color: 0x00ACC1,
-        emissive: new THREE.Color(0x00ACC1),
-        emissiveIntensity: 2.5,
-        metalness: 0.9,
-        roughness: 0.1,
-      });
-      const core = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 12), coreMat);
-      core.position.set(0, profile.bodyHeight * 0.5, profile.bodyDepth * 0.52);
-      this.mesh.add(core);
-    }
-
-    if (this.variant === 'annihilator') {
-      // Massive shoulder plates
-      const plateMat = new THREE.MeshStandardMaterial({ color: 0x263238, flatShading: true });
-      const leftPlate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.4), plateMat);
-      leftPlate.position.set(-0.9, profile.bodyHeight * 0.8, 0);
-      leftPlate.rotation.z = -0.3;
-      this.mesh.add(leftPlate);
-      const rightPlate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.4), plateMat);
-      rightPlate.position.set(0.9, profile.bodyHeight * 0.8, 0);
-      rightPlate.rotation.z = 0.3;
-      this.mesh.add(rightPlate);
-
-      // Multi-barrel cannon
-      const barrelMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.95, roughness: 0.2 });
-      for (let i = -1; i <= 1; i++) {
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.5, 6), barrelMat);
-        barrel.position.set(i * 0.18, profile.bodyHeight * 0.95, profile.bodyDepth * 0.55);
-        barrel.rotation.x = Math.PI / 2.5;
-        this.mesh.add(barrel);
-      }
-
-      // Glowing eye slit
-      const eyeSlitMat = new THREE.MeshStandardMaterial({
-        color: 0xFF6D00,
-        emissive: new THREE.Color(0xFF6D00),
-        emissiveIntensity: 3.0,
-      });
-      const eyeSlit = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 0.05), eyeSlitMat);
-      eyeSlit.position.set(0, profile.bodyHeight * 0.78, profile.bodyDepth * 0.51);
-      this.mesh.add(eyeSlit);
-    }
-
-    if (this.variant === 'phantom') {
-      // Floating aura blades
-      const bladeMat = new THREE.MeshStandardMaterial({
-        color: 0xEA80FC,
-        emissive: new THREE.Color(0xEA80FC),
-        emissiveIntensity: 2.5,
-        flatShading: true
-      });
-      const leftBlade = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.8, 4), bladeMat);
-      leftBlade.position.set(-0.55, profile.bodyHeight * 0.9, 0);
-      leftBlade.rotation.z = Math.PI / 4;
-      this.mesh.add(leftBlade);
-      const rightBlade = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.8, 4), bladeMat);
-      rightBlade.position.set(0.55, profile.bodyHeight * 0.9, 0);
-      rightBlade.rotation.z = -Math.PI / 4;
-      this.mesh.add(rightBlade);
-    }
-
-    if (this.variant === 'titan') {
-      // Massive dual cannons & chest reactor core
-      const titanMetal = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9, roughness: 0.2 });
-      const cannonL = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 1.2, 8), titanMetal);
-      cannonL.position.set(-1.1, profile.bodyHeight * 0.85, 0.2);
-      cannonL.rotation.x = Math.PI / 2;
-      this.mesh.add(cannonL);
-      const cannonR = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 1.2, 8), titanMetal);
-      cannonR.position.set(1.1, profile.bodyHeight * 0.85, 0.2);
-      cannonR.rotation.x = Math.PI / 2;
-      this.mesh.add(cannonR);
-
-      // Glowing red reactor core
-      const reactorMat = new THREE.MeshStandardMaterial({
-        color: 0xFF1744,
-        emissive: new THREE.Color(0xFF1744),
-        emissiveIntensity: 3.5,
-      });
-      const reactor = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), reactorMat);
-      reactor.position.set(0, profile.bodyHeight * 0.55, profile.bodyDepth * 0.52);
-      this.mesh.add(reactor);
-    }
-
-    // Health bar construction above monster mesh
+    
     this.healthBarGroup = new THREE.Group();
     this.healthBarGroup.position.set(0, profile.bodyHeight + 0.6, 0);
     this.healthBarGroup.scale.setScalar(1.0 / profile.scale); // Keep size constant across different monster scales
@@ -717,6 +528,38 @@ export class Monster {
     // Spin propeller if drone
     if (this.propeller) {
       this.propeller.rotation.y += delta * 18.0;
+    }
+
+    // Articulated Limb Animations
+    const moveSpeedRatio = this.state === 'chase' ? 1.5 : (this.state === 'attack' ? 1.0 : 0.5);
+    const limbSwing = Math.sin(this.animationTime * 10 * moveSpeedRatio) * 0.5;
+    for (let i = 0; i < this.limbGroups.length; i++) {
+      const limb = this.limbGroups[i];
+      // simple opposite swing for legs and arms
+      const isLeg = i > 1; // Assuming first two are arms, next two are legs
+      const side = (i % 2 === 0) ? 1 : -1;
+      limb.rotation.x = isLeg ? limbSwing * side : -limbSwing * side;
+    }
+
+    // Particle Trail Emission
+    if (this.particlePool) {
+      this.trailTimer -= delta;
+      if (this.trailTimer <= 0) {
+        this.trailTimer = 0.05; // TRAIL_INTERVAL
+        
+        if (this.variant === 'drone') {
+          this.particlePool.spawn('thruster', this.mesh.position.clone().add(new THREE.Vector3(0, 0, 0)), new THREE.Vector3((Math.random() - 0.5) * 2, -2, (Math.random() - 0.5) * 2), 0.5);
+        } else if (this.variant === 'phantom') {
+          this.particlePool.spawn('spectral_trail', this.mesh.position.clone().add(new THREE.Vector3(0, profile.bodyHeight * 0.5, 0)), new THREE.Vector3((Math.random() - 0.5) * 0.5, Math.random(), (Math.random() - 0.5) * 0.5), 1.0);
+        } else if (this.variant === 'brute' && this.isLunging) {
+          const spawnPos = this.mesh.position.clone();
+          spawnPos.y = 0; // ground level
+          this.particlePool.spawn('charge_dust', spawnPos, new THREE.Vector3((Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3), 0.8);
+          if (Math.random() > 0.5) {
+            this.particlePool.spawn('spark', spawnPos, new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 4, (Math.random() - 0.5) * 5), 0.6);
+          }
+        }
+      }
     }
 
     // Billboard alignment: face the camera using camera quaternion
